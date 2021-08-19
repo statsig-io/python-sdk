@@ -1,5 +1,5 @@
 from ctypes import *
-from os import path, listdir
+from os import path
 from .dynamic_config import DynamicConfig
 from .statsig_options import StatsigOptions
 from .version import __version__
