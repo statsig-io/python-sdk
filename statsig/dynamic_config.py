@@ -7,8 +7,8 @@ class DynamicConfig:
         self.name = config['name']
         self.rule_id = config['rule_id']
     
-    def getValue(self):
+    def get_value(self):
         return self.value
     
-    def getName(self):
+    def get_name(self):
         return self.name

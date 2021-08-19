@@ -18,7 +18,6 @@ setup(
     url='https://github.com/statsig-io/python-sdk',
     license='ISC',
     classifiers=[
-        'Environment :: Server',
         'Intended Audience :: Developers',
         'Programming Language :: Python',
         'Programming Language :: Python :: 2',
