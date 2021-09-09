@@ -10,6 +10,7 @@ class StatsigUser:
         self.locale = None
         self.app_version = None
         self.custom = None
+        self.private_attributes = None
         self.statsig_metadata = None
 
     def to_json_string(self):
@@ -27,6 +28,7 @@ class StatsigUser:
             'locale': self.locale,
             'appVerison': self.app_version,
             'custom': self.custom,
+            'privateAttributes': self.private_attributes,
             'statsigMetadata': self.statsig_metadata,
         }
         user = {}
