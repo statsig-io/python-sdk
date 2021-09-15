@@ -1,1 +1,1 @@
-include statsig/shared/*.so
+include statsig/shared/*
