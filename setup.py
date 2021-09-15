@@ -29,7 +29,7 @@ class StatsigBuild(build):
             call(clean)
             out = call(make)
             if out != 0: 
-                raise CompileError('Failed to build Statsig shared module.  Do you have go installed?')
+                raise CompileError('Failed to build Statsig shared module.  Do you have Go installed?')
 
         self.execute(compile, [], 'Building statsig shared module')
 
