@@ -32,8 +32,6 @@ class TestStatsigE2E(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        ##super(TestStatsigE2E, self).setUpClass()
-        print("=====setup====")
         cls.server = MockServer(port=1234)
         cls.server.start()
         cls.server.add_json_response("/download_config_specs", json.loads(CONFIG_SPECS_RESPONSE))
