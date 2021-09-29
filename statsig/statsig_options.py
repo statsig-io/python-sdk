@@ -2,7 +2,7 @@ import json
 
 class StatsigOptions:
     def __init__(self):
-        self.api = None
+        self.api = "https://api.statsig.com/v1"
         self.environment = None
 
     def to_json_string(self):
