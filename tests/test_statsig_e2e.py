@@ -4,14 +4,14 @@ from subprocess import call
 clean = [
     'make',
     '-C',
-    '../statsig/shared/',
+    'statsig/shared/',
     'clean',
 ]
 
 make = [
     'make',
     '-C',
-    '../statsig/shared/',
+    'statsig/shared/',
     'install',
 ]
 
@@ -19,7 +19,7 @@ call(clean)
 call(make)
 
 import json
-from mockserver import MockServer
+from .mockserver import MockServer
 
 from statsig import statsig
 from statsig.statsig_user import StatsigUser

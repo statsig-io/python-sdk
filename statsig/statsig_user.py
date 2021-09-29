@@ -11,7 +11,7 @@ class StatsigUser:
         self.app_version = None
         self.custom = None
         self.private_attributes = None
-        self.statsig_metadata = None
+        self.statsig_environment = None
 
     def to_json_string(self):
         user = self.to_dict()
@@ -26,10 +26,10 @@ class StatsigUser:
             'userAgent': self.user_agent,
             'country': self.country,
             'locale': self.locale,
-            'appVerison': self.app_version,
+            'appVersion': self.app_version,
             'custom': self.custom,
             'privateAttributes': self.private_attributes,
-            'statsigMetadata': self.statsig_metadata,
+            'statsigEnvironment': self.statsig_environment,
         }
         user = {}
         for key in user_nullable:
