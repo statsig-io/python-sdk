@@ -71,8 +71,7 @@ class ServerSDKConsistencyTest(unittest.TestCase):
                     statsig_user.private_attributes = user["privateAttributes"]
                 gates = val["feature_gates_v2"]
                 for name in gates:
-                    if name == "test_country" or name == "test_ua" or name == "test_ua_os":
-                        continue
+                    
                     sdk_result = statsig.check_gate(statsig_user, name)
                     server_result = gates[name]
                     print(name)
@@ -80,6 +79,10 @@ class ServerSDKConsistencyTest(unittest.TestCase):
                     print(server_result)
                     print(statsig_user.to_json_string())
                     self.assertEqual(sdk_result, server_result["value"])
+
+    @classmethod
+    def tearDownClass(cls):
+        statsig.shutdown()
 
 if __name__ == '__main__':
     unittest.main()

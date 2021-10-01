@@ -40,6 +40,8 @@ class Evaluator:
             return ConfigEvaluation(False, False, config["defaultValue"])
         for rule in config["rules"]:
             result = self._evaluate_rule(user, rule)
+            if result.fetch_from_server:
+                return result
             if result.boolean_value:
                 user_passes = self._eval_pass_percentage(user, rule, config)
                 config = rule["returnValue"] if user_passes else config["defaultValue"]
@@ -73,6 +75,7 @@ class Evaluator:
         elif type == "UA_BASED":
             value = self._get_from_user(user, condition["field"])
             ## TODO
+            return ConfigEvaluation(True)
         elif type == "USER_FIELD":
             value = self._get_from_user(user, condition["field"])
         elif type == "CURRENT_TIME":

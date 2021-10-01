@@ -33,5 +33,7 @@ class TestStatsig(unittest.TestCase):
         user = StatsigUser("test")
         self.assertEqual({}, statsig.get_config(user, "doesnt_matter").get_value())
 
-    def tearDown(self):
+    @classmethod
+    def tearDownClass(cls):
         statsig.shutdown()
+
