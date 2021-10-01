@@ -6,8 +6,8 @@ _GATE_EXPOSURE_EVENT = "statsig::gate_exposure"
 
 class _StatsigLogger:
     def __init__(self, net):
-        self._events = list()
-        self._net = net
+        self.__events = list()
+        self.__net = net
 
         self.__background_flush = multiprocessing.Process(target=self.__flush_interval)
         self.__background_flush.start()
@@ -18,7 +18,9 @@ class _StatsigLogger:
             time.sleep(10)
 
     def log(self, event):
-        self._events.append(event.to_dict())
+        self.__events.append(event.to_dict())
+        if len(self.__events) >= 500:
+            self.__flush()
     
     def log_gate_exposure(self, user, gate, value, rule_id):
         event = StatsigEvent(user, _GATE_EXPOSURE_EVENT)
@@ -39,11 +41,11 @@ class _StatsigLogger:
         self.log(event)
 
     def __flush(self):
-        if len(self._events) == 0:
+        if len(self.__events) == 0:
             return
-        events_copy = self._events.copy()
-        self._events = list()
-        self._net.post_request("/log_event", {
+        events_copy = self.__events.copy()
+        self.__events = list()
+        self.__net.post_request("/log_event", {
             "events": events_copy,
         })
     
