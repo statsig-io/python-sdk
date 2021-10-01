@@ -1,6 +1,5 @@
 from .statsig_server import StatsigServer
 
-
 _instance = StatsigServer()
 
 def initialize(secretKey, options = None):

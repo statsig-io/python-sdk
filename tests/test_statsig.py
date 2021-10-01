@@ -1,5 +1,4 @@
 import unittest
-import time
 
 from statsig.statsig_user import StatsigUser
 from statsig.statsig_options import StatsigOptions

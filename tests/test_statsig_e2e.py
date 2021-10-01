@@ -1,23 +1,4 @@
 import unittest
-
-from subprocess import call
-clean = [
-    'make',
-    '-C',
-    'statsig/shared/',
-    'clean',
-]
-
-make = [
-    'make',
-    '-C',
-    'statsig/shared/',
-    'install',
-]
-
-call(clean)
-call(make)
-
 import json
 from .mockserver import MockServer
 

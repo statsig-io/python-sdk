@@ -3,7 +3,6 @@ import requests
 
 class StatsigNetwork:
     def __init__(self, sdkKey, api):
-        print('StatsigNetwork')
         self.sdk_key = sdkKey
         self.api = api
     
