@@ -24,6 +24,9 @@ setup(
         'Programming Language :: Python :: 3',
         'Topic :: Software Development :: Libraries'
     ],
+    install_requires=[
+        'ua-parser'
+    ],
     include_package_data=True,
     packages=['statsig']
 )

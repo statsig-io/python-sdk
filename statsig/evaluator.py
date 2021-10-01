@@ -3,6 +3,7 @@ from datetime import datetime
 import re
 from hashlib import sha256
 from struct import unpack
+from ua_parser import user_agent_parser
 
 class _ConfigEvaluation:
 
@@ -74,8 +75,6 @@ class _Evaluator:
             return _ConfigEvaluation(True)
         elif type == "UA_BASED":
             value = self.__get_from_user_agent(user, condition["field"])
-            ## TODO
-            return _ConfigEvaluation(True)
         elif type == "USER_FIELD":
             value = self.__get_from_user(user, condition["field"])
         elif type == "CURRENT_TIME":
@@ -280,8 +279,28 @@ class _Evaluator:
         return float(input)
 
     def __get_from_user_agent(self, user, field):
-        # TODO
+        ua = self.__get_from_user(user, "userAgent")
+        if ua is None:
+            return None
+        parsed = user_agent_parser.Parse(ua)
+        field = field.lower()
+        if (field == "os" or field == "os_name") and "os" in parsed and "family" in parsed["os"]:
+            return parsed["os"]["family"]
+        elif (field == "os_version" or field == "osversion") and "os" in parsed:
+            return self.__get_version_string(parsed["os"])
+        elif (field == "browser_name" or field == "browsername") and "user_agent" in parsed and "family" in parsed["user_agent"]:
+            return parsed["user_agent"]["family"]
+        elif (field == "browser_version" or field == "browserversion") and "user_agent" in parsed:
+            return self.__get_version_string(parsed["user_agent"])
         return None
+
+    def __get_version_string(self, version):
+        if version is None:
+            return None
+        major = version["major"] if "major" in version and version["major"] is not None else "0"
+        minor = version["minor"] if "minor" in version and version["minor"] is not None else "0"
+        patch = version["patch"] if "patch" in version and version["patch"] is not None else "0"
+        return major + "." + minor + "." + patch
 
     def __compare_dates(self, first, second, compare):
         if first is None and second is None:
