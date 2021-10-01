@@ -13,11 +13,6 @@ class StatsigUser:
         self.private_attributes = None
         self.statsig_environment = None
 
-    def to_json_string(self):
-        user = self.to_dict()
-
-        return json.dumps(user)
-
     def to_dict(self):
         user_nullable = {
             'userID': self.user_id,

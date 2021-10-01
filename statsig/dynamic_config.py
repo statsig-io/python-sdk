@@ -1,5 +1,3 @@
-import json
-
 class DynamicConfig:
     def __init__(self, data, name, rule):
         if data is None:

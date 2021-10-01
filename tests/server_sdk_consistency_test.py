@@ -58,7 +58,7 @@ class ServerSDKConsistencyTest(unittest.TestCase):
                     print(name)
                     print(sdk_result)
                     print(server_result)
-                    print(statsig_user.to_json_string())
+                    print(statsig_user.to_dict())
                     self.assertEqual(sdk_result, server_result["value"])
 
     @classmethod
