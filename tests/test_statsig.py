@@ -23,6 +23,12 @@ class TestStatsig(unittest.TestCase):
         user = StatsigUser("test")
         self.assertEqual(False, statsig.check_gate(user, "doesnt_matter"))
     
+    def test_on_gate(self):
+        user = StatsigUser("4")
+        self.assertEqual(False, statsig.check_gate(user, "test123"))
+        user = StatsigUser("2")
+        self.assertEqual(True, statsig.check_gate(user, "test123"))
+    
     def test_dynamic_config(self):
         user = StatsigUser("test")
         self.assertEqual({}, statsig.get_config(user, "doesnt_matter").get_value())

@@ -19,6 +19,10 @@ class StatsigServer:
         self.network = StatsigNetwork(sdkKey, options.api)
         self.logger = StatsigLogger(self.network)
         self.evaluator = Evaluator()
+
+        specs = self.network.post_request("/download_config_specs", {})
+        self.evaluator.setDownloadedConfigs(specs)
+
         self.initialized = True
 
     def check_gate(self, user, gate):
@@ -42,7 +46,6 @@ class StatsigServer:
 
         result = self.evaluator.get_config(user, config)
         return DynamicConfig(result.json_value, config, result.rule_id)
-        
     
     def get_experiment(self, user, config):
         return self.get_config()
