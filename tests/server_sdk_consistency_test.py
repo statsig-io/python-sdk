@@ -2,7 +2,7 @@ import unittest
 import requests
 from statsig.statsig_user import StatsigUser
 from statsig.statsig_options import StatsigOptions
-from statsig import statsig
+from statsig.statsig_server import StatsigServer
 
 import io
 import sys
@@ -19,22 +19,28 @@ f.close()
 
 TEST_URLS = [
     "https://api.statsig.com/v1",
+    "https://latest.api.statsig.com/v1",
 ]
 
 class ServerSDKConsistencyTest(unittest.TestCase):
-    def setUp(self):
-        api = "https://api.statsig.com/v1"
-        headers = {
-            'STATSIG-API-KEY': SDK_KEY,
-            'STATSIG-CLIENT-TIME': str(round(time.time() * 1000)),
-        }
-        response = requests.post(api + "/rulesets_e2e_test", headers=headers)
-        self.data = response.json()
-        options = StatsigOptions()
-        options.api = api
-        statsig.initialize(SDK_KEY, options)
+    
+    def test_all_regions(self):
+        for api in TEST_URLS:
+            headers = {
+                'STATSIG-API-KEY': SDK_KEY,
+                'STATSIG-CLIENT-TIME': str(round(time.time() * 1000)),
+            }
+            response = requests.post(api + "/rulesets_e2e_test", headers=headers)
+            self.data = response.json()
+            options = StatsigOptions()
+            options.api = api
+            print(api)
+            self.sdk = StatsigServer()
+            self.sdk.initialize(SDK_KEY, options)
+            self._test_consistency()
+            self.sdk.shutdown()
 
-    def test_consistency(self):
+    def _test_consistency(self):
         for entry in self.data:
             for val in self.data[entry]:
                 user = val["user"]
@@ -52,18 +58,12 @@ class ServerSDKConsistencyTest(unittest.TestCase):
                     statsig_user.private_attributes = user["privateAttributes"]
                 gates = val["feature_gates_v2"]
                 for name in gates:
-                    
-                    sdk_result = statsig.check_gate(statsig_user, name)
+                    sdk_result = self.sdk.check_gate(statsig_user, name)
                     server_result = gates[name]
-                    print(name)
-                    print(sdk_result)
-                    print(server_result)
-                    print(statsig_user.to_dict())
+                    print(".", end="")
                     self.assertEqual(sdk_result, server_result["value"])
+        print("[end]")
 
-    @classmethod
-    def tearDownClass(cls):
-        statsig.shutdown()
 
 if __name__ == '__main__':
     unittest.main()

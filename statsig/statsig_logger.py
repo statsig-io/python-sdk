@@ -9,10 +9,10 @@ class _StatsigLogger:
         self.__events = list()
         self.__net = net
 
-        self.__background_flush = multiprocessing.Process(target=self.__flush_interval)
+        self.__background_flush = multiprocessing.Process(target=self._flush_interval)
         self.__background_flush.start()
 
-    def __flush_interval(self):
+    def _flush_interval(self):
         while True:
             self.__flush()
             time.sleep(10)
