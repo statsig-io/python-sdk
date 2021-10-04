@@ -17,26 +17,26 @@ class _ConfigEvaluation:
 
 class _Evaluator:
     def __init__(self):
-        self.configs = dict()
-        self.gates = dict()
+        self._configs = dict()
+        self._gates = dict()
         self._country_lookup = CountryLookup()
 
     def setDownloadedConfigs(self, configs):
         for gate in configs["feature_gates"]:
-            self.gates[gate["name"]] = gate
+            self._gates[gate["name"]] = gate
         for config in configs["dynamic_configs"]:
-            self.gates[config["name"]] = gate
+            self._configs[config["name"]] = gate
 
     def check_gate(self, user, gate):
-        if gate not in self.gates:
+        if gate not in self._gates:
             return _ConfigEvaluation()
-        return self.__evaluate(user, self.gates[gate])
+        return self.__evaluate(user, self._gates[gate])
     
     def get_config(self, user, config):
-        if config not in self.configs:
+        if config not in self._configs:
             return _ConfigEvaluation()
         
-        return self.__evaluate(user, self.configs[config])
+        return self.__evaluate(user, self._configs[config])
 
     def __evaluate(self, user, config):
         if not config["enabled"]:
@@ -207,12 +207,12 @@ class _Evaluator:
         return value
     
     def __get_from_environment(self, user, field):
-        if user.statsig_environment is None:
+        if user._statsig_environment is None:
             return None
-        if field in user.statsig_environment:
-            return user.statsig_environment[field]
-        elif field.lower() in user.statsig_environment:
-            return user.statsig_environment[field]
+        if field in user._statsig_environment:
+            return user._statsig_environment[field]
+        elif field.lower() in user._statsig_environment:
+            return user._statsig_environment[field]
         return None
 
     def __compute_user_hash(self, input):

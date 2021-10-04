@@ -11,7 +11,7 @@ class StatsigUser:
         self.app_version = None
         self.custom = None
         self.private_attributes = None
-        self.statsig_environment = None
+        self._statsig_environment = None
 
     def to_dict(self):
         user_nullable = {
@@ -24,7 +24,7 @@ class StatsigUser:
             'appVersion': self.app_version,
             'custom': self.custom,
             'privateAttributes': self.private_attributes,
-            'statsigEnvironment': self.statsig_environment,
+            'statsigEnvironment': self._statsig_environment,
         }
         user = {}
         for key in user_nullable:

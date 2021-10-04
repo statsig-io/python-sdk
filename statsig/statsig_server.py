@@ -9,7 +9,7 @@ class StatsigServer:
     def initialize(self, sdkKey, options = None):
         if options is None:
             options = StatsigOptions()
-
+        self._options = options
         self._network = _StatsigNetwork(sdkKey, options.api)
         self._logger = _StatsigLogger(self._network)
         self._evaluator = _Evaluator()
@@ -31,7 +31,7 @@ class StatsigServer:
             raise ValueError('A non-empty StatsigUser.user_id is required. See https://docs.statsig.com/messages/serverRequiredUserID')
         if not gate:
             return False
-    
+        user = self.__normalize_user(user)
         result = self._evaluator.check_gate(user, gate)
         if result.fetch_from_server:
             network_gate = self._network.post_request("/check_gate", {
@@ -54,6 +54,7 @@ class StatsigServer:
             raise ValueError('A non-empty StatsigUser.user_id is required. See https://docs.statsig.com/messages/serverRequiredUserID')
         if not config:
             return DynamicConfig({})
+        user = self.__normalize_user(user)
 
         result = self._evaluator.get_config(user, config)
         if result.fetch_from_server:
@@ -77,7 +78,13 @@ class StatsigServer:
         if not self._initialized:
             raise RuntimeError('Must call initialize before checking gates/configs/experiments or logging events')
     
+        event.user = self.__normalize_user(event.user)
         self._logger.log(event)
     
     def shutdown(self):
         self._logger.shutdown()
+
+    def __normalize_user(self, user):
+        if self._options is not None and self._options.environment is not None:
+            user._statsig_environment = self._options.environment
+        return user

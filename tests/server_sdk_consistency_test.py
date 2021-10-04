@@ -51,7 +51,7 @@ class ServerSDKConsistencyTest(unittest.TestCase):
                 if "email" in user:
                     statsig_user.email = user["email"]
                 if "statsigEnvironment" in user:
-                    statsig_user.statsig_environment = user["statsigEnvironment"]
+                    statsig_user._statsig_environment = user["statsigEnvironment"]
                 if "custom" in user:
                     statsig_user.custom = user["custom"]
                 if "privateAttributes" in user:

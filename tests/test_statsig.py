@@ -10,7 +10,9 @@ SECRET_KEY = ""
 class TestStatsig(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        statsig.initialize(SECRET_KEY)
+        options = StatsigOptions()
+        #options.set_tier("development")
+        statsig.initialize(SECRET_KEY, options)
 
     def test_logs(self):
         user = StatsigUser("test")
@@ -20,7 +22,7 @@ class TestStatsig(unittest.TestCase):
 
     def test_check_gate(self):
         user = StatsigUser("test")
-        self.assertEqual(False, statsig.check_gate(user, "doesnt_matter"))
+        self.assertEqual(False, statsig.check_gate(user, "environments"))
     
     def test_on_gate(self):
         user = StatsigUser("4")
@@ -36,3 +38,5 @@ class TestStatsig(unittest.TestCase):
     def tearDownClass(cls):
         statsig.shutdown()
 
+if __name__ == '__main__':
+    unittest.main()
