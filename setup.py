@@ -25,7 +25,8 @@ setup(
         'Topic :: Software Development :: Libraries'
     ],
     install_requires=[
-        'ua-parser'
+        'ua-parser',
+        'ip3country',
     ],
     include_package_data=True,
     packages=['statsig']

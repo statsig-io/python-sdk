@@ -4,6 +4,7 @@ import re
 from hashlib import sha256
 from struct import unpack
 from ua_parser import user_agent_parser
+from ip3country import CountryLookup
 
 class _ConfigEvaluation:
 
@@ -18,6 +19,7 @@ class _Evaluator:
     def __init__(self):
         self.configs = dict()
         self.gates = dict()
+        self._country_lookup = CountryLookup()
 
     def setDownloadedConfigs(self, configs):
         for gate in configs["feature_gates"]:
@@ -71,8 +73,13 @@ class _Evaluator:
             pass_gate = other_result.boolean_value if type == "PASS_GATE" else not other_result.boolean_value
             return _ConfigEvaluation(other_result.fetch_from_server, pass_gate)
         elif type == "IP_BASED":
-            ## TODO
-            return _ConfigEvaluation(True)
+            value = self.__get_from_user(user, condition["field"])
+            if value is None:
+                ip = self.__get_from_user(user, "ip")
+                if ip is not None and condition["field"] == "country":
+                    value = self._country_lookup.lookupStr(ip)
+            if value is None:
+                return _ConfigEvaluation(False, False)
         elif type == "UA_BASED":
             value = self.__get_from_user_agent(user, condition["field"])
         elif type == "USER_FIELD":
@@ -175,7 +182,7 @@ class _Evaluator:
         elif lower_field == "email":
             value = user.email
         elif lower_field == "ip" or lower_field == "ipaddress" or lower_field == "ip_address":
-            value = user.ip_address
+            value = user.ip
         elif lower_field == "useragent" or lower_field == "user_agent":
             value = user.user_agent
         elif lower_field == "country":
