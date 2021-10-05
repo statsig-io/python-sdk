@@ -22,14 +22,19 @@ class _Evaluator:
         self._country_lookup = CountryLookup()
 
     def setDownloadedConfigs(self, configs):
-        for gate in configs["feature_gates"]:
-            self._gates[gate["name"]] = gate
-        for config in configs["dynamic_configs"]:
-            self._configs[config["name"]] = gate
+        if "feature_gates" in configs:
+            self._gates = dict()
+            for gate in configs["feature_gates"]:
+                self._gates[gate["name"]] = gate
+        if "dynamic_configs" in configs:
+            self._configs = dict()
+            for config in configs["dynamic_configs"]:
+                self._configs[config["name"]] = config
 
     def check_gate(self, user, gate):
         if gate not in self._gates:
             return _ConfigEvaluation()
+        
         return self.__evaluate(user, self._gates[gate])
     
     def get_config(self, user, config):

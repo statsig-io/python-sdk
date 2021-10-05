@@ -1,3 +1,4 @@
+import threading
 from statsig.evaluator import _Evaluator
 from .statsig_network import _StatsigNetwork
 from .statsig_logger import _StatsigLogger
@@ -10,19 +11,40 @@ class StatsigServer:
         if options is None:
             options = StatsigOptions()
         self._options = options
+        self.__shutdown_event = threading.Event()
         self._network = _StatsigNetwork(sdkKey, options.api)
-        self._logger = _StatsigLogger(self._network)
+        self._logger = _StatsigLogger(self._network, self.__shutdown_event)
         self._evaluator = _Evaluator()
-
-        specs = self._network.post_request("/download_config_specs", {})
-        self._evaluator.setDownloadedConfigs(specs)
-
         self.__statsig_metadata = {
             "sdkVersion": __version__,
             "sdkType": "py-server"
         }
+        self._last_update_time = 0
+
+        self._download_config_specs()
+
+        self.__background_download = threading.Thread(target=self._update_specs)
+        self.__background_download.start()
 
         self._initialized = True
+
+    def _download_config_specs(self):
+        specs = self._network.post_request("/download_config_specs", {
+            "statsigMetadata": self.__statsig_metadata,
+            "sinceTime": self._last_update_time,
+        })
+        if specs is None:
+            return
+        if "time" in specs and specs["time"] is not None:
+            self._last_update_time = specs["time"]
+        if "has_updates" in specs and specs["has_updates"]:
+            self._evaluator.setDownloadedConfigs(specs)
+
+    def _update_specs(self):
+        while True:
+            if self.__shutdown_event.wait(10):
+                break
+            self._download_config_specs()
 
     def check_gate(self, user, gate):
         if not self._initialized:
@@ -82,7 +104,9 @@ class StatsigServer:
         self._logger.log(event)
     
     def shutdown(self):
+        self.__shutdown_event.set()
         self._logger.shutdown()
+        self.__background_download.join()
 
     def __normalize_user(self, user):
         if self._options is not None and self._options.environment is not None:

@@ -1,3 +1,4 @@
+import time
 import unittest
 
 from statsig.statsig_user import StatsigUser
@@ -19,6 +20,12 @@ class TestStatsig(unittest.TestCase):
         evt = StatsigEvent(user, "test_native_python")
         statsig.log_event(evt)
         self.assertEqual(True, True)
+    
+    def test_polling(self):
+        for i in range(1, 25):
+            user = StatsigUser("test")
+            print(statsig.check_gate(user, "polling"))
+            time.sleep(3)
 
     def test_check_gate(self):
         user = StatsigUser("test")
