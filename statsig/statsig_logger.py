@@ -17,21 +17,27 @@ class _StatsigLogger:
         if len(self.__events) >= 500:
             self.__flush()
     
-    def log_gate_exposure(self, user, gate, value, rule_id):
+    def log_gate_exposure(self, user, gate, value, rule_id, secondary_exposures):
         event = StatsigEvent(user, _GATE_EXPOSURE_EVENT)
         event.metadata = {
             "gate": gate,
             "gateValue": value,
             "ruleID": rule_id,
         }
+        if secondary_exposures is None:
+            secondary_exposures = []
+        event._secondary_exposures = secondary_exposures
         self.log(event)
 
-    def log_config_exposure(self, user, config, rule_id):
+    def log_config_exposure(self, user, config, rule_id, secondary_exposures):
         event = StatsigEvent(user, _CONFIG_EXPOSURE_EVENT)
         event.metadata = {
             "config": config,
             "ruleID": rule_id,
         }
+        if secondary_exposures is None:
+            secondary_exposures = []
+        event._secondary_exposures = secondary_exposures
         self.log(event)
 
     def __flush(self):

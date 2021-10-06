@@ -8,12 +8,12 @@ from ip3country import CountryLookup
 
 class _ConfigEvaluation:
 
-    def __init__(self, fetch_from_server = False, boolean_value = False, json_value = {}, rule_id = None):
+    def __init__(self, fetch_from_server = False, boolean_value = False, json_value = {}, rule_id = None, secondary_exposures = []):
         self.fetch_from_server = fetch_from_server
         self.boolean_value = boolean_value
         self.json_value = json_value
         self.rule_id = rule_id
-
+        self.secondary_exposures = secondary_exposures
 
 class _Evaluator:
     def __init__(self):
@@ -34,7 +34,6 @@ class _Evaluator:
     def check_gate(self, user, gate):
         if gate not in self._gates:
             return _ConfigEvaluation()
-        
         return self.__evaluate(user, self._gates[gate])
     
     def get_config(self, user, config):
@@ -44,27 +43,34 @@ class _Evaluator:
         return self.__evaluate(user, self._configs[config])
 
     def __evaluate(self, user, config):
+        exposures = []
         if not config["enabled"]:
-            return _ConfigEvaluation(False, False, config["defaultValue"])
+            return _ConfigEvaluation(False, False, config["defaultValue"], "disabled", exposures)
+        
         for rule in config["rules"]:
             result = self.__evaluate_rule(user, rule)
             if result.fetch_from_server:
                 return result
+            if result.secondary_exposures is not None and len(result.secondary_exposures) > 0:
+                exposures = exposures + result.secondary_exposures
             if result.boolean_value:
                 user_passes = self.__eval_pass_percentage(user, rule, config)
                 config = rule["returnValue"] if user_passes else config["defaultValue"]
-                return _ConfigEvaluation(False, user_passes, config, rule["id"])
-        
-        return _ConfigEvaluation(False, False, config["defaultValue"], "default")
+                return _ConfigEvaluation(False, user_passes, config, rule["id"], exposures)
+        return _ConfigEvaluation(False, False, config["defaultValue"], "default", exposures)
     
     def __evaluate_rule(self, user, rule):
+        exposures = []
+        eval_result = True
         for condition in rule["conditions"]:
             result = self.__evaluate_condition(user, condition)
             if result.fetch_from_server:
                 return result
+            if result.secondary_exposures is not None and len(result.secondary_exposures) > 0:
+                exposures = exposures + result.secondary_exposures
             if not result.boolean_value:
-                return _ConfigEvaluation(False, False, rule["returnValue"], rule["id"])
-        return _ConfigEvaluation(False, True, rule["returnValue"], rule["id"])
+                eval_result = False
+        return _ConfigEvaluation(False, eval_result, rule["returnValue"], rule["id"], exposures)
     
     def __evaluate_condition(self, user, condition):
         value = None
@@ -75,8 +81,16 @@ class _Evaluator:
             other_result = self.check_gate(user, condition["targetValue"])
             if (other_result.fetch_from_server):
                 return _ConfigEvaluation(True)
+            new_exposure = {
+                "gate": condition["targetValue"],
+                "gateValue": "true" if other_result.boolean_value else "false",
+                "ruleID": other_result.rule_id
+            }
+            exposures = [new_exposure]
+            if other_result.secondary_exposures is not None and len(other_result.secondary_exposures) > 0:
+                exposures = other_result.secondary_exposures + exposures
             pass_gate = other_result.boolean_value if type == "PASS_GATE" else not other_result.boolean_value
-            return _ConfigEvaluation(other_result.fetch_from_server, pass_gate)
+            return _ConfigEvaluation(other_result.fetch_from_server, pass_gate, {}, None, exposures)
         elif type == "IP_BASED":
             value = self.__get_from_user(user, condition["field"])
             if value is None:

@@ -6,6 +6,7 @@ class StatsigEvent:
         self.event_name = event_name
         self.value = None
         self.metadata = None
+        self._secondary_exposures = None
 
     def to_dict(self):
         evt_nullable = {
@@ -13,6 +14,7 @@ class StatsigEvent:
             'eventName': self.event_name,
             'value': self.value,
             'metadata': self.metadata,
+            'secondaryExposures': self._secondary_exposures,
         }
         evt = {}
         for key in evt_nullable:
