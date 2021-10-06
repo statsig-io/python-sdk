@@ -26,8 +26,4 @@ class StatsigUser:
             'privateAttributes': self.private_attributes,
             'statsigEnvironment': self._statsig_environment,
         }
-        user = {}
-        for key in user_nullable:
-            if not user_nullable[key] is None:
-                user[key] = user_nullable[key]
-        return user
+        return {k: v for k, v in user_nullable.items() if v is not None}

@@ -16,8 +16,4 @@ class StatsigEvent:
             'metadata': self.metadata,
             'secondaryExposures': self._secondary_exposures,
         }
-        evt = {}
-        for key in evt_nullable:
-            if not evt_nullable[key] is None:
-                evt[key] = evt_nullable[key]
-        return evt
+        return {k: v for k, v in evt_nullable.items() if v is not None}

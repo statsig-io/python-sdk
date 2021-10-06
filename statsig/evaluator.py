@@ -8,11 +8,21 @@ from ip3country import CountryLookup
 
 class _ConfigEvaluation:
 
-    def __init__(self, fetch_from_server = False, boolean_value = False, json_value = {}, rule_id = None, secondary_exposures = []):
+    def __init__(self, fetch_from_server = False, boolean_value = False, json_value = {}, rule_id = "", secondary_exposures = []):
+        if fetch_from_server is None:
+            fetch_from_server = False
         self.fetch_from_server = fetch_from_server
+        if boolean_value is None:
+            boolean_value = False
         self.boolean_value = boolean_value
+        if json_value is None:
+            json_value = {}
         self.json_value = json_value
+        if rule_id is None:
+            rule_id = ""
         self.rule_id = rule_id
+        if secondary_exposures is None:
+            secondary_exposures = []
         self.secondary_exposures = secondary_exposures
 
 class _Evaluator:
@@ -22,32 +32,42 @@ class _Evaluator:
         self._country_lookup = CountryLookup()
 
     def setDownloadedConfigs(self, configs):
-        if "feature_gates" in configs:
-            self._gates = dict()
-            for gate in configs["feature_gates"]:
-                self._gates[gate["name"]] = gate
-        if "dynamic_configs" in configs:
-            self._configs = dict()
-            for config in configs["dynamic_configs"]:
-                self._configs[config["name"]] = config
+        new_gates = dict()
+        for gate in configs.get("feature_gates", []):
+            name = gate.get("name")
+            if name is not None:
+                new_gates[name] = gate
+
+        new_configs = dict()
+        for config in configs.get("dynamic_configs", []):
+            name = config.get("name")
+            if name is not None:
+                new_configs[name] = config
+
+        self._gates = new_gates
+        self._configs = new_configs
 
     def check_gate(self, user, gate):
-        if gate not in self._gates:
+        eval_gate = self._gates.get(gate)
+        if eval_gate is None:
             return _ConfigEvaluation()
-        return self.__evaluate(user, self._gates[gate])
+        return self.__evaluate(user, eval_gate)
     
     def get_config(self, user, config):
-        if config not in self._configs:
+        eval_config = self._configs.get(config)
+        if eval_config is None:
             return _ConfigEvaluation()
         
-        return self.__evaluate(user, self._configs[config])
+        return self.__evaluate(user, eval_config)
 
     def __evaluate(self, user, config):
         exposures = []
-        if not config["enabled"]:
-            return _ConfigEvaluation(False, False, config["defaultValue"], "disabled", exposures)
+        enabled = config.get("enabled", False)
+        defaultValue = config.get("defaultValue", {})
+        if not enabled:
+            return _ConfigEvaluation(False, False, defaultValue, "disabled", exposures)
         
-        for rule in config["rules"]:
+        for rule in config.get("rules", []):
             result = self.__evaluate_rule(user, rule)
             if result.fetch_from_server:
                 return result
@@ -55,14 +75,16 @@ class _Evaluator:
                 exposures = exposures + result.secondary_exposures
             if result.boolean_value:
                 user_passes = self.__eval_pass_percentage(user, rule, config)
-                config = rule["returnValue"] if user_passes else config["defaultValue"]
-                return _ConfigEvaluation(False, user_passes, config, rule["id"], exposures)
-        return _ConfigEvaluation(False, False, config["defaultValue"], "default", exposures)
+                return_value = rule.get("returnValue", defaultValue)
+                config = return_value if user_passes else defaultValue
+                rule_id = rule.get("id", "")
+                return _ConfigEvaluation(False, user_passes, config, rule_id, exposures)
+        return _ConfigEvaluation(False, False, defaultValue, "default", exposures)
     
     def __evaluate_rule(self, user, rule):
         exposures = []
         eval_result = True
-        for condition in rule["conditions"]:
+        for condition in rule.get("conditions", []):
             result = self.__evaluate_condition(user, condition)
             if result.fetch_from_server:
                 return result
@@ -70,19 +92,24 @@ class _Evaluator:
                 exposures = exposures + result.secondary_exposures
             if not result.boolean_value:
                 eval_result = False
-        return _ConfigEvaluation(False, eval_result, rule["returnValue"], rule["id"], exposures)
+        return_value = rule.get("return_value", {})
+        rule_id = rule.get("id", "")
+        return _ConfigEvaluation(False, eval_result, return_value, rule_id, exposures)
     
     def __evaluate_condition(self, user, condition):
         value = None
-        type = condition["type"].upper()
+        
+        type = condition.get("type", "").upper()
+        target = condition.get("targetValue")
+        field = condition.get("field", "")
         if type == "PUBLIC":
             return _ConfigEvaluation(False, True)
         elif type == "FAIL_GATE" or type == "PASS_GATE":
-            other_result = self.check_gate(user, condition["targetValue"])
+            other_result = self.check_gate(user, target)
             if (other_result.fetch_from_server):
                 return _ConfigEvaluation(True)
             new_exposure = {
-                "gate": condition["targetValue"],
+                "gate": target,
                 "gateValue": "true" if other_result.boolean_value else "false",
                 "ruleID": other_result.rule_id
             }
@@ -92,103 +119,104 @@ class _Evaluator:
             pass_gate = other_result.boolean_value if type == "PASS_GATE" else not other_result.boolean_value
             return _ConfigEvaluation(other_result.fetch_from_server, pass_gate, {}, None, exposures)
         elif type == "IP_BASED":
-            value = self.__get_from_user(user, condition["field"])
+            value = self.__get_from_user(user, field)
             if value is None:
                 ip = self.__get_from_user(user, "ip")
-                if ip is not None and condition["field"] == "country":
+                if ip is not None and field == "country":
                     value = self._country_lookup.lookupStr(ip)
             if value is None:
                 return _ConfigEvaluation(False, False)
         elif type == "UA_BASED":
-            value = self.__get_from_user_agent(user, condition["field"])
+            value = self.__get_from_user_agent(user, field)
         elif type == "USER_FIELD":
-            value = self.__get_from_user(user, condition["field"])
+            value = self.__get_from_user(user, field)
         elif type == "CURRENT_TIME":
             value = round(time.time() * 1000)
         elif type == "ENVIRONMENT_FIELD":
-            value = self.__get_from_environment(user, condition["field"])
+            value = self.__get_from_environment(user, field)
         elif type == "USER_BUCKET":
-            salt = self.__get_value_as_string(condition["additionalValues"]["salt"])
+            salt = condition.get("additionalValues", {"salt": None}).get("salt")
+            salt_str = self.__get_value_as_string(salt)
             user_id = user.user_id if user.user_id is not None else ''
-            value = int(self.__compute_user_hash(salt + "." + user_id) % 1000)
+            value = int(self.__compute_user_hash(salt_str + "." + user_id) % 1000)
         else:
             return _ConfigEvaluation(True)
 
-        op = condition["operator"]
+        op = condition.get("operator")
         if op == "gt":
             val = self.__get_value_as_float(value)
-            target = self.__get_value_as_float(condition["targetValue"])
+            target = self.__get_value_as_float(target)
             if val is None or target is None:
                 return _ConfigEvaluation(False, False)
             return _ConfigEvaluation(False, val > target)
         elif op == "gte":
             val = self.__get_value_as_float(value)
-            target = self.__get_value_as_float(condition["targetValue"])
+            target = self.__get_value_as_float(target)
             if val is None or target is None:
                 return _ConfigEvaluation(False, False)
             return _ConfigEvaluation(False, val >= target)
         elif op == "lt":
             val = self.__get_value_as_float(value)
-            target = self.__get_value_as_float(condition["targetValue"])
+            target = self.__get_value_as_float(target)
             if val is None or target is None:
                 return _ConfigEvaluation(False, False)
             return _ConfigEvaluation(False, val < target)
         elif op == "lte":
             val = self.__get_value_as_float(value)
-            target = self.__get_value_as_float(condition["targetValue"])
+            target = self.__get_value_as_float(target)
             if val is None or target is None:
                 return _ConfigEvaluation(False, False)
             return _ConfigEvaluation(False, val <= target)
         elif op == "version_gt":
-            res = self.__version_compare_helper(value, condition["targetValue"], lambda a,b: self.__version_compare(a, b) > 0)
+            res = self.__version_compare_helper(value, target, lambda a,b: self.__version_compare(a, b) > 0)
             return _ConfigEvaluation(False, res)
         elif op == "version_gte":
-            res = self.__version_compare_helper(value, condition["targetValue"], lambda a,b: self.__version_compare(a, b) >= 0)
+            res = self.__version_compare_helper(value, target, lambda a,b: self.__version_compare(a, b) >= 0)
             return _ConfigEvaluation(False, res)
         elif op == "version_lt":
-            res = self.__version_compare_helper(value, condition["targetValue"], lambda a,b: self.__version_compare(a, b) < 0)
+            res = self.__version_compare_helper(value, target, lambda a,b: self.__version_compare(a, b) < 0)
             return _ConfigEvaluation(False, res)
         elif op == "version_lte":
-            res = self.__version_compare_helper(value, condition["targetValue"], lambda a,b: self.__version_compare(a, b) <= 0)
+            res = self.__version_compare_helper(value, target, lambda a,b: self.__version_compare(a, b) <= 0)
             return _ConfigEvaluation(False, res)
         elif op == "version_eq":
-            res = self.__version_compare_helper(value, condition["targetValue"], lambda a,b: self.__version_compare(a, b) == 0)
+            res = self.__version_compare_helper(value, target, lambda a,b: self.__version_compare(a, b) == 0)
             return _ConfigEvaluation(False, res)
         elif op == "version_neq":
-            res = self.__version_compare_helper(value, condition["targetValue"], lambda a,b: self.__version_compare(a, b) != 0)
+            res = self.__version_compare_helper(value, target, lambda a,b: self.__version_compare(a, b) != 0)
             return _ConfigEvaluation(False, res)
         elif op == "any":
-            return _ConfigEvaluation(False, self.__match_string_in_array(value, condition["targetValue"], lambda a,b: a.upper().lower() == b.upper().lower()))
+            return _ConfigEvaluation(False, self.__match_string_in_array(value, target, lambda a,b: a.upper().lower() == b.upper().lower()))
         elif op == "none":
-            return _ConfigEvaluation(False, not self.__match_string_in_array(value, condition["targetValue"], lambda a,b: a.upper().lower() == b.upper().lower()))
+            return _ConfigEvaluation(False, not self.__match_string_in_array(value, target, lambda a,b: a.upper().lower() == b.upper().lower()))
         elif op == "any_case_sensitive":
-            return _ConfigEvaluation(False, self.__match_string_in_array(value, condition["targetValue"], lambda a,b: a == b))
+            return _ConfigEvaluation(False, self.__match_string_in_array(value, target, lambda a,b: a == b))
         elif op == "none_case_sensitive":
-            return _ConfigEvaluation(False, not self.__match_string_in_array(value, condition["targetValue"], lambda a,b: a == b))
+            return _ConfigEvaluation(False, not self.__match_string_in_array(value, target, lambda a,b: a == b))
         elif op == "str_starts_with_any":
-            return _ConfigEvaluation(False, self.__match_string_in_array(value, condition["targetValue"], lambda a,b: a.upper().lower().startswith(b.upper().lower())))
+            return _ConfigEvaluation(False, self.__match_string_in_array(value, target, lambda a,b: a.upper().lower().startswith(b.upper().lower())))
         elif op == "str_ends_with_any":
-            return _ConfigEvaluation(False, self.__match_string_in_array(value, condition["targetValue"], lambda a,b: a.upper().lower().endswith(b.upper().lower())))
+            return _ConfigEvaluation(False, self.__match_string_in_array(value, target, lambda a,b: a.upper().lower().endswith(b.upper().lower())))
         elif op == "str_contains_any":
-            return _ConfigEvaluation(False, self.__match_string_in_array(value, condition["targetValue"], lambda a,b: b.upper().lower() in a.upper().lower()))
+            return _ConfigEvaluation(False, self.__match_string_in_array(value, target, lambda a,b: b.upper().lower() in a.upper().lower()))
         elif op == "str_contains_none":
-            return _ConfigEvaluation(False, not self.__match_string_in_array(value, condition["targetValue"], lambda a,b: b.upper().lower() in a.upper().lower()))
+            return _ConfigEvaluation(False, not self.__match_string_in_array(value, target, lambda a,b: b.upper().lower() in a.upper().lower()))
         elif op == "str_matches":
             str_value = self.__get_value_as_string(value)
-            str_target = self.__get_value_as_string(condition["targetValue"])
+            str_target = self.__get_value_as_string(target)
             if str_value == None or str_target == None:
                 return _ConfigEvaluation(False, False)
             return _ConfigEvaluation(False, bool(re.match(str_target, str_value)))
         elif op == "eq":
-            return _ConfigEvaluation(False, value == condition["targetValue"])
+            return _ConfigEvaluation(False, value == target)
         elif op == "neq":
-            return _ConfigEvaluation(False, value != condition["targetValue"])
+            return _ConfigEvaluation(False, value != target)
         elif op == "before":
-            return self.__compare_dates(value, condition["targetValue"], lambda a, b: a.date() < b.date())
+            return self.__compare_dates(value, target, lambda a, b: a.date() < b.date())
         elif op == "after":
-            return self.__compare_dates(value, condition["targetValue"], lambda a, b: a.date() > b.date())
+            return self.__compare_dates(value, target, lambda a, b: a.date() > b.date())
         elif op == "on":
-            return self.__compare_dates(value, condition["targetValue"], lambda a, b: a.date() == b.date())
+            return self.__compare_dates(value, target, lambda a, b: a.date() == b.date())
 
         return _ConfigEvaluation(True)
 
@@ -238,12 +266,14 @@ class _Evaluator:
         return unpack('>Q', sha256(str(input).encode('utf-8')).digest()[:8])[0]
     
     def __eval_pass_percentage(self, user, rule, config):
-        rule_salt = rule["salt"] if "salt" in rule else rule["id"]
+        rule_salt = rule.get("salt", rule.get("id", ""))
         id = user.user_id if user.user_id is not None else ""
+        config_salt = config.get("salt", "")
         hash = self.__compute_user_hash(
-            config["salt"] + "." + rule_salt + "." + id
+            config_salt + "." + rule_salt + "." + id
         )
-        return (hash % 10000) < rule["passPercentage"] * 100
+        pass_percentage = rule.get("passPercentage", 0)
+        return (hash % 10000) < pass_percentage * 100
 
     def __match_string_in_array(self, value, target, compare):
         str_value = self.__get_value_as_string(value)
@@ -310,22 +340,28 @@ class _Evaluator:
             return None
         parsed = user_agent_parser.Parse(ua)
         field = field.lower()
-        if (field == "os" or field == "os_name") and "os" in parsed and "family" in parsed["os"]:
-            return parsed["os"]["family"]
-        elif (field == "os_version" or field == "osversion") and "os" in parsed:
-            return self.__get_version_string(parsed["os"])
-        elif (field == "browser_name" or field == "browsername") and "user_agent" in parsed and "family" in parsed["user_agent"]:
-            return parsed["user_agent"]["family"]
-        elif (field == "browser_version" or field == "browserversion") and "user_agent" in parsed:
-            return self.__get_version_string(parsed["user_agent"])
+        if field == "os" or field == "os_name":
+            return parsed.get("os", {"family": None}).get("family")
+        elif field == "os_version" or field == "osversion":
+            return self.__get_version_string(parsed.get("os"))
+        elif (field == "browser_name" or field == "browsername"):
+            return parsed.get("user_agent", {"family": None}).get("family")
+        elif (field == "browser_version" or field == "browserversion"):
+            return self.__get_version_string(parsed.get("user_agent"))
         return None
 
     def __get_version_string(self, version):
         if version is None:
             return None
-        major = version["major"] if "major" in version and version["major"] is not None else "0"
-        minor = version["minor"] if "minor" in version and version["minor"] is not None else "0"
-        patch = version["patch"] if "patch" in version and version["patch"] is not None else "0"
+        major = version.get("major", "0")
+        if major is None:
+            major = "0"
+        minor = version.get("minor", "0")
+        if minor is None:
+            minor = "0"
+        patch = version.get("patch", "0")
+        if patch is None:
+            patch = "0"
         return major + "." + minor + "." + patch
 
     def __compare_dates(self, first, second, compare):

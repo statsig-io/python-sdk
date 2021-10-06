@@ -35,9 +35,10 @@ class StatsigServer:
         })
         if specs is None:
             return
-        if "time" in specs and specs["time"] is not None:
-            self._last_update_time = specs["time"]
-        if "has_updates" in specs and specs["has_updates"]:
+        time = specs.get("time")
+        if time is not None:
+            self._last_update_time = time
+        if specs.get("has_updates", False):
             self._evaluator.setDownloadedConfigs(specs)
 
     def _update_specs(self):
@@ -64,7 +65,7 @@ class StatsigServer:
             if network_gate is None:
                 return False
             
-            return network_gate["value"]
+            return network_gate.get("value", False)
         else:
             self._logger.log_gate_exposure(user, gate, result.boolean_value, result.rule_id)
         return result.boolean_value
@@ -88,7 +89,7 @@ class StatsigServer:
             if network_config is None:
                 return DynamicConfig({}, config, "")
             
-            return DynamicConfig(network_config["value"], config, network_config["ruleID"])
+            return DynamicConfig(network_config.get("value", {}), config, network_config.get("ruleID", ""))
         else:
             self._logger.log_config_exposure(user, config, result.rule_id)
         return DynamicConfig(result.json_value, config, result.rule_id)
