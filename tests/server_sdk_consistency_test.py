@@ -75,7 +75,26 @@ class ServerSDKConsistencyTest(unittest.TestCase):
                         print(f'\nExpected: {server_result["secondary_exposures"]}, Actual: {sdk_result.secondary_exposures}')
                     self.assertEqual(sdk_result.secondary_exposures, server_result.get("secondary_exposures"))
                     print(".", end="")
-    
+
+                configs = val["dynamic_configs"]
+                for name in configs:
+                    sdk_result = self.sdk._evaluator.get_config(statsig_user, name)
+                    server_result = configs[name]
+                    if sdk_result.json_value != server_result["value"]:
+                        print(f'\nDifferent values for config {name} user: {statsig_user.to_dict()}')
+                        print(f'\nExpected: {server_result["value"]}, Actual: {sdk_result.json_value}')
+                    self.assertEqual(sdk_result.json_value, server_result["value"])
+
+                    if sdk_result.rule_id != server_result["rule_id"]:
+                        print(f'\nDifferent rule_id for config {name} user: {statsig_user.to_dict()}')
+                        print(f'\nExpected: {server_result["rule_id"]}, Actual: {sdk_result.rule_id}')
+                    self.assertEqual(sdk_result.rule_id, server_result["rule_id"])
+
+                    if sdk_result.secondary_exposures != server_result["secondary_exposures"]:
+                        print(f'\nDifferent secondary_exposures for config {name} user: {statsig_user.to_dict()}')
+                        print(f'\nExpected: {server_result["secondary_exposures"]}, Actual: {sdk_result.secondary_exposures}')
+                    self.assertEqual(sdk_result.secondary_exposures, server_result.get("secondary_exposures"))
+                    print(".", end="")
         print("[end]")
 
 
