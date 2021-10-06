@@ -67,7 +67,7 @@ class StatsigServer:
             
             return network_gate.get("value", False)
         else:
-            self._logger.log_gate_exposure(user, gate, result.boolean_value, result.rule_id)
+            self._logger.log_gate_exposure(user, gate, result.boolean_value, result.rule_id, result.secondary_exposures)
         return result.boolean_value
 
     def get_config(self, user, config):
@@ -91,7 +91,7 @@ class StatsigServer:
             
             return DynamicConfig(network_config.get("value", {}), config, network_config.get("ruleID", ""))
         else:
-            self._logger.log_config_exposure(user, config, result.rule_id)
+            self._logger.log_config_exposure(user, config, result.rule_id, result.secondary_exposures)
         return DynamicConfig(result.json_value, config, result.rule_id)
     
     def get_experiment(self, user, config):
