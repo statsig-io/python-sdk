@@ -2,7 +2,7 @@ import json
 
 class StatsigOptions:
     def __init__(self):
-        self.api = "https://api.statsig.com/v1"
+        self.api = "https://api.statsig.com/v1/"
         self.environment = None
 
     def set_tier(self, tier):

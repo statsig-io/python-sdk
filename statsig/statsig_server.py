@@ -29,7 +29,7 @@ class StatsigServer:
         self._initialized = True
 
     def _download_config_specs(self):
-        specs = self._network.post_request("/download_config_specs", {
+        specs = self._network.post_request("download_config_specs", {
             "statsigMetadata": self.__statsig_metadata,
             "sinceTime": self._last_update_time,
         })
@@ -57,7 +57,7 @@ class StatsigServer:
         user = self.__normalize_user(user)
         result = self._evaluator.check_gate(user, gate)
         if result.fetch_from_server:
-            network_gate = self._network.post_request("/check_gate", {
+            network_gate = self._network.post_request("check_gate", {
                 "gateName": gate,
                 "user": user.to_dict(),
                 "statsigMetadata": self.__statsig_metadata,
@@ -81,7 +81,7 @@ class StatsigServer:
 
         result = self._evaluator.get_config(user, config)
         if result.fetch_from_server:
-            network_config = self._network.post_request("/get_config", {
+            network_config = self._network.post_request("get_config", {
                 "configName": config,
                 "user": user,
                 "statsigMetadata": self._statsig_metadata,

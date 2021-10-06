@@ -7,6 +7,8 @@ class _StatsigNetwork:
 
     def __init__(self, sdkKey, api):
         self.__sdk_key = sdkKey
+        if not api.endswith("/"):
+            api = api + "/"
         self.__api = api
     
     def post_request(self, endpoint, payload):

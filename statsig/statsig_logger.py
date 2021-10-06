@@ -49,7 +49,7 @@ class _StatsigLogger:
             return
         events_copy = self.__events.copy()
         self.__events = list()
-        res = self.__net.retryable_request("/log_event", {
+        res = self.__net.retryable_request("log_event", {
             "events": events_copy,
         })
         if res is not None:
@@ -71,7 +71,7 @@ class _StatsigLogger:
                 break
             for i in range(self.__retry_logs.qsize()):
                 payload = self.__retry_logs.get()
-                res = self.__net.retryable_request("/log_event", payload)
+                res = self.__net.retryable_request("log_event", payload)
                 if res is not None:
                     self.__retry_logs.put(res)
                 self.__retry_logs.task_done()
