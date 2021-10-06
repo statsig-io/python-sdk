@@ -19,6 +19,7 @@ class TestStatsigE2E(unittest.TestCase):
         cls.server.add_log_event_response(cls.check_logs.__get__(cls, cls.__class__))
         cls.statsig_user = StatsigUser("123")
         cls.statsig_user.email = "testuser@statsig.com"
+        cls.statsig_user.private_attributes = {"test": 123}
         cls.random_user = StatsigUser("random")
         cls.logs = {}
         options = StatsigOptions()
@@ -95,32 +96,39 @@ class TestStatsigE2E(unittest.TestCase):
         self.assertEqual(events[0]["metadata"]["gate"], "always_on_gate")
         self.assertEqual(events[0]["metadata"]["gateValue"], "true")
         self.assertEqual(events[0]["metadata"]["ruleID"], "6N6Z8ODekNYZ7F8gFdoLP5")
+        self.assertEqual(events[0]["user"].get("privateAttributes", None), None)
 
         self.assertEqual(events[1]["eventName"], "statsig::gate_exposure")
         self.assertEqual(events[1]["metadata"]["gate"], "on_for_statsig_email")
         self.assertEqual(events[1]["metadata"]["gateValue"], "true")
         self.assertEqual(events[1]["metadata"]["ruleID"], "7w9rbTSffLT89pxqpyhuqK")
+        self.assertEqual(events[1]["user"].get("privateAttributes", None), None)
 
         self.assertEqual(events[2]["eventName"], "statsig::gate_exposure")
         self.assertEqual(events[2]["metadata"]["gate"], "on_for_statsig_email")
         self.assertEqual(events[2]["metadata"]["gateValue"], "false")
         self.assertEqual(events[2]["metadata"]["ruleID"], "default")
+        self.assertEqual(events[2]["user"].get("privateAttributes", None), None)
 
         self.assertEqual(events[3]["eventName"], "statsig::config_exposure")
         self.assertEqual(events[3]["metadata"]["config"], "test_config")
         self.assertEqual(events[3]["metadata"]["ruleID"], "1kNmlB23wylPFZi1M0Divl")
+        self.assertEqual(events[3]["user"].get("privateAttributes", None), None)
 
         self.assertEqual(events[4]["eventName"], "statsig::config_exposure")
         self.assertEqual(events[4]["metadata"]["config"], "test_config")
         self.assertEqual(events[4]["metadata"]["ruleID"], "default")
+        self.assertEqual(events[4]["user"].get("privateAttributes", None), None)
 
         self.assertEqual(events[5]["eventName"], "statsig::config_exposure")
         self.assertEqual(events[5]["metadata"]["config"], "sample_experiment")
         self.assertEqual(events[5]["metadata"]["ruleID"], "2RamGujUou6h2bVNQWhtNZ")
+        self.assertEqual(events[5]["user"].get("privateAttributes", None), None)
 
         self.assertEqual(events[6]["eventName"], "statsig::config_exposure")
         self.assertEqual(events[6]["metadata"]["config"], "sample_experiment")
         self.assertEqual(events[6]["metadata"]["ruleID"], "2RamGsERWbWMIMnSfOlQuX")
+        self.assertEqual(events[6]["user"].get("privateAttributes", None), None)
 
         self.assertEqual(events[7]["eventName"], "purchase")
         self.assertEqual(events[7]["value"], "SKU_12345")
@@ -128,6 +136,7 @@ class TestStatsigE2E(unittest.TestCase):
         self.assertEqual(events[7]["metadata"]["price"], "9.99")
         self.assertEqual(events[7]["user"]["userID"], "123")
         self.assertEqual(events[7]["user"]["email"], "testuser@statsig.com")
+        self.assertEqual(events[7]["user"].get("privateAttributes", None), None)
 
     @classmethod
     def tearDownClass(cls):

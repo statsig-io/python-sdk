@@ -25,7 +25,7 @@ class _StatsigLogger:
         event = StatsigEvent(user, _GATE_EXPOSURE_EVENT)
         event.metadata = {
             "gate": gate,
-            "gateValue": value,
+            "gateValue": "true" if value else "false",
             "ruleID": rule_id,
         }
         if secondary_exposures is None:

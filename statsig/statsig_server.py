@@ -59,7 +59,7 @@ class StatsigServer:
         if result.fetch_from_server:
             network_gate = self._network.post_request("check_gate", {
                 "gateName": gate,
-                "user": user.to_dict(),
+                "user": user.to_dict(True),
                 "statsigMetadata": self.__statsig_metadata,
             })
             if network_gate is None:

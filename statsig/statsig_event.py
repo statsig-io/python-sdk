@@ -10,7 +10,7 @@ class StatsigEvent:
 
     def to_dict(self):
         evt_nullable = {
-            'user': None if self.user is None else self.user.to_dict(),
+            'user': None if self.user is None else self.user.to_dict(False),
             'eventName': self.event_name,
             'value': self.value,
             'metadata': self.metadata,

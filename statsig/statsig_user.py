@@ -13,7 +13,7 @@ class StatsigUser:
         self.private_attributes = None
         self._statsig_environment = None
 
-    def to_dict(self):
+    def to_dict(self, forEvaluation = False):
         user_nullable = {
             'userID': self.user_id,
             'email': self.email,
@@ -23,7 +23,10 @@ class StatsigUser:
             'locale': self.locale,
             'appVersion': self.app_version,
             'custom': self.custom,
-            'privateAttributes': self.private_attributes,
             'statsigEnvironment': self._statsig_environment,
         }
+
+        if forEvaluation and self.private_attributes is not None:
+            user_nullable["privateAttributes"] = self.private_attributes
+        
         return {k: v for k, v in user_nullable.items() if v is not None}

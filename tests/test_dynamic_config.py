@@ -1,10 +1,8 @@
-
 import unittest
 
 from statsig.dynamic_config import DynamicConfig
 
-
-class TestStatsig(unittest.TestCase):
+class TestDynamicConfig(unittest.TestCase):
 
     def test_getters(self):
         config = DynamicConfig({
