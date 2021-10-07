@@ -1,17 +1,23 @@
-import json
+from dataclasses import dataclass
 
+@dataclass
 class StatsigUser:
-    def __init__(self, user_id):
-        self.user_id = user_id
-        self.email = None
-        self.ip = None
-        self.user_agent = None
-        self.country = None
-        self.locale = None
-        self.app_version = None
-        self.custom = None
-        self.private_attributes = None
-        self._statsig_environment = None
+    """An object of properties relating to the current user
+    user_id is required: learn more https://docs.statsig.com/messages/serverRequiredUserID
+    Provide as many as possible to take advantage of advanced conditions in the statsig console
+    A dictionary of additional fields can be provided under the custom field
+    Set private_attributes for any user property you need for gate evaluation but prefer stripped from logs/metrics
+    """
+    user_id: str
+    email: str = None
+    ip: str = None
+    user_agent: str = None
+    country: str = None
+    locale: str = None
+    app_version: str = None
+    custom: dict = None
+    private_attributes: dict = None
+    _statsig_environment: dict = None
 
     def to_dict(self, forEvaluation = False):
         user_nullable = {
@@ -30,3 +36,4 @@ class StatsigUser:
             user_nullable["privateAttributes"] = self.private_attributes
         
         return {k: v for k, v in user_nullable.items() if v is not None}
+    

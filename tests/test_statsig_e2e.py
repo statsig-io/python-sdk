@@ -18,13 +18,10 @@ class TestStatsigE2E(unittest.TestCase):
         cls.server.start()
         cls.server.add_json_response("/download_config_specs", json.loads(CONFIG_SPECS_RESPONSE))
         cls.server.add_log_event_response(cls.check_logs.__get__(cls, cls.__class__))
-        cls.statsig_user = StatsigUser("123")
-        cls.statsig_user.email = "testuser@statsig.com"
-        cls.statsig_user.private_attributes = {"test": 123}
+        cls.statsig_user = StatsigUser("123", email="testuser@statsig.com", private_attributes={"test": 123})
         cls.random_user = StatsigUser("random")
         cls.logs = {}
-        options = StatsigOptions()
-        options.api = cls.server.url
+        options = StatsigOptions(api=cls.server.url)
         options.set_tier(StatsigEnvironment.development)
 
         statsig.initialize("secret-key", options)
@@ -84,9 +81,7 @@ class TestStatsigE2E(unittest.TestCase):
         )
     
     def test_d_log_event(self):
-        event = StatsigEvent(self.statsig_user, "purchase")
-        event.value = "SKU_12345"
-        event.metadata = dict(price="9.99", item_name="diet_coke_48_pack")
+        event = StatsigEvent(self.statsig_user, "purchase", value="SKU_12345", metadata=dict(price="9.99", item_name="diet_coke_48_pack"))
         statsig.log_event(event)
         self.assertEqual(len([]), 0)
 

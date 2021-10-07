@@ -32,9 +32,7 @@ class ServerSDKConsistencyTest(unittest.TestCase):
             }
             response = requests.post(api + "/rulesets_e2e_test", headers=headers)
             self.data = response.json()
-            options = StatsigOptions()
-            options.api = api
-            print(api)
+            options = StatsigOptions(api=api)
             self.sdk = StatsigServer()
             self.sdk.initialize(SDK_KEY, options)
             self._test_consistency()

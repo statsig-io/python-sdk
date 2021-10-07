@@ -1,9 +1,11 @@
+from dataclasses import dataclass
 from .statsig_environment import StatsigEnvironment
 
+@dataclass
 class StatsigOptions:
-    def __init__(self):
-        self.api = "https://api.statsig.com/v1/"
-        self.environment = None
+    """An object of properties for initializing the sdk with advanced options"""
+    api: str = "https://api.statsig.com/v1/"
+    environment: dict = None
 
     def set_tier(self, tier):
         if tier is None or (not isinstance(tier, str) and not isinstance(tier, StatsigEnvironment)):
