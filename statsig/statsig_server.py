@@ -110,6 +110,6 @@ class StatsigServer:
         self.__background_download.join()
 
     def __normalize_user(self, user):
-        if self._options is not None and self._options.environment is not None:
-            user._statsig_environment = self._options.environment
+        if self._options is not None and self._options._environment is not None:
+            user._statsig_environment = self._options._environment
         return user

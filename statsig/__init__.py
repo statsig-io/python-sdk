@@ -5,6 +5,6 @@ from .statsig_user import StatsigUser
 from .statsig_logger import _StatsigLogger
 from .statsig_network import _StatsigNetwork
 from .statsig_server import StatsigServer
-from .statsig_environment import StatsigEnvironment
+from .statsig_environment_tier import StatsigEnvironmentTier
 from .evaluator import _Evaluator
 from .version import __version__

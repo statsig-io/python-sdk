@@ -1,5 +1,6 @@
 import unittest
 import requests
+from statsig.statsig_environment_tier import StatsigEnvironmentTier
 from statsig.statsig_user import StatsigUser
 from statsig.statsig_options import StatsigOptions
 from statsig.statsig_server import StatsigServer

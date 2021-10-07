@@ -1,5 +1,6 @@
 import time
 import unittest
+from statsig.statsig_environment_tier import StatsigEnvironmentTier
 
 from statsig.statsig_user import StatsigUser
 from statsig.statsig_options import StatsigOptions
@@ -11,8 +12,7 @@ SECRET_KEY = ""
 class TestStatsig(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        options = StatsigOptions()
-        options.set_tier("production")
+        options = StatsigOptions(tier=StatsigEnvironmentTier.production)
         statsig.initialize(SECRET_KEY, options)
 
     def test_logs(self):

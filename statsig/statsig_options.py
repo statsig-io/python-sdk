@@ -1,19 +1,25 @@
-from dataclasses import dataclass
-from .statsig_environment import StatsigEnvironment
+from .statsig_environment_tier import StatsigEnvironmentTier
+import typing
 
-@dataclass
 class StatsigOptions:
-    """An object of properties for initializing the sdk with advanced options"""
-    api: str = "https://api.statsig.com/v1/"
-    environment: dict = None
+    """An object of properties for initializing the sdk with additional parameters"""
 
-    def set_tier(self, tier):
-        if tier is None or (not isinstance(tier, str) and not isinstance(tier, StatsigEnvironment)):
-            return
-        tier_str = tier.value if isinstance(tier, StatsigEnvironment) else tier
-        self.set_environment_parameter("tier", tier_str.lower())
+    def __init__(self, api: str="https://api.statsig.com/v1/", tier: 'typing.Any'=None):
+        self._environment = None
+        if tier is not None:
+            if isinstance(tier, str) or isinstance(tier, StatsigEnvironmentTier):
+                tier_str = tier.value if isinstance(tier, StatsigEnvironmentTier) else tier
+                self.set_environment_parameter("tier", tier_str)
+            else:
+                raise ValueError('StatsigEvent.tier must be a str or StatsigEnvironmentTier')
+        if api is None:
+            api = "https://api.statsig.com/v1/"
+        self.api = api
     
     def set_environment_parameter(self, key, value):
-        if self.environment is None:
-            self.environment = {}
-        self.environment[key] = value
+        if self._environment is None:
+            self._environment = {}
+        self._environment[key] = value
+    
+    def _get_evironment(self):
+        return self._environment
