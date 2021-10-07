@@ -7,7 +7,9 @@ from .statsig_options import StatsigOptions
 from .version import __version__
 
 class StatsigServer:
-    def initialize(self, sdkKey, options = None):
+    def initialize(self, sdkKey:str, options = None):
+        if sdkKey is None or not sdkKey.startswith("secret-"):
+            raise ValueError('Invalid key provided.  You must use a Server Secret Key from the Statsig console.')
         if options is None:
             options = StatsigOptions()
         self._options = options
