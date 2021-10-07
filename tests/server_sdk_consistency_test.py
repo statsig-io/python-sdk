@@ -34,6 +34,7 @@ class ServerSDKConsistencyTest(unittest.TestCase):
             self.data = response.json()
             options = StatsigOptions(api=api)
             self.sdk = StatsigServer()
+            print(api)
             self.sdk.initialize(SDK_KEY, options)
             self._test_consistency()
             self.sdk.shutdown()

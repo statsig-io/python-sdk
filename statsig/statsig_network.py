@@ -13,6 +13,7 @@ class _StatsigNetwork:
     
     def post_request(self, endpoint, payload):
         headers = {
+            'Content-type': 'application/json',
             'STATSIG-API-KEY': self.__sdk_key,
             'STATSIG-CLIENT-TIME': str(round(time.time() * 1000)),
         }
