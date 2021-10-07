@@ -1,4 +1,4 @@
-import json
+from .statsig_environment import StatsigEnvironment
 
 class StatsigOptions:
     def __init__(self):
@@ -6,9 +6,10 @@ class StatsigOptions:
         self.environment = None
 
     def set_tier(self, tier):
-        if tier is None or type(tier) != 'string':
+        if tier is None or (not isinstance(tier, str) and not isinstance(tier, StatsigEnvironment)):
             return
-        self.set_environment_parameter("tier", tier.lower())
+        tier_str = tier.value if isinstance(tier, StatsigEnvironment) else tier
+        self.set_environment_parameter("tier", tier_str.lower())
     
     def set_environment_parameter(self, key, value):
         if self.environment is None:

@@ -1,5 +1,5 @@
 import threading
-from statsig.evaluator import _Evaluator
+from .evaluator import _Evaluator
 from .statsig_network import _StatsigNetwork
 from .statsig_logger import _StatsigLogger
 from .dynamic_config import DynamicConfig

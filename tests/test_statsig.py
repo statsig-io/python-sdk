@@ -12,7 +12,7 @@ class TestStatsig(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         options = StatsigOptions()
-        #options.set_tier("development")
+        options.set_tier("production")
         statsig.initialize(SECRET_KEY, options)
 
     def test_logs(self):
