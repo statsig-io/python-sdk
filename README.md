@@ -24,4 +24,3 @@ python3 -m unittest tests/test_statsig_e2e.py
 - Pull requests are welcome! 
 - If you encounter bugs, feel free to [file an issue](https://github.com/statsig-io/python-sdk/issues).
 - For integration questions/help, [join our slack community](https://join.slack.com/t/statsigcommunity/shared_invite/zt-pbp005hg-VFQOutZhMw5Vu9eWvCro9g).
-- The python SDK currently wraps our go sdk via a .so shared library

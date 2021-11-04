@@ -16,7 +16,7 @@ class StatsigOptions:
             api = "https://api.statsig.com/v1/"
         self.api = api
     
-    def set_environment_parameter(self, key, value):
+    def set_environment_parameter(self, key: str, value: str):
         if self._environment is None:
             self._environment = {}
         self._environment[key] = value
