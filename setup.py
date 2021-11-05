@@ -9,7 +9,7 @@ with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), 'README.md'))
 
 setup(
     name='statsig',
-    version=__version__, # pylint: disable=undefined-variable
+    version=__version__,  # pylint: disable=undefined-variable
     description='Statsig Python Server SDK',
     long_description=README,
     long_description_content_type="text/markdown",
@@ -25,8 +25,12 @@ setup(
         'Topic :: Software Development :: Libraries'
     ],
     install_requires=[
+        'requests',
         'ua-parser',
         'ip3country',
+    ],
+    tests_require=[
+        'Flask'
     ],
     include_package_data=True,
     packages=['statsig']
