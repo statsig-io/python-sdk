@@ -288,7 +288,7 @@ class _Evaluator:
         return (hash % 10000) < pass_percentage * 100
 
     def __get_unit_id(self, user, id_type):
-        if id_type.lower() != "userid":
+        if id_type is not None and id_type.lower() != "userid":
             if user.custom_ids is None:
                 return None
             return user.custom_ids.get(id_type, None) or user.custom_ids.get(id_type.lower(), None)
