@@ -104,6 +104,7 @@ class _Evaluator:
         type = condition.get("type", "").upper()
         target = condition.get("targetValue")
         field = condition.get("field", "")
+        id_Type = condition.get("idType", "userID")
         if type == "PUBLIC":
             return _ConfigEvaluation(False, True)
         elif type == "FAIL_GATE" or type == "PASS_GATE":
@@ -140,12 +141,11 @@ class _Evaluator:
             salt = condition.get("additionalValues", {
                                  "salt": None}).get("salt")
             salt_str = self.__get_value_as_string(salt)
-            unit_id = self.__get_unit_id(
-                user, condition.get("idType", "userID")) or ""
+            unit_id = self.__get_unit_id(user, id_Type) or ""
             value = int(self.__compute_user_hash(
                 salt_str + "." + unit_id) % 1000)
         elif type == "UNIT_ID":
-            value = self.__get_unit_id(user, field)
+            value = self.__get_unit_id(user, id_Type)
         else:
             return _ConfigEvaluation(True)
 
@@ -296,7 +296,7 @@ class _Evaluator:
 
     def __match_string_in_array(self, value, target, compare):
         str_value = self.__get_value_as_string(value)
-        if str_value is None:
+        if str_value is None or target is None:
             return False
         for match in target:
             str_match = self.__get_value_as_string(match)
