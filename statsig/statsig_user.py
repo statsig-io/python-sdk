@@ -17,6 +17,7 @@ class StatsigUser:
     app_version: str = None
     custom: dict = None
     private_attributes: dict = None
+    custom_ids: dict = None
     _statsig_environment: dict = None
 
     def __post_init__(self):
@@ -34,6 +35,7 @@ class StatsigUser:
             'appVersion': self.app_version,
             'custom': self.custom,
             'statsigEnvironment': self._statsig_environment,
+            'customIDs': self.custom_ids,
         }
 
         if forEvaluation and self.private_attributes is not None:

@@ -6,9 +6,10 @@ from struct import unpack
 from ua_parser import user_agent_parser
 from ip3country import CountryLookup
 
+
 class _ConfigEvaluation:
 
-    def __init__(self, fetch_from_server = False, boolean_value = False, json_value = {}, rule_id = "", secondary_exposures = []):
+    def __init__(self, fetch_from_server=False, boolean_value=False, json_value={}, rule_id="", secondary_exposures=[]):
         if fetch_from_server is None:
             fetch_from_server = False
         self.fetch_from_server = fetch_from_server
@@ -24,6 +25,7 @@ class _ConfigEvaluation:
         if secondary_exposures is None:
             secondary_exposures = []
         self.secondary_exposures = secondary_exposures
+
 
 class _Evaluator:
     def __init__(self):
@@ -52,12 +54,12 @@ class _Evaluator:
         if eval_gate is None:
             return _ConfigEvaluation()
         return self.__evaluate(user, eval_gate)
-    
+
     def get_config(self, user, config):
         eval_config = self._configs.get(config)
         if eval_config is None:
             return _ConfigEvaluation()
-        
+
         return self.__evaluate(user, eval_config)
 
     def __evaluate(self, user, config):
@@ -66,7 +68,7 @@ class _Evaluator:
         defaultValue = config.get("defaultValue", {})
         if not enabled:
             return _ConfigEvaluation(False, False, defaultValue, "disabled", exposures)
-        
+
         for rule in config.get("rules", []):
             result = self.__evaluate_rule(user, rule)
             if result.fetch_from_server:
@@ -80,7 +82,7 @@ class _Evaluator:
                 rule_id = rule.get("id", "")
                 return _ConfigEvaluation(False, user_passes, config, rule_id, exposures)
         return _ConfigEvaluation(False, False, defaultValue, "default", exposures)
-    
+
     def __evaluate_rule(self, user, rule):
         exposures = []
         eval_result = True
@@ -95,10 +97,10 @@ class _Evaluator:
         return_value = rule.get("return_value", {})
         rule_id = rule.get("id", "")
         return _ConfigEvaluation(False, eval_result, return_value, rule_id, exposures)
-    
+
     def __evaluate_condition(self, user, condition):
         value = None
-        
+
         type = condition.get("type", "").upper()
         target = condition.get("targetValue")
         field = condition.get("field", "")
@@ -135,10 +137,15 @@ class _Evaluator:
         elif type == "ENVIRONMENT_FIELD":
             value = self.__get_from_environment(user, field)
         elif type == "USER_BUCKET":
-            salt = condition.get("additionalValues", {"salt": None}).get("salt")
+            salt = condition.get("additionalValues", {
+                                 "salt": None}).get("salt")
             salt_str = self.__get_value_as_string(salt)
-            user_id = user.user_id if user.user_id is not None else ''
-            value = int(self.__compute_user_hash(salt_str + "." + user_id) % 1000)
+            unit_id = self.__get_unit_id(
+                user, condition.get("idType", "userID")) or ""
+            value = int(self.__compute_user_hash(
+                salt_str + "." + unit_id) % 1000)
+        elif type == "UNIT_ID":
+            value = self.__get_unit_id(user, field)
         else:
             return _ConfigEvaluation(True)
 
@@ -168,39 +175,45 @@ class _Evaluator:
                 return _ConfigEvaluation(False, False)
             return _ConfigEvaluation(False, val <= target)
         elif op == "version_gt":
-            res = self.__version_compare_helper(value, target, lambda a,b: self.__version_compare(a, b) > 0)
+            res = self.__version_compare_helper(
+                value, target, lambda a, b: self.__version_compare(a, b) > 0)
             return _ConfigEvaluation(False, res)
         elif op == "version_gte":
-            res = self.__version_compare_helper(value, target, lambda a,b: self.__version_compare(a, b) >= 0)
+            res = self.__version_compare_helper(
+                value, target, lambda a, b: self.__version_compare(a, b) >= 0)
             return _ConfigEvaluation(False, res)
         elif op == "version_lt":
-            res = self.__version_compare_helper(value, target, lambda a,b: self.__version_compare(a, b) < 0)
+            res = self.__version_compare_helper(
+                value, target, lambda a, b: self.__version_compare(a, b) < 0)
             return _ConfigEvaluation(False, res)
         elif op == "version_lte":
-            res = self.__version_compare_helper(value, target, lambda a,b: self.__version_compare(a, b) <= 0)
+            res = self.__version_compare_helper(
+                value, target, lambda a, b: self.__version_compare(a, b) <= 0)
             return _ConfigEvaluation(False, res)
         elif op == "version_eq":
-            res = self.__version_compare_helper(value, target, lambda a,b: self.__version_compare(a, b) == 0)
+            res = self.__version_compare_helper(
+                value, target, lambda a, b: self.__version_compare(a, b) == 0)
             return _ConfigEvaluation(False, res)
         elif op == "version_neq":
-            res = self.__version_compare_helper(value, target, lambda a,b: self.__version_compare(a, b) != 0)
+            res = self.__version_compare_helper(
+                value, target, lambda a, b: self.__version_compare(a, b) != 0)
             return _ConfigEvaluation(False, res)
         elif op == "any":
-            return _ConfigEvaluation(False, self.__match_string_in_array(value, target, lambda a,b: a.upper().lower() == b.upper().lower()))
+            return _ConfigEvaluation(False, self.__match_string_in_array(value, target, lambda a, b: a.upper().lower() == b.upper().lower()))
         elif op == "none":
-            return _ConfigEvaluation(False, not self.__match_string_in_array(value, target, lambda a,b: a.upper().lower() == b.upper().lower()))
+            return _ConfigEvaluation(False, not self.__match_string_in_array(value, target, lambda a, b: a.upper().lower() == b.upper().lower()))
         elif op == "any_case_sensitive":
-            return _ConfigEvaluation(False, self.__match_string_in_array(value, target, lambda a,b: a == b))
+            return _ConfigEvaluation(False, self.__match_string_in_array(value, target, lambda a, b: a == b))
         elif op == "none_case_sensitive":
-            return _ConfigEvaluation(False, not self.__match_string_in_array(value, target, lambda a,b: a == b))
+            return _ConfigEvaluation(False, not self.__match_string_in_array(value, target, lambda a, b: a == b))
         elif op == "str_starts_with_any":
-            return _ConfigEvaluation(False, self.__match_string_in_array(value, target, lambda a,b: a.upper().lower().startswith(b.upper().lower())))
+            return _ConfigEvaluation(False, self.__match_string_in_array(value, target, lambda a, b: a.upper().lower().startswith(b.upper().lower())))
         elif op == "str_ends_with_any":
-            return _ConfigEvaluation(False, self.__match_string_in_array(value, target, lambda a,b: a.upper().lower().endswith(b.upper().lower())))
+            return _ConfigEvaluation(False, self.__match_string_in_array(value, target, lambda a, b: a.upper().lower().endswith(b.upper().lower())))
         elif op == "str_contains_any":
-            return _ConfigEvaluation(False, self.__match_string_in_array(value, target, lambda a,b: b.upper().lower() in a.upper().lower()))
+            return _ConfigEvaluation(False, self.__match_string_in_array(value, target, lambda a, b: b.upper().lower() in a.upper().lower()))
         elif op == "str_contains_none":
-            return _ConfigEvaluation(False, not self.__match_string_in_array(value, target, lambda a,b: b.upper().lower() in a.upper().lower()))
+            return _ConfigEvaluation(False, not self.__match_string_in_array(value, target, lambda a, b: b.upper().lower() in a.upper().lower()))
         elif op == "str_matches":
             str_value = self.__get_value_as_string(value)
             str_target = self.__get_value_as_string(target)
@@ -220,7 +233,6 @@ class _Evaluator:
 
         return _ConfigEvaluation(True)
 
-
     def __get_from_user(self, user, field):
         value = None
         lower_field = field.lower()
@@ -238,7 +250,7 @@ class _Evaluator:
             value = user.locale
         elif lower_field == "appversion" or lower_field == "app_version":
             value = user.app_version
-        
+
         if (value == None or value == "") and user.custom is not None:
             if field in user.custom:
                 value = user.custom[field]
@@ -252,7 +264,7 @@ class _Evaluator:
                 value = user.private_attributes[field.lower()]
 
         return value
-    
+
     def __get_from_environment(self, user, field):
         if user._statsig_environment is None:
             return None
@@ -264,16 +276,23 @@ class _Evaluator:
 
     def __compute_user_hash(self, input):
         return unpack('>Q', sha256(str(input).encode('utf-8')).digest()[:8])[0]
-    
+
     def __eval_pass_percentage(self, user, rule, config):
         rule_salt = rule.get("salt", rule.get("id", ""))
-        id = user.user_id if user.user_id is not None else ""
+        id = self.__get_unit_id(user, rule.get("idType", "userID")) or ""
         config_salt = config.get("salt", "")
         hash = self.__compute_user_hash(
             config_salt + "." + rule_salt + "." + id
         )
         pass_percentage = rule.get("passPercentage", 0)
         return (hash % 10000) < pass_percentage * 100
+
+    def __get_unit_id(self, user, id_type):
+        if id_type is not None and id_type.lower() != "userid":
+            if user.custom_ids is None:
+                return None
+            return user.custom_ids.get(id_type, None) or user.custom_ids.get(id_type.lower(), None)
+        return user.user_id
 
     def __match_string_in_array(self, value, target, compare):
         str_value = self.__get_value_as_string(value)
@@ -313,22 +332,22 @@ class _Evaluator:
 
         if v1_str is None or v2_str is None:
             return False
-        
+
         d1 = v1_str.find('-')
         if d1 > 0:
             v1_str = v1_str[0:d1]
-        
+
         d2 = v2_str.find('-')
         if d2 > 0:
             v2_str = v2_str[0:d2]
-        
+
         return compare(v1_str, v2_str)
 
     def __get_value_as_string(self, input):
         if input is None:
             return None
         return str(input)
-    
+
     def __get_value_as_float(self, input):
         if input is None:
             return None
@@ -377,13 +396,13 @@ class _Evaluator:
             False,
             compare(first_date, second_date)
         )
-    
+
     def __get_date(self, d):
         if d is None:
             return None
-        
+
         epoch = int(d)
         if len(str(d)) >= 11:
             epoch /= 1000
-            
+
         return datetime.fromtimestamp(epoch)
