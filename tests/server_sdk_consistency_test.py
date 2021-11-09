@@ -60,6 +60,8 @@ class ServerSDKConsistencyTest(unittest.TestCase):
                     statsig_user.custom = user["custom"]
                 if "privateAttributes" in user:
                     statsig_user.private_attributes = user["privateAttributes"]
+                if "customIDs" in user:
+                    statsig_user.custom_ids = user["customIDs"]
                 gates = val["feature_gates_v2"]
                 for name in gates:
                     eval_result = self.sdk._evaluator.check_gate(
