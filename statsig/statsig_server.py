@@ -14,13 +14,14 @@ class StatsigServer:
             options = StatsigOptions()
         self._options = options
         self.__shutdown_event = threading.Event()
-        self._network = _StatsigNetwork(sdkKey, options.api)
-        self._logger = _StatsigLogger(self._network, self.__shutdown_event)
-        self._evaluator = _Evaluator()
         self.__statsig_metadata = {
             "sdkVersion": __version__,
             "sdkType": "py-server"
         }
+        self._network = _StatsigNetwork(sdkKey, options.api)
+        self._logger = _StatsigLogger(self._network, self.__shutdown_event, self.__statsig_metadata)
+        self._evaluator = _Evaluator()
+        
         self._last_update_time = 0
 
         self._download_config_specs()
@@ -86,7 +87,7 @@ class StatsigServer:
             network_config = self._network.post_request("get_config", {
                 "configName": config,
                 "user": user,
-                "statsigMetadata": self._statsig_metadata,
+                "statsigMetadata": self.__statsig_metadata,
             })
             if network_config is None:
                 return DynamicConfig({}, config, "")

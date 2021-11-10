@@ -28,7 +28,6 @@ TEST_URLS = [
 class ServerSDKConsistencyTest(unittest.TestCase):
 
     def test_all_regions(self):
-        print(SDK_KEY)
         for api in TEST_URLS:
             headers = {
                 'STATSIG-API-KEY': SDK_KEY,

@@ -30,7 +30,7 @@ setup(
         'ip3country',
     ],
     tests_require=[
-        'Flask'
+        'flask'
     ],
     include_package_data=True,
     packages=['statsig']
