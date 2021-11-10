@@ -7,6 +7,14 @@ with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), 'statsig', 'v
 with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), 'README.md')) as r:
     README = r.read()
 
+test_deps = [
+    'Flask',
+    'requests',
+]
+extras = {
+    'test': test_deps,
+}
+
 setup(
     name='statsig',
     version=__version__,  # pylint: disable=undefined-variable
@@ -29,9 +37,8 @@ setup(
         'ua-parser',
         'ip3country',
     ],
-    tests_require=[
-        'flask'
-    ],
+    tests_require=test_deps,
+    extras_require=extras,
     include_package_data=True,
     packages=['statsig']
 )

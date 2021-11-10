@@ -5,25 +5,28 @@ from statsig.statsig_user import StatsigUser
 from statsig.statsig_options import StatsigOptions
 from statsig.statsig_server import StatsigServer
 
+import os
 import io
 import sys
 import time
-try:
-    f = io.open("../../ops/secrets/prod_keys/statsig-rulesets-eval-consistency-test-secret.key",
-                mode="r", encoding="utf-8")
+if "test_api_key" in os.environ:
+    SDK_KEY = os.environ["test_api_key"]
+else:
+    try:
+        f = io.open("../../ops/secrets/prod_keys/statsig-rulesets-eval-consistency-test-secret.key",
+                    mode="r", encoding="utf-8")
 
-except OSError:
-    print("THIS TEST IS EXPECTED TO FAIL FOR NON-STATSIG EMPLOYEES! If this is the only test failing, please proceed to submit a pull request. If you are a Statsig employee, chat with jkw.")
-    sys.exit()
+    except OSError:
+        print("THIS TEST IS EXPECTED TO FAIL FOR NON-STATSIG EMPLOYEES! If this is the only test failing, please proceed to submit a pull request. If you are a Statsig employee, chat with jkw.")
+        sys.exit()
 
-SDK_KEY = f.read()
-f.close()
+    SDK_KEY = f.read()
+    f.close()
 
 TEST_URLS = [
     "https://api.statsig.com/v1",
     "https://latest.api.statsig.com/v1",
 ]
-
 
 class ServerSDKConsistencyTest(unittest.TestCase):
 
