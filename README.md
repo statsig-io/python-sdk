@@ -1,4 +1,5 @@
 # Statsig Python Server SDK
+[![tests](https://github.com/statsig-io/private-python-sdk/actions/workflows/test.yml/badge.svg)](https://github.com/statsig-io/private-python-sdk/actions/workflows/test.yml)
 
 The python SDK for server/multi-user environments.
 
