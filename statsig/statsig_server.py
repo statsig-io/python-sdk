@@ -7,6 +7,7 @@ from .statsig_options import StatsigOptions
 from .version import __version__
 
 class StatsigServer:
+
     def initialize(self, sdkKey:str, options = None):
         if sdkKey is None or not sdkKey.startswith("secret-"):
             raise ValueError('Invalid key provided.  You must use a Server Secret Key from the Statsig console.')
@@ -27,6 +28,7 @@ class StatsigServer:
         self._download_config_specs()
 
         self.__background_download = threading.Thread(target=self._update_specs)
+        self.__background_download.daemon = True
         self.__background_download.start()
 
         self._initialized = True

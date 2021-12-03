@@ -12,9 +12,11 @@ class _StatsigLogger:
         self.__statsig_metadata = statsig_metadata
 
         self.__background_flush = threading.Thread(target=self._periodic_flush, args=(shutdown_event,))
+        self.__background_flush.daemon = True
         self.__background_flush.start()
 
         self.__background_retry = threading.Thread(target=self._periodic_retry, args=(shutdown_event,))
+        self.__background_retry.daemon = True
         self.__background_retry.start()
 
     def log(self, event):
