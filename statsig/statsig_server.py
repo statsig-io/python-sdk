@@ -19,7 +19,7 @@ class StatsigServer:
             "sdkVersion": __version__,
             "sdkType": "py-server"
         }
-        self._network = _StatsigNetwork(sdkKey, options.api)
+        self._network = _StatsigNetwork(sdkKey, options.api, timeout=options.timeout)
         self._logger = _StatsigLogger(self._network, self.__shutdown_event, self.__statsig_metadata)
         self._evaluator = _Evaluator()
         
