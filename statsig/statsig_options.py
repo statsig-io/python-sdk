@@ -4,7 +4,7 @@ import typing
 class StatsigOptions:
     """An object of properties for initializing the sdk with additional parameters"""
 
-    def __init__(self, api: str="https://api.statsig.com/v1/", tier: 'typing.Any'=None):
+    def __init__(self, api: str="https://api.statsig.com/v1/", tier: 'typing.Any'=None, timeout: int=None):
         self._environment = None
         if tier is not None:
             if isinstance(tier, str) or isinstance(tier, StatsigEnvironmentTier):
@@ -15,6 +15,7 @@ class StatsigOptions:
         if api is None:
             api = "https://api.statsig.com/v1/"
         self.api = api
+        self.timeout = timeout
     
     def set_environment_parameter(self, key: str, value: str):
         if self._environment is None:
