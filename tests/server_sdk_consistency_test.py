@@ -28,6 +28,7 @@ TEST_URLS = [
     "https://latest.api.statsig.com/v1",
 ]
 
+
 class ServerSDKConsistencyTest(unittest.TestCase):
 
     def test_all_regions(self):
@@ -68,6 +69,8 @@ class ServerSDKConsistencyTest(unittest.TestCase):
                 for name in gates:
                     eval_result = self.sdk._evaluator.check_gate(
                         statsig_user, name)
+                    if eval_result.fetch_from_server:
+                        continue
                     sdk_result = self.sdk.check_gate(statsig_user, name)
                     server_result = gates[name]
                     if eval_result.boolean_value != server_result["value"]:
@@ -100,6 +103,8 @@ class ServerSDKConsistencyTest(unittest.TestCase):
                 for name in configs:
                     eval_result = self.sdk._evaluator.get_config(
                         statsig_user, name)
+                    if eval_result.fetch_from_server:
+                        continue
                     sdk_result = self.sdk.get_config(statsig_user, name)
                     server_result = configs[name]
                     if eval_result.json_value != server_result["value"]:
