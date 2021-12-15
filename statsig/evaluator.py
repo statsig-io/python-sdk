@@ -1,3 +1,4 @@
+import base64
 import time
 from datetime import datetime
 import re
@@ -31,6 +32,7 @@ class _Evaluator:
     def __init__(self):
         self._configs = dict()
         self._gates = dict()
+        self._id_lists = dict()
         self._country_lookup = CountryLookup()
 
     def setDownloadedConfigs(self, configs):
@@ -49,6 +51,20 @@ class _Evaluator:
         self._gates = new_gates
         self._configs = new_configs
 
+        id_lists = configs.get("id_lists")
+        if id_lists is not None:
+            # Delete old id lists that no longer exists
+            for list_name in self._id_lists.keys():
+                if id_lists.get(list_name) is None:
+                    del self._id_lists[list_name]
+            # Add new id lists
+            for list_name in id_lists.keys():
+                if self._id_lists.get(list_name) is None:
+                    self._id_lists[list_name] = {"ids": {}, "time": 0}
+
+    def getIDLists(self):
+        return self._id_lists
+
     def check_gate(self, user, gate):
         eval_gate = self._gates.get(gate)
         if eval_gate is None:
@@ -61,6 +77,15 @@ class _Evaluator:
             return _ConfigEvaluation()
 
         return self.__evaluate(user, eval_config)
+
+    def __check_id_in_list(self, id, list_name):
+        list = self._id_lists.get(list_name)
+        if list is None:
+            return False
+        ids = list.get("ids", dict())
+        hashed = base64.b64encode(
+            sha256(str(id).encode('utf-8')).digest()).decode('utf-8')[0:8]
+        return ids.get(hashed) == True
 
     def __evaluate(self, user, config):
         exposures = []
@@ -230,6 +255,9 @@ class _Evaluator:
             return self.__compare_dates(value, target, lambda a, b: a.date() > b.date())
         elif op == "on":
             return self.__compare_dates(value, target, lambda a, b: a.date() == b.date())
+        elif op == "in_segment_list" or op == "not_in_segment_list":
+            in_list = self.__check_id_in_list(value, target)
+            return _ConfigEvaluation(False, in_list if op == "in_segment_list" else not in_list)
 
         return _ConfigEvaluation(True)
 
