@@ -5,7 +5,7 @@ import typing
 class StatsigOptions:
     """An object of properties for initializing the sdk with additional parameters"""
 
-    def __init__(self, api: str = "https://api.statsig.com/v1/", tier: 'typing.Any' = None, timeout: int = None, rulesets_sync_interval: int = None, idlists_sync_interval: int = None):
+    def __init__(self, api: str = "https://api.statsig.com/v1/", tier: 'typing.Any' = None, timeout: int = None, rulesets_sync_interval: int = 10, idlists_sync_interval: int = 60):
         self._environment = None
         if tier is not None:
             if isinstance(tier, str) or isinstance(tier, StatsigEnvironmentTier):

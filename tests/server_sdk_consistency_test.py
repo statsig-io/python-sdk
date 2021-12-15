@@ -13,7 +13,7 @@ if "test_api_key" in os.environ:
     SDK_KEY = os.environ["test_api_key"]
 else:
     try:
-        f = io.open("../ops/secrets/prod_keys/statsig-rulesets-eval-consistency-test-secret.key",
+        f = io.open("../../ops/secrets/prod_keys/statsig-rulesets-eval-consistency-test-secret.key",
                     mode="r", encoding="utf-8")
 
     except OSError:

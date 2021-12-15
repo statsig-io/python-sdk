@@ -9,8 +9,7 @@ from statsig.statsig_options import StatsigOptions
 from statsig.statsig_environment_tier import StatsigEnvironmentTier
 
 
-class TestStatsigE2E(unittest.TestCase):
-
+class TestBackgroundSync(unittest.TestCase):
     def test_sync_cycle(self):
         server = MockServer(port=5677)
         server.start()
@@ -30,21 +29,29 @@ class TestStatsigE2E(unittest.TestCase):
         }
 
         def config_callbackFunc():
-            self.config_sync_count = self.config_sync_count+1
+            self.config_sync_count = self.config_sync_count + 1
             return jsonify(config_response)
 
         server.add_callback_response(
-            "/download_config_specs", config_callbackFunc,)
+            "/download_config_specs",
+            config_callbackFunc,
+        )
 
         def idlist_callbackFunc():
-            self.idlist_sync_count = self.idlist_sync_count+1
+            self.idlist_sync_count = self.idlist_sync_count + 1
             return jsonify({"add_ids": ["1", "2"], "remove_ids": [], "time": 1})
 
         server.add_callback_response(
-            "/download_id_list", idlist_callbackFunc,)
+            "/download_id_list",
+            idlist_callbackFunc,
+        )
 
         options = StatsigOptions(
-            api=server.url, tier=StatsigEnvironmentTier.development, rulesets_sync_interval=1, idlists_sync_interval=1)
+            api=server.url,
+            tier=StatsigEnvironmentTier.development,
+            rulesets_sync_interval=1,
+            idlists_sync_interval=1,
+        )
         statsig.initialize("secret-key", options)
 
         self.assertEqual(self.config_sync_count, 1)
@@ -81,21 +88,29 @@ class TestStatsigE2E(unittest.TestCase):
         }
 
         def config_callbackFunc():
-            self.config_sync_count = self.config_sync_count+1
+            self.config_sync_count = self.config_sync_count + 1
             return jsonify(config_response)
 
         server.add_callback_response(
-            "/download_config_specs", config_callbackFunc,)
+            "/download_config_specs",
+            config_callbackFunc,
+        )
 
         def idlist_callbackFunc():
-            self.idlist_sync_count = self.idlist_sync_count+1
+            self.idlist_sync_count = self.idlist_sync_count + 1
             return jsonify({"add_ids": ["1", "2"], "remove_ids": [], "time": 1})
 
         server.add_callback_response(
-            "/download_id_list", idlist_callbackFunc,)
+            "/download_id_list",
+            idlist_callbackFunc,
+        )
 
         options = StatsigOptions(
-            api=server.url, tier=StatsigEnvironmentTier.development, rulesets_sync_interval=1, idlists_sync_interval=1)
+            api=server.url,
+            tier=StatsigEnvironmentTier.development,
+            rulesets_sync_interval=1,
+            idlists_sync_interval=1,
+        )
         client = statsig_server.StatsigServer()
         client.initialize("secret-key", options)
 
