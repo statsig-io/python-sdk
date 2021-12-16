@@ -1,8 +1,5 @@
 import unittest
-from statsig.statsig_event import StatsigEvent
-from statsig.statsig_user import StatsigUser
-from statsig.statsig_options import StatsigOptions
-from statsig.statsig_server import StatsigServer
+from statsig import StatsigEvent, StatsigUser, StatsigOptions, StatsigServer
 
 class TestBadInput(unittest.TestCase):
     

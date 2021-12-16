@@ -1,13 +1,9 @@
 from threading import local
 import unittest
 
-from statsig.statsig_server import StatsigServer
-from statsig.statsig_user import StatsigUser
-from statsig.statsig_options import StatsigOptions
-from statsig.statsig_event import StatsigEvent
-from statsig.statsig_environment_tier import StatsigEnvironmentTier
+from statsig import StatsigServer, StatsigUser, StatsigOptions
 
-class TestDynamicConfig(unittest.TestCase):
+class TestLocalMocks(unittest.TestCase):
 
     def test_local_mode_defaults(self):
         options = StatsigOptions(local_mode=True)

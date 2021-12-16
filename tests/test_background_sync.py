@@ -4,9 +4,7 @@ import unittest
 from flask.json import jsonify
 from .mockserver import MockServer
 
-from statsig import statsig, statsig_server
-from statsig.statsig_options import StatsigOptions
-from statsig.statsig_environment_tier import StatsigEnvironmentTier
+from statsig import statsig, StatsigServer, StatsigOptions, StatsigEnvironmentTier
 
 
 class TestBackgroundSync(unittest.TestCase):
@@ -111,7 +109,7 @@ class TestBackgroundSync(unittest.TestCase):
             rulesets_sync_interval=1,
             idlists_sync_interval=1,
         )
-        client = statsig_server.StatsigServer()
+        client = StatsigServer()
         client.initialize("secret-key", options)
 
         self.assertEqual(self.config_sync_count, 1)

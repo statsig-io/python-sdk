@@ -1,6 +1,6 @@
 import unittest
 
-from statsig.dynamic_config import DynamicConfig
+from statsig import DynamicConfig
 
 class TestDynamicConfig(unittest.TestCase):
 
