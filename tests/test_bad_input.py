@@ -4,7 +4,7 @@ from statsig.statsig_user import StatsigUser
 from statsig.statsig_options import StatsigOptions
 from statsig.statsig_server import StatsigServer
 
-class ServerSDKConsistencyTest(unittest.TestCase):
+class TestBadInput(unittest.TestCase):
     
     def test_bad_key(self):
         with self.assertRaises(ValueError) as context:

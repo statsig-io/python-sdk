@@ -5,11 +5,12 @@ _CONFIG_EXPOSURE_EVENT = "statsig::config_exposure"
 _GATE_EXPOSURE_EVENT = "statsig::gate_exposure"
 
 class _StatsigLogger:
-    def __init__(self, net, shutdown_event, statsig_metadata):
+    def __init__(self, net, shutdown_event, statsig_metadata, local_mode):
         self.__events = list()
         self.__retry_logs = queue.Queue(maxsize=10)
         self.__net = net
         self.__statsig_metadata = statsig_metadata
+        self.__local_mode = local_mode
 
         self.__background_flush = threading.Thread(target=self._periodic_flush, args=(shutdown_event,))
         self.__background_flush.daemon = True
@@ -20,6 +21,8 @@ class _StatsigLogger:
         self.__background_retry.start()
 
     def log(self, event):
+        if self.__local_mode:
+            return
         self.__events.append(event.to_dict())
         if len(self.__events) >= 500:
             self.__flush()

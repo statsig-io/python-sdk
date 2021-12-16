@@ -7,14 +7,19 @@ class _StatsigNetwork:
 
     __RETRY_CODES = [408, 500, 502, 503, 504, 522, 524, 599]
 
-    def __init__(self, sdkKey, api, timeout=None):
+    def __init__(self, sdkKey, options):
         self.__sdk_key = sdkKey
-        if not api.endswith("/"):
-            api = api + "/"
+        api = options.api
+        if not options.api.endswith("/"):
+            api = options.api + "/"
         self.__api = api
-        self.__timeout = timeout or REQUEST_TIMEOUT
+        self.__timeout = options.timeout or REQUEST_TIMEOUT
+        self.__local_mode = options.local_mode
     
     def post_request(self, endpoint, payload):
+        if self.__local_mode:
+            return None
+
         headers = {
             'Content-type': 'application/json',
             'STATSIG-API-KEY': self.__sdk_key,
@@ -32,7 +37,11 @@ class _StatsigNetwork:
             return None
             
     def retryable_request(self, endpoint, payload):
+        if self.__local_mode:
+            return None
+
         headers = {
+            'Content-type': 'application/json',
             'STATSIG-API-KEY': self.__sdk_key,
             'STATSIG-CLIENT-TIME': str(round(time.time() * 1000)),
         }

@@ -25,25 +25,25 @@ class StatsigServer:
             "sdkVersion": __version__,
             "sdkType": "py-server"
         }
-        self._network = _StatsigNetwork(
-            sdkKey, options.api, timeout=options.timeout)
-        self._logger = _StatsigLogger(
-            self._network, self.__shutdown_event, self.__statsig_metadata)
+        self._network = _StatsigNetwork(sdkKey, options)
+        self._logger = _StatsigLogger(self._network, self.__shutdown_event, self.__statsig_metadata, options.local_mode)
         self._evaluator = _Evaluator()
-
+        
         self._last_update_time = 0
+        
+        if not options.local_mode:
+            self._download_config_specs()
+            self.__background_download_configs = threading.Thread(
+                target=self._sync, args=(self._download_config_specs, options.rulesets_sync_interval or RULESETS_SYNC_INTERVAL,))
+            self.__background_download_configs.daemon = True
+            self.__background_download_configs.start()
 
-        self._download_config_specs()
-        self.__background_download_configs = threading.Thread(
-            target=self._sync, args=(self._download_config_specs, options.rulesets_sync_interval or RULESETS_SYNC_INTERVAL,))
-        self.__background_download_configs.daemon = True
-        self.__background_download_configs.start()
-
-        self._download_id_lists()
-        self.__background_download_idlists = threading.Thread(
-            target=self._sync, args=(self._download_id_lists, options.idlists_sync_interval or IDLISTS_SYNC_INTERVAL,))
-        self.__background_download_idlists.daemon = True
-        self.__background_download_idlists.start()
+        if not options.local_mode:
+            self._download_id_lists()
+            self.__background_download_idlists = threading.Thread(
+                target=self._sync, args=(self._download_id_lists, options.idlists_sync_interval or IDLISTS_SYNC_INTERVAL,))
+            self.__background_download_idlists.daemon = True
+            self.__background_download_idlists.start()
 
         self._initialized = True
 
@@ -116,6 +116,15 @@ class StatsigServer:
         self._logger.shutdown()
         self.__background_download_configs.join()
         self.__background_download_idlists.join()
+
+    def override_gate(self, gate:str, value:bool, user_id:str = None):
+        self._evaluator.override_gate(gate, value, user_id)
+    
+    def override_config(self, config:str, value:object, user_id:str = None):
+        self._evaluator.override_config(config, value, user_id)
+
+    def override_experiment(self, experiment:str, value:object, user_id:str = None):
+        self._evaluator.override_config(experiment, value, user_id)
 
     def __normalize_user(self, user):
         if self._options is not None and self._options._environment is not None:
