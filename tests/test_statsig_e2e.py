@@ -84,6 +84,38 @@ class TestStatsigE2E(unittest.TestCase):
             price="9.99", item_name="diet_coke_48_pack"))
         statsig.log_event(event)
         self.assertEqual(len([]), 0)
+    
+    def test_e_evaluate_all(self):
+        self.assertEqual(statsig.evaluate_all(self.statsig_user),
+            {
+                "feature_gates":{
+                    "always_on_gate":{
+                        "value": True,
+                        "rule_id":"6N6Z8ODekNYZ7F8gFdoLP5"
+                    },
+                    "on_for_statsig_email":{
+                        "value": True,
+                        "rule_id":"7w9rbTSffLT89pxqpyhuqK"
+                    }
+                },
+                "dynamic_configs":{
+                    "test_config":{
+                        "value":{
+                            "boolean": False,
+                            "number":7,
+                            "string":"statsig"
+                        },
+                        "rule_id":"1kNmlB23wylPFZi1M0Divl"
+                    },
+                    "sample_experiment":{
+                        "value":{
+                            "experiment_param":"test"
+                        },
+                        "rule_id":"2RamGujUou6h2bVNQWhtNZ"
+                    }
+                }
+                }
+        )
 
     # test_z ensures this runs last
     def test_z_logs(self):

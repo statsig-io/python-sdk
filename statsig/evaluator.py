@@ -136,6 +136,12 @@ class _Evaluator:
             sha256(str(id).encode('utf-8')).digest()).decode('utf-8')[0:8]
         return ids.get(hashed) == True
 
+    def get_all_gates(self):
+        return self._gates
+    
+    def get_all_configs(self):
+        return self._configs
+
     def __evaluate(self, user, config):
         exposures = []
         enabled = config.get("enabled", False)
