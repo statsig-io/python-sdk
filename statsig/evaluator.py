@@ -442,7 +442,7 @@ class _Evaluator:
             return None
         parsed = user_agent_parser.Parse(ua)
         field = field.lower()
-        if field == "os" or field == "os_name":
+        if field == "osname" or field == "os_name":
             return parsed.get("os", {"family": None}).get("family")
         elif field == "os_version" or field == "osversion":
             return self.__get_version_string(parsed.get("os"))
