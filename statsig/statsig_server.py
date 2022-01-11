@@ -85,8 +85,9 @@ class StatsigServer:
     def shutdown(self):
         self.__shutdown_event.set()
         self._logger.shutdown()
-        self.__background_download_configs.join()
-        self.__background_download_idlists.join()
+        if not options.local_mode:
+            self.__background_download_configs.join()
+            self.__background_download_idlists.join()
 
     def override_gate(self, gate:str, value:bool, user_id:str = None):
         self._evaluator.override_gate(gate, value, user_id)
