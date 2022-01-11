@@ -64,6 +64,21 @@ class TestLocalMocks(unittest.TestCase):
             server.check_gate(user_two, "any_gate"),
             True
         )
+
+        ## Global overrides respect user level overrides first
+        server.override_gate("any_gate", True)
+        self.assertEqual(
+            server.check_gate(user_one, "any_gate"),
+            False
+        )
+        self.assertEqual(
+            server.check_gate(user_two, "any_gate"),
+            True
+        )
+        self.assertEqual(
+            server.check_gate(StatsigUser("4123980"), "any_gate"),
+            True
+        )
     
     def test_override_all(self):
         options = StatsigOptions(local_mode=True)
@@ -143,11 +158,28 @@ class TestLocalMocks(unittest.TestCase):
         server.override_experiment("config", new_override, "456")
 
         self.assertEqual(
-            server.get_experiment(user_one, "config").get_value(),
+            server.get_config(user_one, "config").get_value(),
             {}
         )
 
         self.assertEqual(
-            server.get_experiment(user_two, "config").get_value(),
+            server.get_config(user_two, "config").get_value(),
             new_override
+        )
+
+        ## Global overrides respect user level overrides first
+        new_override_2 = {"123": "ttt"}
+        server.override_config("config", new_override_2)
+
+        self.assertEqual(
+            server.get_config(user_one, "config").get_value(),
+            {}
+        )
+        self.assertEqual(
+            server.get_config(user_two, "config").get_value(),
+            new_override
+        )
+        self.assertEqual(
+            server.get_config(StatsigUser("anyuser"), "config").get_value(),
+            new_override_2
         )

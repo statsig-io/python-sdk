@@ -86,27 +86,30 @@ class _Evaluator:
         gate_overrides = self._gate_overrides.get(gate)
         if gate_overrides is None:
             return None
-        all_override = gate_overrides.get(None)
-        if all_override:
-            return _ConfigEvaluation(boolean_value=all_override, rule_id="override")
             
         override = gate_overrides.get(user.user_id)
-        if override is None:
-            return None
-        return  _ConfigEvaluation(boolean_value=override, rule_id="override")
+        if override is not None:
+            return  _ConfigEvaluation(boolean_value=override, rule_id="override")
+
+        all_override = gate_overrides.get(None)
+        if all_override is not None:
+            return _ConfigEvaluation(boolean_value=all_override, rule_id="override")
+
+        return None
     
     def __lookup_config_override(self, user, config):
         config_overrides = self._config_overrides.get(config)
         if config_overrides is None:
             return None
-        all_override = config_overrides.get(None)
-        if all_override:
-            return _ConfigEvaluation(json_value=all_override, rule_id="override")
             
         override = config_overrides.get(user.user_id)
-        if override is None:
-            return None
-        return  _ConfigEvaluation(json_value=override, rule_id="override")
+        if override is not None:
+            return _ConfigEvaluation(json_value=override, rule_id="override")
+        
+        all_override = config_overrides.get(None)
+        if all_override is not None:
+            return _ConfigEvaluation(json_value=all_override, rule_id="override")
+        return None
 
     def check_gate(self, user, gate):
         override = self.__lookup_gate_override(user, gate)
