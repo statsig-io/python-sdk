@@ -85,7 +85,7 @@ class StatsigServer:
     def shutdown(self):
         self.__shutdown_event.set()
         self._logger.shutdown()
-        if not options.local_mode:
+        if not self._options.local_mode:
             self.__background_download_configs.join()
             self.__background_download_idlists.join()
 
