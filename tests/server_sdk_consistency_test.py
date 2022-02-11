@@ -48,20 +48,22 @@ class ServerSDKConsistencyTest(unittest.TestCase):
         for entry in self.data:
             for val in self.data[entry]:
                 user = val["user"]
-                statsig_user = StatsigUser(user["userID"])
-                statsig_user.app_version = user["appVersion"]
-                statsig_user.user_agent = user["userAgent"]
-                statsig_user.ip = user["ip"]
+                statsig_user = StatsigUser(user.get("userID"))
+                statsig_user.app_version = user.get("appVersion")
+                statsig_user.user_agent = user.get("userAgent")
+                statsig_user.ip = user.get("ip")
                 if "email" in user:
-                    statsig_user.email = user["email"]
+                    statsig_user.email = user.get("email")
                 if "statsigEnvironment" in user:
-                    statsig_user._statsig_environment = user["statsigEnvironment"]
+                    statsig_user._statsig_environment = user.get(
+                        "statsigEnvironment")
                 if "custom" in user:
-                    statsig_user.custom = user["custom"]
+                    statsig_user.custom = user.get("custom")
                 if "privateAttributes" in user:
-                    statsig_user.private_attributes = user["privateAttributes"]
+                    statsig_user.private_attributes = user.get(
+                        "privateAttributes")
                 if "customIDs" in user:
-                    statsig_user.custom_ids = user["customIDs"]
+                    statsig_user.custom_ids = user.get("customIDs")
                 gates = val["feature_gates_v2"]
                 for name in gates:
                     eval_result = self.sdk._evaluator.check_gate(
