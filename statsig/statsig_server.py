@@ -191,7 +191,8 @@ class StatsigServer:
         for id in res.get("add_ids", []):
             ids[id] = True
         for id in res.get("remove_ids", []):
-            del ids[id]
+            if id in ids:
+                del ids[id]
         new_time = res.get("time", 0)
         if new_time > list.get("time", 0):
             list["time"] = new_time

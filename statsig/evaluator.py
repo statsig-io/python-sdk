@@ -58,7 +58,7 @@ class _Evaluator:
         if id_lists is not None:
             # Delete old id lists that no longer exists
             for list_name in self._id_lists.keys():
-                if id_lists.get(list_name) is None:
+                if id_lists.get(list_name) is None and list_name in self._id_lists:
                     del self._id_lists[list_name]
             # Add new id lists
             for list_name in id_lists.keys():
