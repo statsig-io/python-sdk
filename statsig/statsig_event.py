@@ -3,6 +3,7 @@ import typing
 
 from statsig.statsig_user import StatsigUser
 
+
 @dataclass
 class StatsigEvent:
     """An event to log to Statsig for analysis and experimentation

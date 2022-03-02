@@ -9,13 +9,13 @@ class DynamicConfig:
         if rule is None:
             rule = ""
         self.rule_id = rule
-    
+
     def get(self, key, default=None):
         """Returns the value of the config at the given key
         or the provided default if the key is not found
         """
         return self.value.get(key, default)
-    
+
     def get_typed(self, key, default=None):
         """Returns the value of the config at the given key
         iff the type matches the type of the provided default.
@@ -31,8 +31,7 @@ class DynamicConfig:
     def get_value(self):
         """Returns the underlying value of this DynamicConfig"""
         return self.value
-    
+
     def get_name(self):
         """Returns the name of this DynamicConfig"""
         return self.name
-    
