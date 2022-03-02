@@ -26,11 +26,12 @@ class StatsigServer:
             "sdkType": "py-server"
         }
         self._network = _StatsigNetwork(sdkKey, options)
-        self._logger = _StatsigLogger(self._network, self.__shutdown_event, self.__statsig_metadata, options.local_mode)
+        self._logger = _StatsigLogger(
+            self._network, self.__shutdown_event, self.__statsig_metadata, options.local_mode)
         self._evaluator = _Evaluator()
-        
+
         self._last_update_time = 0
-        
+
         if not options.local_mode:
             self._download_config_specs()
             self.__background_download_configs = threading.Thread(
@@ -47,7 +48,7 @@ class StatsigServer:
 
         self._initialized = True
 
-    def check_gate(self, user:object, gate_name:str):
+    def check_gate(self, user: object, gate_name: str):
         if not self._initialized:
             raise RuntimeError(
                 'Must call initialize before checking gates/configs/experiments or logging events')
@@ -59,7 +60,7 @@ class StatsigServer:
         result = self.__check_gate_server_fallback(user, gate_name)
         return result.boolean_value
 
-    def get_config(self, user:object, config_name:str):
+    def get_config(self, user: object, config_name: str):
         if not self._initialized:
             raise RuntimeError(
                 'Must call initialize before checking gates/configs/experiments or logging events')
@@ -71,10 +72,10 @@ class StatsigServer:
         result = self.__get_config_server_fallback(user, config_name)
         return DynamicConfig(result.json_value, config_name, result.rule_id)
 
-    def get_experiment(self, user:object, experiment_name:str):
+    def get_experiment(self, user: object, experiment_name: str):
         return self.get_config(user, experiment_name)
 
-    def log_event(self, event:object):
+    def log_event(self, event: object):
         if not self._initialized:
             raise RuntimeError(
                 'Must call initialize before checking gates/configs/experiments or logging events')
@@ -89,16 +90,16 @@ class StatsigServer:
             self.__background_download_configs.join()
             self.__background_download_idlists.join()
 
-    def override_gate(self, gate:str, value:bool, user_id:str = None):
+    def override_gate(self, gate: str, value: bool, user_id: str = None):
         self._evaluator.override_gate(gate, value, user_id)
-    
-    def override_config(self, config:str, value:object, user_id:str = None):
+
+    def override_config(self, config: str, value: object, user_id: str = None):
         self._evaluator.override_config(config, value, user_id)
 
-    def override_experiment(self, experiment:str, value:object, user_id:str = None):
+    def override_experiment(self, experiment: str, value: object, user_id: str = None):
         self._evaluator.override_config(experiment, value, user_id)
 
-    def evaluate_all(self, user:object):
+    def evaluate_all(self, user: object):
         all_gates = dict()
         for gate in self._evaluator.get_all_gates():
             result = self.__check_gate_server_fallback(user, gate, False)
@@ -106,7 +107,7 @@ class StatsigServer:
                 "value": result.boolean_value,
                 "rule_id": result.rule_id
             }
-        
+
         all_configs = dict()
         for config in self._evaluator.get_all_configs():
             result = self.__get_config_server_fallback(user, config, False)
@@ -119,7 +120,7 @@ class StatsigServer:
             "dynamic_configs": all_configs
         })
 
-    def __check_gate_server_fallback(self, user:object, gate_name:str, log_exposure=True):
+    def __check_gate_server_fallback(self, user: object, gate_name: str, log_exposure=True):
         user = self.__normalize_user(user)
         result = self._evaluator.check_gate(user, gate_name)
         if result.fetch_from_server:
@@ -135,8 +136,8 @@ class StatsigServer:
             self._logger.log_gate_exposure(
                 user, gate_name, result.boolean_value, result.rule_id, result.secondary_exposures)
         return result
-    
-    def __get_config_server_fallback(self, user:object, config_name:str, log_exposure=True):
+
+    def __get_config_server_fallback(self, user: object, config_name: str, log_exposure=True):
         user = self.__normalize_user(user)
 
         result = self._evaluator.get_config(user, config_name)

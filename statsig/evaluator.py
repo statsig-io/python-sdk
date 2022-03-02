@@ -68,44 +68,44 @@ class _Evaluator:
     def getIDLists(self):
         return self._id_lists
 
-    def override_gate(self, gate, value, user_id = None):
+    def override_gate(self, gate, value, user_id=None):
         gate_overrides = self._gate_overrides.get(gate)
         if gate_overrides is None:
             gate_overrides = dict()
         gate_overrides[user_id] = value
         self._gate_overrides[gate] = gate_overrides
-    
-    def override_config(self, config, value, user_id = None):
+
+    def override_config(self, config, value, user_id=None):
         config_overrides = self._config_overrides.get(config)
         if config_overrides is None:
             config_overrides = dict()
         config_overrides[user_id] = value
         self._config_overrides[config] = config_overrides
-    
+
     def __lookup_gate_override(self, user, gate):
         gate_overrides = self._gate_overrides.get(gate)
         if gate_overrides is None:
             return None
-            
+
         override = gate_overrides.get(user.user_id)
         if override is not None:
-            return  _ConfigEvaluation(boolean_value=override, rule_id="override")
+            return _ConfigEvaluation(boolean_value=override, rule_id="override")
 
         all_override = gate_overrides.get(None)
         if all_override is not None:
             return _ConfigEvaluation(boolean_value=all_override, rule_id="override")
 
         return None
-    
+
     def __lookup_config_override(self, user, config):
         config_overrides = self._config_overrides.get(config)
         if config_overrides is None:
             return None
-            
+
         override = config_overrides.get(user.user_id)
         if override is not None:
             return _ConfigEvaluation(json_value=override, rule_id="override")
-        
+
         all_override = config_overrides.get(None)
         if all_override is not None:
             return _ConfigEvaluation(json_value=all_override, rule_id="override")
@@ -141,7 +141,7 @@ class _Evaluator:
 
     def get_all_gates(self):
         return self._gates
-    
+
     def get_all_configs(self):
         return self._configs
 

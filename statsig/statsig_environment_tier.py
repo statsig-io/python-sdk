@@ -1,5 +1,6 @@
 from enum import Enum
 
+
 class StatsigEnvironmentTier(Enum):
     """
     The environment tier the SDK is running in.

@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+
 @dataclass
 class StatsigUser:
     """An object of properties relating to the current user
@@ -22,9 +23,10 @@ class StatsigUser:
 
     def __post_init__(self):
         if self.user_id is None or self.user_id == "":
-            raise ValueError('user_id is required: learn more https://docs.statsig.com/messages/serverRequiredUserID')
+            raise ValueError(
+                'user_id is required: learn more https://docs.statsig.com/messages/serverRequiredUserID')
 
-    def to_dict(self, forEvaluation = False):
+    def to_dict(self, forEvaluation=False):
         user_nullable = {
             'userID': self.user_id,
             'email': self.email,
@@ -40,6 +42,5 @@ class StatsigUser:
 
         if forEvaluation and self.private_attributes is not None:
             user_nullable["privateAttributes"] = self.private_attributes
-        
+
         return {k: v for k, v in user_nullable.items() if v is not None}
-    

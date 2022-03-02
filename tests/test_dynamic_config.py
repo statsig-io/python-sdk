@@ -2,6 +2,7 @@ import unittest
 
 from statsig import DynamicConfig
 
+
 class TestDynamicConfig(unittest.TestCase):
 
     def test_getters(self):
@@ -30,16 +31,16 @@ class TestDynamicConfig(unittest.TestCase):
         self.assertEqual(config.get("arr", ["test"]), [17])
         self.assertEqual(config.get("nonexistent", 42), 42)
         self.assertEqual(config.get("nonexistent", "hi"), "hi")
-        
+
         self.assertEqual(config.get_typed("str", 17), 17)
         self.assertEqual(config.get_typed("num", "default"), "default")
         self.assertEqual(config.get_typed("bool", ["test"]), ["test"])
         self.assertEqual(config.get_typed("arr", 33), 33)
         self.assertEqual(config.get_typed("nonexistent", "hello"), "hello")
 
-        ## List types do not differentiate the type of the values in the list
+        # List types do not differentiate the type of the values in the list
         self.assertEqual(config.get_typed("arr", ["str_arr"]), [17])
-        
+
 
 if __name__ == '__main__':
     unittest.main()

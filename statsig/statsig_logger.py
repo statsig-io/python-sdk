@@ -1,8 +1,10 @@
-import threading, queue
+import threading
+import queue
 from .statsig_event import StatsigEvent
 
 _CONFIG_EXPOSURE_EVENT = "statsig::config_exposure"
 _GATE_EXPOSURE_EVENT = "statsig::gate_exposure"
+
 
 class _StatsigLogger:
     def __init__(self, net, shutdown_event, statsig_metadata, local_mode):
@@ -12,11 +14,13 @@ class _StatsigLogger:
         self.__statsig_metadata = statsig_metadata
         self.__local_mode = local_mode
 
-        self.__background_flush = threading.Thread(target=self._periodic_flush, args=(shutdown_event,))
+        self.__background_flush = threading.Thread(
+            target=self._periodic_flush, args=(shutdown_event,))
         self.__background_flush.daemon = True
         self.__background_flush.start()
 
-        self.__background_retry = threading.Thread(target=self._periodic_retry, args=(shutdown_event,))
+        self.__background_retry = threading.Thread(
+            target=self._periodic_retry, args=(shutdown_event,))
         self.__background_retry.daemon = True
         self.__background_retry.start()
 
@@ -26,7 +30,7 @@ class _StatsigLogger:
         self.__events.append(event.to_dict())
         if len(self.__events) >= 500:
             self.__flush()
-    
+
     def log_gate_exposure(self, user, gate, value, rule_id, secondary_exposures):
         event = StatsigEvent(user, _GATE_EXPOSURE_EVENT)
         event.metadata = {
@@ -71,7 +75,7 @@ class _StatsigLogger:
             if shutdown_event.wait(60):
                 break
             self.__flush()
-    
+
     def _periodic_retry(self, shutdown_event):
         while True:
             if shutdown_event.wait(60):
@@ -82,4 +86,3 @@ class _StatsigLogger:
                 if res is not None:
                     self.__retry_logs.put(res)
                 self.__retry_logs.task_done()
-    
