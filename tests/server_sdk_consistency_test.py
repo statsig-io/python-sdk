@@ -6,32 +6,36 @@ import os
 import io
 import sys
 import time
-if "test_api_key" in os.environ:
-    SDK_KEY = os.environ["test_api_key"]
-else:
-    try:
-        f = io.open("../ops/secrets/prod_keys/statsig-rulesets-eval-consistency-test-secret.key",
-                    mode="r", encoding="utf-8")
 
-    except OSError:
-        print("THIS TEST IS EXPECTED TO FAIL FOR NON-STATSIG EMPLOYEES! If this is the only test failing, please proceed to submit a pull request. If you are a Statsig employee, chat with jkw.")
-        sys.exit()
-
-    SDK_KEY = f.read()
-    f.close()
 
 TEST_URLS = [
     "https://api.statsig.com/v1",
     "https://latest.api.statsig.com/v1",
 ]
 
-
 class ServerSDKConsistencyTest(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        if "test_api_key" in os.environ:
+            cls.SDK_KEY = os.environ["test_api_key"]
+        else:
+            try:
+                f = io.open("../ops/secrets/prod_keys/statsig-rulesets-eval-consistency-test-secret.key",
+                            mode="r", encoding="utf-8")
+                cls.SDK_KEY = f.read()
+                f.close()
+            except OSError:
+                print("THIS TEST IS EXPECTED TO FAIL FOR NON-STATSIG EMPLOYEES! If this is the only test failing, please proceed to submit a pull request. If you are a Statsig employee, chat with jkw.")
+                raise OSError("Failed to read sdk key")
+
+            cls.SDK_KEY = ""
+
 
     def test_all_regions(self):
         for api in TEST_URLS:
             headers = {
-                'STATSIG-API-KEY': SDK_KEY,
+                'STATSIG-API-KEY': self.SDK_KEY,
                 'STATSIG-CLIENT-TIME': str(round(time.time() * 1000)),
             }
             response = requests.post(
@@ -40,7 +44,7 @@ class ServerSDKConsistencyTest(unittest.TestCase):
             options = StatsigOptions(api=api)
             self.sdk = StatsigServer()
             print(api)
-            self.sdk.initialize(SDK_KEY, options)
+            self.sdk.initialize(self.SDK_KEY, options)
             self._test_consistency()
             self.sdk.shutdown()
 
