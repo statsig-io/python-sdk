@@ -13,6 +13,7 @@ TEST_URLS = [
     "https://latest.api.statsig.com/v1",
 ]
 
+
 class ServerSDKConsistencyTest(unittest.TestCase):
 
     @classmethod
@@ -31,14 +32,12 @@ class ServerSDKConsistencyTest(unittest.TestCase):
 
             cls.SDK_KEY = ""
 
-
     def test_all_regions(self):
         for api in TEST_URLS:
             headers = {
                 'STATSIG-API-KEY': self.SDK_KEY,
                 'STATSIG-CLIENT-TIME': str(round(time.time() * 1000)),
             }
-            print(headers)
             response = requests.post(
                 api + "/rulesets_e2e_test", headers=headers)
             self.data = response.json()
