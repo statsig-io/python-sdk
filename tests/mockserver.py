@@ -6,7 +6,6 @@ from threading import Thread
 
 # From https://gist.github.com/eruvanos/f6f62edb368a20aaa880e12976620db8
 
-
 class MockServer(Thread):
     def __init__(self, port=5000):
         super().__init__()

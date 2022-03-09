@@ -1,3 +1,5 @@
+import asyncio
+import json
 import threading
 from .evaluator import _ConfigEvaluation, _Evaluator
 from .statsig_network import _StatsigNetwork
@@ -32,7 +34,10 @@ class StatsigServer:
         self._last_update_time = 0
 
         if not options.local_mode:
-            self._download_config_specs()
+            if options.bootstrap_values is not None:
+                self._bootstrap_config_specs()
+            else:
+                self._download_config_specs()
             self.__background_download_configs = threading.Thread(
                 target=self._sync, args=(self._download_config_specs, options.rulesets_sync_interval or RULESETS_SYNC_INTERVAL,))
             self.__background_download_configs.daemon = True
@@ -166,11 +171,17 @@ class StatsigServer:
                 break
             sync_func()
 
-    def _download_config_specs(self):
-        specs = self._network.post_request("download_config_specs", {
-            "statsigMetadata": self.__statsig_metadata,
-            "sinceTime": self._last_update_time,
-        })
+    def _bootstrap_config_specs(self,):
+        if self._options.bootstrap_values is None:
+            return
+        try:
+            specs = json.loads(self._options.bootstrap_values)
+            self.__save_json_config_specs(specs)
+        except ValueError:
+            # JSON deconding failed, just let background thread update rulesets
+            return
+
+    def __save_json_config_specs(self, specs, notify=False):
         if specs is None:
             return
         time = specs.get("time")
@@ -178,6 +189,15 @@ class StatsigServer:
             self._last_update_time = time
         if specs.get("has_updates", False):
             self._evaluator.setDownloadedConfigs(specs)
+            if callable(self._options.rules_updated_callback):
+                self._options.rules_updated_callback(json.dumps(specs))
+
+    def _download_config_specs(self):
+        specs = self._network.post_request("download_config_specs", {
+            "statsigMetadata": self.__statsig_metadata,
+            "sinceTime": self._last_update_time,
+        })
+        self.__save_json_config_specs(specs, True)
 
     def _download_id_list(self, url, list_name, all_lists, start_index):
         resp = self._network.get_request(

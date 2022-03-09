@@ -5,7 +5,17 @@ import typing
 class StatsigOptions:
     """An object of properties for initializing the sdk with additional parameters"""
 
-    def __init__(self, api: str = "https://api.statsig.com/v1/", tier: 'typing.Any' = None, timeout: int = None, rulesets_sync_interval: int = 10, idlists_sync_interval: int = 60, local_mode: bool = False):
+    def __init__(
+        self,
+        api: str = "https://api.statsig.com/v1/",
+        tier: 'typing.Any' = None,
+        timeout: int = None,
+        rulesets_sync_interval: int = 10,
+        idlists_sync_interval: int = 60,
+        local_mode: bool=False,
+        bootstrap_values: str = None,
+        rules_updated_callback: typing.Callable = None,
+    ):
         self._environment = None
         if tier is not None:
             if isinstance(tier, str) or isinstance(tier, StatsigEnvironmentTier):
@@ -22,7 +32,9 @@ class StatsigOptions:
         self.rulesets_sync_interval = rulesets_sync_interval
         self.idlists_sync_interval = idlists_sync_interval
         self.local_mode = local_mode
-
+        self.bootstrap_values = bootstrap_values
+        self.rules_updated_callback = rules_updated_callback
+    
     def set_environment_parameter(self, key: str, value: str):
         if self._environment is None:
             self._environment = {}
