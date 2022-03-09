@@ -43,12 +43,16 @@ class _StatsigLogger:
         event._secondary_exposures = secondary_exposures
         self.log(event)
 
-    def log_config_exposure(self, user, config, rule_id, secondary_exposures):
+    def log_config_exposure(self, user, config, rule_id, secondary_exposures, allocated_experiment=None):
         event = StatsigEvent(user, _CONFIG_EXPOSURE_EVENT)
         event.metadata = {
             "config": config,
             "ruleID": rule_id,
         }
+
+        if allocated_experiment is not None:
+            event.metadata['allocatedExperiment'] = allocated_experiment
+
         if secondary_exposures is None:
             secondary_exposures = []
         event._secondary_exposures = secondary_exposures

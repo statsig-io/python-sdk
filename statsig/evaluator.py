@@ -10,7 +10,7 @@ from ip3country import CountryLookup
 
 class _ConfigEvaluation:
 
-    def __init__(self, fetch_from_server=False, boolean_value=False, json_value={}, rule_id="", secondary_exposures=[]):
+    def __init__(self, fetch_from_server=False, boolean_value=False, json_value={}, rule_id="", secondary_exposures=[], allocated_experiment=None):
         if fetch_from_server is None:
             fetch_from_server = False
         self.fetch_from_server = fetch_from_server
@@ -26,6 +26,7 @@ class _ConfigEvaluation:
         if secondary_exposures is None:
             secondary_exposures = []
         self.secondary_exposures = secondary_exposures
+        self.allocated_experiment = allocated_experiment
 
 
 class _Evaluator:
@@ -33,6 +34,7 @@ class _Evaluator:
         self._configs = dict()
         self._gates = dict()
         self._id_lists = dict()
+        self._layers = dict()
         self._country_lookup = CountryLookup()
 
         self._gate_overrides = dict()
@@ -53,6 +55,7 @@ class _Evaluator:
 
         self._gates = new_gates
         self._configs = new_configs
+        self._layers = configs.get("layer_configs", dict())
 
         id_lists = configs.get("id_lists")
         if id_lists is not None:
@@ -130,6 +133,18 @@ class _Evaluator:
 
         return self.__evaluate(user, eval_config)
 
+    def get_layer(self, user, layer):
+        eval_layer = self._layers.get(layer)
+        if eval_layer is None:
+            return _ConfigEvaluation()
+
+        for rule in eval_layer.get('allocation_rules', []):
+            result = self.__evaluate_rule(user, rule)
+            if result.fetch_from_server or result.boolean_value:
+                return result
+
+        return _ConfigEvaluation(json_value=eval_layer.get('default_values', {}), rule_id='layer_defaults')
+
     def __check_id_in_list(self, id, list_name):
         list = self._id_lists.get(list_name)
         if list is None:
@@ -179,6 +194,15 @@ class _Evaluator:
                 eval_result = False
         return_value = rule.get("return_value", {})
         rule_id = rule.get("id", "")
+
+        if eval_result:
+            config_delegate = rule.get('configDelegate', None)
+            config = self._configs.get(config_delegate)
+            if config:
+                delegated_result = self.__evaluate(user, config)
+                delegated_result.allocated_experiment = config_delegate
+                return delegated_result
+
         return _ConfigEvaluation(False, eval_result, return_value, rule_id, exposures)
 
     def __evaluate_condition(self, user, condition):
