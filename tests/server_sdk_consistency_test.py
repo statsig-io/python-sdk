@@ -34,6 +34,7 @@ class ServerSDKConsistencyTest(unittest.TestCase):
                 'STATSIG-API-KEY': SDK_KEY,
                 'STATSIG-CLIENT-TIME': str(round(time.time() * 1000)),
             }
+            print(headers)
             response = requests.post(
                 api + "/rulesets_e2e_test", headers=headers)
             self.data = response.json()

@@ -56,3 +56,16 @@ class _StatsigNetwork:
                 return None
         except Exception as e:
             return None
+
+    def get_request(self, url, headers):
+        if self.__local_mode:
+            return None
+        try:
+            response = requests.get(
+                url, headers=headers, timeout=self.__timeout)
+            if response.ok:
+                return response
+            else:
+                return None
+        except:
+            return None
