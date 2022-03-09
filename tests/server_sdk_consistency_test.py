@@ -13,6 +13,7 @@ TEST_URLS = [
     "https://latest.api.statsig.com/v1",
 ]
 
+
 class ServerSDKConsistencyTest(unittest.TestCase):
 
     @classmethod
@@ -30,7 +31,6 @@ class ServerSDKConsistencyTest(unittest.TestCase):
                 raise OSError("Failed to read sdk key")
 
             cls.SDK_KEY = ""
-
 
     def test_all_regions(self):
         for api in TEST_URLS:

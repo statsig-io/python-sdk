@@ -170,18 +170,18 @@ class StatsigServer:
             if self.__shutdown_event.wait(interval):
                 break
             sync_func()
-    
+
     def _bootstrap_config_specs(self,):
         if self._options.bootstrap_values is None:
             return
         try:
             specs = json.loads(self._options.bootstrap_values)
             self.__save_json_config_specs(specs)
-        except ValueError: 
-            ## JSON deconding failed, just let background thread update rulesets
+        except ValueError:
+            # JSON deconding failed, just let background thread update rulesets
             return
 
-    def __save_json_config_specs(self, specs, notify = False):
+    def __save_json_config_specs(self, specs, notify=False):
         if specs is None:
             return
         time = specs.get("time")
@@ -199,32 +199,88 @@ class StatsigServer:
         })
         self.__save_json_config_specs(specs, True)
 
-    def _download_id_list(self, list_name, list):
-        res = self._network.post_request("download_id_list", {
-            "listName": list_name,
-            "statsigMetadata": self.__statsig_metadata,
-            "sinceTime": list.get("time", 0),
-        })
-        if res is None:
+    def _download_id_list(self, url, list_name, all_lists, start_index):
+        resp = self._network.get_request(
+            url, headers={"Range": "bytes=%s-" % start_index})
+        if resp is None:
             return
-        ids = list.get("ids", dict())
-        for id in res.get("add_ids", []):
-            ids[id] = True
-        for id in res.get("remove_ids", []):
-            if id in ids:
-                del ids[id]
-        new_time = res.get("time", 0)
-        if new_time > list.get("time", 0):
-            list["time"] = new_time
+        try:
+            content_length = int(
+                resp.headers.get('content-length'))
+            content = resp.text
+            if content is None:
+                return
+            list = all_lists[list_name]
+            first_char = content[0]
+            if first_char != "+" and first_char != "-":
+                raise NameError("Seek range invalid.")
+            lines = content.splitlines()
+            for line in lines:
+                if len(line) <= 1:
+                    continue
+                op = line[0]
+                id = line[1:].strip()
+                if op == "+":
+                    list.get("ids", set()).add(id)
+                elif op == "-":
+                    list.get("ids", set()).discard(id)
+            list["readBytes"] = start_index + content_length
+        except Exception as e:
+            # something went wrong with the content, reset the list to start over time next
+            all_lists.pop(list_name, None)
 
     def _download_id_lists(self):
+        server_id_lists = self._network.post_request("get_id_lists", {
+            "statsigMetadata": self.__statsig_metadata,
+        })
+        if server_id_lists is None:
+            return
+
+        local_id_lists = self._evaluator.get_id_lists()
         thread_pool = []
-        id_lists = self._evaluator.getIDLists()
-        for list_name, list in id_lists.items():
+
+        for list_name in server_id_lists:
+            server_list = server_id_lists.get(list_name, dict())
+            url = server_list.get("url", None)
+            size = server_list.get("size", 0)
+            local_list = local_id_lists.get(list_name, dict())
+
+            new_creation_time = server_list.get("creationTime", 0)
+            old_creation_time = local_list.get("creationTime", 0)
+            new_file_id = server_list.get("fileID", None)
+            old_file_id = local_list.get("fileID", "")
+
+            if url is None or new_creation_time < old_creation_time or new_file_id is None:
+                continue
+
+            # should reset the list if a new file has been created
+            if new_file_id != old_file_id and new_creation_time >= old_creation_time:
+                local_list = {
+                    "ids": set(),
+                    "readBytes": 0,
+                    "url": url,
+                    "fileID": new_file_id,
+                    "creationTime": new_creation_time,
+                }
+                local_id_lists[list_name] = local_list
+            read_bytes = local_list.get("readBytes", 0)
+            # check if read bytes count is the same as total file size; only download additional ids if sizes don't match
+            if size <= read_bytes or url == "":
+                continue
             thread = threading.Thread(
-                target=self._download_id_list, args=(list_name, list, ))
+                target=self._download_id_list, args=(url, list_name, local_id_lists, read_bytes, ))
             thread.daemon = True
             thread_pool.append(thread)
             thread.start()
+
         for thread in thread_pool:
             thread.join()
+
+        deleted_lists = []
+        for list_name in local_id_lists:
+            if list_name not in server_id_lists:
+                deleted_lists.append(list_name)
+
+        # remove any list that has been deleted
+        for list_name in deleted_lists:
+            local_id_lists.pop(list_name, None)

@@ -54,18 +54,7 @@ class _Evaluator:
         self._gates = new_gates
         self._configs = new_configs
 
-        id_lists = configs.get("id_lists")
-        if id_lists is not None:
-            # Delete old id lists that no longer exists
-            for list_name in self._id_lists.keys():
-                if id_lists.get(list_name) is None and list_name in self._id_lists:
-                    del self._id_lists[list_name]
-            # Add new id lists
-            for list_name in id_lists.keys():
-                if self._id_lists.get(list_name) is None:
-                    self._id_lists[list_name] = {"ids": {}, "time": 0}
-
-    def getIDLists(self):
+    def get_id_lists(self):
         return self._id_lists
 
     def override_gate(self, gate, value, user_id=None):
@@ -134,10 +123,10 @@ class _Evaluator:
         list = self._id_lists.get(list_name)
         if list is None:
             return False
-        ids = list.get("ids", dict())
+        ids = list.get("ids", set())
         hashed = base64.b64encode(
             sha256(str(id).encode('utf-8')).digest()).decode('utf-8')[0:8]
-        return ids.get(hashed) == True
+        return hashed in ids
 
     def get_all_gates(self):
         return self._gates
