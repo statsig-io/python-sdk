@@ -153,7 +153,14 @@ class ServerSDKConsistencyTest(unittest.TestCase):
                     f'\nExpected: {server_result}, Actual: {eval_result.json_value}')
 
             self.assertEqual(eval_result.json_value, server_result)
-            self.assertEqual(eval_result.json_value, sdk_result.get_value())
+
+            count = 0
+            for key in eval_result.json_value:
+                count += 1
+                self.assertEqual(
+                    eval_result.json_value[key], sdk_result.get(key))
+
+            self.assertEqual(len(eval_result.json_value), count)
 
 
 if __name__ == '__main__':

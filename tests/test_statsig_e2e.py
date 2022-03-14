@@ -128,21 +128,12 @@ class TestStatsigE2E(unittest.TestCase):
 
     def test_f_layers(self):
         config = statsig.get_layer(self.statsig_user, "a_layer")
-        self.assertEqual(
-            config.get_value(),
-            dict(
-                experiment_param="test",
-                layer_param=True,
-                second_layer_param=True
-            )
-        )
+        self.assertEqual(config.get("experiment_param", "ERR"), "test")
+        self.assertEqual(config.get("layer_param", False), True)
+        self.assertEqual(config.get("second_layer_param", False), True)
+
         config = statsig.get_layer(self.random_user, "b_layer_no_alloc")
-        self.assertEqual(
-            config.get_value(),
-            dict(
-                a_param="foo",
-            )
-        )
+        self.assertEqual(config.get("a_param", "ERR"), "foo")
 
     # test_z ensures this runs last
     def test_z_logs(self):
@@ -234,7 +225,7 @@ class TestStatsigE2E(unittest.TestCase):
                     email="testuser@statsig.com",
                     statsigEnvironment=dict(tier="development")
                 ),
-                eventName="statsig::config_exposure",
+                eventName="statsig::layer_exposure",
                 metadata=dict(
                     config="a_layer",
                     ruleID="2RamGujUou6h2bVNQWhtNZ",
@@ -252,10 +243,11 @@ class TestStatsigE2E(unittest.TestCase):
                     userID="random",
                     statsigEnvironment=dict(tier="development")
                 ),
-                eventName="statsig::config_exposure",
+                eventName="statsig::layer_exposure",
                 metadata=dict(
                     config="b_layer_no_alloc",
-                    ruleID="layer_defaults"
+                    ruleID="layer_defaults",
+                    allocatedExperiment=""
                 ),
                 secondaryExposures=[]
             )

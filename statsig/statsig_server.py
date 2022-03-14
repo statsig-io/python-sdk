@@ -1,6 +1,7 @@
 import asyncio
 import json
 import threading
+from statsig.layer import Layer
 
 from statsig.statsig_user import StatsigUser
 from .evaluator import _ConfigEvaluation, _Evaluator
@@ -71,14 +72,15 @@ class StatsigServer:
     def get_experiment(self, user: object, experiment_name: str):
         return self.get_config(user, experiment_name)
 
-    def get_layer(self, user: object, layer_name: str) -> DynamicConfig:
+    def get_layer(self, user: object, layer_name: str) -> Layer:
         if not self._verify_inputs(user, layer_name):
-            return DynamicConfig({})
+            return Layer({})
 
         user = self.__normalize_user(user)
         result = self._evaluator.get_layer(user, layer_name)
-        result = self.__resolve_eval_result(user, layer_name, result=result)
-        return DynamicConfig(result.json_value, layer_name, result.rule_id)
+        result = self.__resolve_eval_result(
+            user, layer_name, result=result, log_exposure=True, is_layer=True)
+        return Layer(result.json_value, layer_name, result.rule_id)
 
     def log_event(self, event: object):
         if not self._initialized:
@@ -158,9 +160,9 @@ class StatsigServer:
         user = self.__normalize_user(user)
 
         result = self._evaluator.get_config(user, config_name)
-        return self.__resolve_eval_result(user, config_name, result, log_exposure)
+        return self.__resolve_eval_result(user, config_name, result, log_exposure, False)
 
-    def __resolve_eval_result(self, user, config_name: str, result: _ConfigEvaluation, log_exposure=True):
+    def __resolve_eval_result(self, user, config_name: str, result: _ConfigEvaluation, log_exposure, is_layer):
         if result.fetch_from_server:
             network_config = self._network.post_request("get_config", {
                 "configName": config_name,
@@ -172,8 +174,12 @@ class StatsigServer:
 
             return _ConfigEvaluation(json_value=network_config.get("value", {}), rule_id=network_config.get("ruleID", ""))
         elif log_exposure:
-            self._logger.log_config_exposure(
-                user, config_name, result.rule_id, result.secondary_exposures, result.allocated_experiment)
+            if is_layer:
+                self._logger.log_layer_exposure(
+                    user, config_name, result.rule_id, result.secondary_exposures, result.allocated_experiment)
+            else:
+                self._logger.log_config_exposure(
+                    user, config_name, result.rule_id, result.secondary_exposures)
         return result
 
     def __normalize_user(self, user):

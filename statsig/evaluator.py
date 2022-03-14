@@ -201,8 +201,8 @@ class _Evaluator:
             if config:
                 delegated_result = self.__evaluate(user, config)
                 delegated_result.allocated_experiment = config_delegate
-                delegated_result.secondary_exposures = exposures.concat(
-                    delegated_result.secondary_exposures)
+                delegated_result.secondary_exposures = exposures + \
+                    delegated_result.secondary_exposures
                 return delegated_result
 
         return _ConfigEvaluation(False, eval_result, return_value, rule_id, exposures)
