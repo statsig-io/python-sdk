@@ -1,6 +1,9 @@
 import asyncio
 import json
 import threading
+from statsig.layer import Layer
+
+from statsig.statsig_user import StatsigUser
 from .evaluator import _ConfigEvaluation, _Evaluator
 from .statsig_network import _StatsigNetwork
 from .statsig_logger import _StatsigLogger
@@ -53,31 +56,31 @@ class StatsigServer:
         self._initialized = True
 
     def check_gate(self, user: object, gate_name: str):
-        if not self._initialized:
-            raise RuntimeError(
-                'Must call initialize before checking gates/configs/experiments or logging events')
-        if not user or not user.user_id:
-            raise ValueError(
-                'A non-empty StatsigUser.user_id is required. See https://docs.statsig.com/messages/serverRequiredUserID')
-        if not gate_name:
+        if not self._verify_inputs(user, gate_name):
             return False
+
         result = self.__check_gate_server_fallback(user, gate_name)
         return result.boolean_value
 
     def get_config(self, user: object, config_name: str):
-        if not self._initialized:
-            raise RuntimeError(
-                'Must call initialize before checking gates/configs/experiments or logging events')
-        if not user or not user.user_id:
-            raise ValueError(
-                'A non-empty StatsigUser.user_id is required. See https://docs.statsig.com/messages/serverRequiredUserID')
-        if not config_name:
+        if not self._verify_inputs(user, config_name):
             return DynamicConfig({})
+
         result = self.__get_config_server_fallback(user, config_name)
         return DynamicConfig(result.json_value, config_name, result.rule_id)
 
     def get_experiment(self, user: object, experiment_name: str):
         return self.get_config(user, experiment_name)
+
+    def get_layer(self, user: object, layer_name: str) -> Layer:
+        if not self._verify_inputs(user, layer_name):
+            return Layer({})
+
+        user = self.__normalize_user(user)
+        result = self._evaluator.get_layer(user, layer_name)
+        result = self.__resolve_eval_result(
+            user, layer_name, result=result, log_exposure=True, is_layer=True)
+        return Layer(result.json_value, layer_name, result.rule_id)
 
     def log_event(self, event: object):
         if not self._initialized:
@@ -124,6 +127,18 @@ class StatsigServer:
             "dynamic_configs": all_configs
         })
 
+    def _verify_inputs(self, user: object, variable_name: str):
+        if not self._initialized:
+            raise RuntimeError(
+                'Must call initialize before checking gates/configs/experiments or logging events')
+        if not user or not user.user_id:
+            raise ValueError(
+                'A non-empty StatsigUser.user_id is required. See https://docs.statsig.com/messages/serverRequiredUserID')
+        if not variable_name:
+            return False
+
+        return True
+
     def __check_gate_server_fallback(self, user: object, gate_name: str, log_exposure=True):
         user = self.__normalize_user(user)
         result = self._evaluator.check_gate(user, gate_name)
@@ -145,6 +160,9 @@ class StatsigServer:
         user = self.__normalize_user(user)
 
         result = self._evaluator.get_config(user, config_name)
+        return self.__resolve_eval_result(user, config_name, result, log_exposure, False)
+
+    def __resolve_eval_result(self, user, config_name: str, result: _ConfigEvaluation, log_exposure, is_layer):
         if result.fetch_from_server:
             network_config = self._network.post_request("get_config", {
                 "configName": config_name,
@@ -156,8 +174,12 @@ class StatsigServer:
 
             return _ConfigEvaluation(json_value=network_config.get("value", {}), rule_id=network_config.get("ruleID", ""))
         elif log_exposure:
-            self._logger.log_config_exposure(
-                user, config_name, result.rule_id, result.secondary_exposures)
+            if is_layer:
+                self._logger.log_layer_exposure(
+                    user, config_name, result.rule_id, result.secondary_exposures, result.allocated_experiment)
+            else:
+                self._logger.log_config_exposure(
+                    user, config_name, result.rule_id, result.secondary_exposures)
         return result
 
     def __normalize_user(self, user):
