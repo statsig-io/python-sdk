@@ -1,6 +1,7 @@
-from dataclasses import dataclass
+import time
 import typing
 
+from dataclasses import dataclass
 from statsig.statsig_user import StatsigUser
 
 
@@ -16,6 +17,7 @@ class StatsigEvent:
     value: 'typing.Any' = None
     metadata: dict = None
     _secondary_exposures: list = None
+    _time: int = round(time.time() * 1000)
 
     def __post_init__(self):
         if self.user is None or not isinstance(self.user, StatsigUser):
@@ -32,5 +34,6 @@ class StatsigEvent:
             'value': self.value,
             'metadata': self.metadata,
             'secondaryExposures': self._secondary_exposures,
+            'time': self._time
         }
         return {k: v for k, v in evt_nullable.items() if v is not None}
