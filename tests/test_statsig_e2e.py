@@ -5,7 +5,7 @@ from .mockserver import MockServer
 
 from statsig import statsig, StatsigUser, StatsigOptions, StatsigEvent, StatsigEnvironmentTier
 
-with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), 'download_config_specs.json')) as r:
+with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), '../testdata/download_config_specs.json')) as r:
     CONFIG_SPECS_RESPONSE = r.read()
 
 
