@@ -1,12 +1,9 @@
-import unittest
-import requests
-from statsig import StatsigUser, StatsigOptions, StatsigServer
-
-import os
 import io
-import sys
+import os
+from statsig import StatsigUser, StatsigServer, StatsigOptions
+import unittest
 import time
-
+import requests
 
 TEST_URLS = [
     "https://api.statsig.com/v1",
@@ -51,88 +48,119 @@ class ServerSDKConsistencyTest(unittest.TestCase):
     def _test_consistency(self):
         for entry in self.data:
             for val in self.data[entry]:
-                user = val["user"]
-                statsig_user = StatsigUser(user.get("userID"))
-                statsig_user.app_version = user.get("appVersion")
-                statsig_user.user_agent = user.get("userAgent")
-                statsig_user.ip = user.get("ip")
-                if "email" in user:
-                    statsig_user.email = user.get("email")
-                if "statsigEnvironment" in user:
-                    statsig_user._statsig_environment = user.get(
-                        "statsigEnvironment")
-                if "custom" in user:
-                    statsig_user.custom = user.get("custom")
-                if "privateAttributes" in user:
-                    statsig_user.private_attributes = user.get(
-                        "privateAttributes")
-                if "customIDs" in user:
-                    statsig_user.custom_ids = user.get("customIDs")
-                gates = val["feature_gates_v2"]
-                for name in gates:
-                    eval_result = self.sdk._evaluator.check_gate(
-                        statsig_user, name)
-                    sdk_result = self.sdk.check_gate(statsig_user, name)
-                    server_result = gates[name]
-                    if eval_result.boolean_value != server_result["value"]:
-                        print(
-                            f'\nDifferent values for gate {name} user: {statsig_user.to_dict(True)}')
-                        print(
-                            f'\nExpected: {server_result["value"]}, Actual: {eval_result.boolean_value}')
-                    self.assertEqual(eval_result.boolean_value,
-                                     server_result["value"])
-                    self.assertEqual(eval_result.boolean_value, sdk_result)
+                statsig_user = self._construct_statsig_user(val["user"])
 
-                    if eval_result.rule_id != server_result["rule_id"]:
-                        print(
-                            f'\nDifferent rule_id for gate {name} user: {statsig_user.to_dict(True)}')
-                        print(
-                            f'\nExpected: {server_result["rule_id"]}, Actual: {eval_result.rule_id}')
-                    self.assertEqual(eval_result.rule_id,
-                                     server_result["rule_id"])
+                self._test_gate_results(statsig_user, val["feature_gates_v2"])
+                self._test_config_results(statsig_user, val["dynamic_configs"])
+                self._test_layer_results(statsig_user, val["layer_configs"])
 
-                    if eval_result.secondary_exposures != server_result["secondary_exposures"]:
-                        print(
-                            f'\nDifferent secondary_exposures for gate {name} user: {statsig_user.to_dict(True)}')
-                        print(
-                            f'\nExpected: {server_result["secondary_exposures"]}, Actual: {eval_result.secondary_exposures}')
-                    self.assertEqual(eval_result.secondary_exposures,
-                                     server_result.get("secondary_exposures"))
-                    print(".", end="")
-
-                configs = val["dynamic_configs"]
-                for name in configs:
-                    eval_result = self.sdk._evaluator.get_config(
-                        statsig_user, name)
-                    sdk_result = self.sdk.get_config(statsig_user, name)
-                    server_result = configs[name]
-                    if eval_result.json_value != server_result["value"]:
-                        print(
-                            f'\nDifferent values for config {name} user: {statsig_user.to_dict(True)}')
-                        print(
-                            f'\nExpected: {server_result["value"]}, Actual: {eval_result.json_value}')
-                    self.assertEqual(eval_result.json_value,
-                                     server_result["value"])
-                    self.assertEqual(eval_result.json_value,
-                                     sdk_result.get_value())
-
-                    if eval_result.rule_id != server_result["rule_id"]:
-                        print(
-                            f'\nDifferent rule_id for config {name} user: {statsig_user.to_dict(True)}')
-                        print(
-                            f'\nExpected: {server_result["rule_id"]}, Actual: {eval_result.rule_id}')
-                    self.assertEqual(eval_result.rule_id,
-                                     server_result["rule_id"])
-
-                    if eval_result.secondary_exposures != server_result["secondary_exposures"]:
-                        print(
-                            f'\nDifferent secondary_exposures for config {name} user: {statsig_user.to_dict(True)}')
-                        print(
-                            f'\nExpected: {server_result["secondary_exposures"]}, Actual: {eval_result.secondary_exposures}')
-                    self.assertEqual(eval_result.secondary_exposures,
-                                     server_result.get("secondary_exposures"))
-                    print(".", end="")
         print("[end]")
+
+    def _construct_statsig_user(self, user_values) -> StatsigUser:
+        statsig_user = StatsigUser(user_values.get("userID"))
+        statsig_user.app_version = user_values.get("appVersion")
+        statsig_user.user_agent = user_values.get("userAgent")
+        statsig_user.ip = user_values.get("ip")
+        if "email" in user_values:
+            statsig_user.email = user_values.get("email")
+        if "statsigEnvironment" in user_values:
+            statsig_user._statsig_environment = user_values.get(
+                "statsigEnvironment")
+        if "custom" in user_values:
+            statsig_user.custom = user_values.get("custom")
+        if "privateAttributes" in user_values:
+            statsig_user.private_attributes = user_values.get(
+                "privateAttributes")
+        if "customIDs" in user_values:
+            statsig_user.custom_ids = user_values.get("customIDs")
+
+        return statsig_user
+
+    def _test_gate_results(self, statsig_user: StatsigUser, gates):
+        for name in gates:
+            eval_result = self.sdk._evaluator.check_gate(
+                statsig_user, name)
+            sdk_result = self.sdk.check_gate(statsig_user, name)
+            server_result = gates[name]
+            if eval_result.boolean_value != server_result["value"]:
+                print(
+                    f'\nDifferent values for gate {name} user: {statsig_user.to_dict(True)}')
+                print(
+                    f'\nExpected: {server_result["value"]}, Actual: {eval_result.boolean_value}')
+            self.assertEqual(eval_result.boolean_value,
+                             server_result["value"])
+            self.assertEqual(eval_result.boolean_value, sdk_result)
+
+            if eval_result.rule_id != server_result["rule_id"]:
+                print(
+                    f'\nDifferent rule_id for gate {name} user: {statsig_user.to_dict(True)}')
+                print(
+                    f'\nExpected: {server_result["rule_id"]}, Actual: {eval_result.rule_id}')
+            self.assertEqual(eval_result.rule_id,
+                             server_result["rule_id"])
+
+            if eval_result.secondary_exposures != server_result["secondary_exposures"]:
+                print(
+                    f'\nDifferent secondary_exposures for gate {name} user: {statsig_user.to_dict(True)}')
+                print(
+                    f'\nExpected: {server_result["secondary_exposures"]}, Actual: {eval_result.secondary_exposures}')
+            self.assertEqual(eval_result.secondary_exposures,
+                             server_result.get("secondary_exposures"))
+            print(".", end="")
+
+    def _test_config_results(self, statsig_user: StatsigUser, configs):
+        for name in configs:
+            eval_result = self.sdk._evaluator.get_config(
+                statsig_user, name)
+            sdk_result = self.sdk.get_config(statsig_user, name)
+            server_result = configs[name]
+            if eval_result.json_value != server_result["value"]:
+                print(
+                    f'\nDifferent values for config {name} user: {statsig_user.to_dict(True)}')
+                print(
+                    f'\nExpected: {server_result["value"]}, Actual: {eval_result.json_value}')
+            self.assertEqual(eval_result.json_value,
+                             server_result["value"])
+            self.assertEqual(eval_result.json_value,
+                             sdk_result.get_value())
+
+            if eval_result.rule_id != server_result["rule_id"]:
+                print(
+                    f'\nDifferent rule_id for config {name} user: {statsig_user.to_dict(True)}')
+                print(
+                    f'\nExpected: {server_result["rule_id"]}, Actual: {eval_result.rule_id}')
+            self.assertEqual(eval_result.rule_id,
+                             server_result["rule_id"])
+
+            if eval_result.secondary_exposures != server_result["secondary_exposures"]:
+                print(
+                    f'\nDifferent secondary_exposures for config {name} user: {statsig_user.to_dict(True)}')
+                print(
+                    f'\nExpected: {server_result["secondary_exposures"]}, Actual: {eval_result.secondary_exposures}')
+            self.assertEqual(eval_result.secondary_exposures,
+                             server_result.get("secondary_exposures"))
+            print(".", end="")
+
+    def _test_layer_results(self, statsig_user: StatsigUser, layers):
+        for name in layers:
+            eval_result = self.sdk._evaluator.get_layer(statsig_user, name)
+            sdk_result = self.sdk.get_layer(statsig_user, name)
+            server_result = layers[name]
+            if eval_result.json_value != server_result:
+                print(
+                    f'\nDifferent values for config {name} user: {statsig_user.to_dict(True)}')
+                print(
+                    f'\nExpected: {server_result}, Actual: {eval_result.json_value}')
+
+            self.assertEqual(eval_result.json_value, server_result)
+
+            count = 0
+            for key in eval_result.json_value:
+                count += 1
+                self.assertEqual(
+                    eval_result.json_value[key], sdk_result.get(key))
+
+            self.assertEqual(len(eval_result.json_value), count)
 
 
 if __name__ == '__main__':

@@ -19,6 +19,10 @@ def get_experiment(user: object, experiment: str):
     return get_config(user, experiment)
 
 
+def get_layer(user: object, layer: str):
+    return __instance.get_layer(user, layer)
+
+
 def log_event(event: object):
     __instance.log_event(event)
 
