@@ -135,13 +135,17 @@ class TestStatsigE2E(unittest.TestCase):
         self.assertEqual(config.get("second_layer_param", False), True)
 
         config = statsig.get_layer(self.random_user, "b_layer_no_alloc")
-        self.assertEqual(config.get("a_param", "ERR"), "foo")
+        self.assertEqual(config.get("b_param", "ERR"), "layer_default")
+
+        config = statsig.get_layer(self.random_user, "c_layer_with_holdout")
+        self.assertEqual(config.get(
+            'holdout_layer_param', 'ERR'), 'layer_default')
 
     # test_z ensures this runs last
     def test_z_logs(self):
         statsig.shutdown()
         events = self.logs["events"]
-        self.assertEqual(len(events), 10)
+        self.assertEqual(len(events), 11)
         self.assertEqual(events[0]["eventName"], "statsig::gate_exposure")
         self.assertEqual(events[0]["metadata"]["gate"], "always_on_gate")
         self.assertEqual(events[0]["metadata"]["gateValue"], "true")
@@ -248,10 +252,32 @@ class TestStatsigE2E(unittest.TestCase):
                 eventName="statsig::layer_exposure",
                 metadata=dict(
                     config="b_layer_no_alloc",
-                    ruleID="layer_defaults",
+                    ruleID="default",
                     allocatedExperiment=""
                 ),
                 secondaryExposures=[]
+            )
+        )
+
+        # getLayer(randomUser, 'c_layer_with_holdout')
+        self.assertEqual(
+            events[10],
+            dict(
+                user=dict(
+                    userID="random",
+                    statsigEnvironment=dict(tier="development")
+                ),
+                eventName="statsig::layer_exposure",
+                metadata=dict(
+                    config="c_layer_with_holdout",
+                    ruleID="7d2E854TtGmfETdmJFip1L",
+                    allocatedExperiment=""
+                ),
+                secondaryExposures=[dict(
+                    gate='always_on_gate',
+                    gateValue='true',
+                    ruleID='6N6Z8ODekNYZ7F8gFdoLP5'
+                )]
             )
         )
 

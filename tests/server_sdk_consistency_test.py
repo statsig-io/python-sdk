@@ -144,13 +144,13 @@ class ServerSDKConsistencyTest(unittest.TestCase):
             eval_result = self.sdk._evaluator.get_layer(statsig_user, name)
             sdk_result = self.sdk.get_layer(statsig_user, name)
             server_result = layers[name]
-            if eval_result.json_value != server_result:
+            if eval_result.json_value != server_result["value"]:
                 print(
-                    f'\nDifferent values for config {name} user: {statsig_user.to_dict(True)}')
+                    f'\nDifferent values for layer {name} user: {statsig_user.to_dict(True)}')
                 print(
-                    f'\nExpected: {server_result}, Actual: {eval_result.json_value}')
-
-            self.assertEqual(eval_result.json_value, server_result)
+                    f'\nExpected: {server_result["value"]}, Actual: {eval_result.json_value}')
+            self.assertEqual(eval_result.json_value,
+                             server_result["value"])
 
             count = 0
             for key in eval_result.json_value:
@@ -159,6 +159,23 @@ class ServerSDKConsistencyTest(unittest.TestCase):
                     eval_result.json_value[key], sdk_result.get(key))
 
             self.assertEqual(len(eval_result.json_value), count)
+
+            if eval_result.rule_id != server_result["rule_id"]:
+                print(
+                    f'\nDifferent rule_id for layer {name} user: {statsig_user.to_dict(True)}')
+                print(
+                    f'\nExpected: {server_result["rule_id"]}, Actual: {eval_result.rule_id}')
+            self.assertEqual(eval_result.rule_id,
+                             server_result["rule_id"])
+
+            if eval_result.secondary_exposures != server_result["secondary_exposures"]:
+                print(
+                    f'\nDifferent secondary_exposures for layer {name} user: {statsig_user.to_dict(True)}')
+                print(
+                    f'\nExpected: {server_result["secondary_exposures"]}, Actual: {eval_result.secondary_exposures}')
+            self.assertEqual(eval_result.secondary_exposures,
+                             server_result.get("secondary_exposures"))
+            print(".", end="")
 
 
 if __name__ == '__main__':

@@ -53,9 +53,15 @@ class _Evaluator:
             if name is not None:
                 new_configs[name] = config
 
+        new_layers = dict()
+        for config in configs.get("layer_configs", []):
+            name = config.get("name")
+            if name is not None:
+                new_layers[name] = config
+
         self._gates = new_gates
         self._configs = new_configs
-        self._layers = configs.get("layer_configs", dict())
+        self._layers = new_layers
 
     def get_id_lists(self):
         return self._id_lists
@@ -108,31 +114,24 @@ class _Evaluator:
         if override is not None:
             return override
         eval_gate = self._gates.get(gate)
-        if eval_gate is None:
-            return _ConfigEvaluation()
-        return self.__evaluate(user, eval_gate)
+        return self.__eval_config(user, eval_gate)
 
     def get_config(self, user, config):
         override = self.__lookup_config_override(user, config)
         if override is not None:
             return override
         eval_config = self._configs.get(config)
-        if eval_config is None:
-            return _ConfigEvaluation()
-
-        return self.__evaluate(user, eval_config)
+        return self.__eval_config(user, eval_config)
 
     def get_layer(self, user, layer):
         eval_layer = self._layers.get(layer)
-        if eval_layer is None:
+        return self.__eval_config(user, eval_layer)
+
+    def __eval_config(self, user, config):
+        if config is None:
             return _ConfigEvaluation()
 
-        for rule in eval_layer.get('allocation_rules', []):
-            result = self.__evaluate_rule(user, rule)
-            if result.fetch_from_server or result.boolean_value:
-                return result
-
-        return _ConfigEvaluation(json_value=eval_layer.get('default_values', {}), rule_id='layer_defaults')
+        return self.__evaluate(user, config)
 
     def __check_id_in_list(self, id, list_name):
         list = self._id_lists.get(list_name)
@@ -164,10 +163,15 @@ class _Evaluator:
                 exposures = exposures + result.secondary_exposures
             if result.boolean_value:
                 user_passes = self.__eval_pass_percentage(user, rule, config)
-                return_value = rule.get("returnValue", defaultValue)
-                config = return_value if user_passes else defaultValue
-                rule_id = rule.get("id", "")
-                return _ConfigEvaluation(False, user_passes, config, rule_id, exposures)
+                return _ConfigEvaluation(
+                    False,
+                    user_passes,
+                    result.json_value if user_passes else defaultValue,
+                    result.rule_id,
+                    exposures,
+                    result.allocated_experiment
+                )
+
         return _ConfigEvaluation(False, False, defaultValue, "default", exposures)
 
     def __evaluate_rule(self, user, rule):
@@ -181,7 +185,7 @@ class _Evaluator:
                 exposures = exposures + result.secondary_exposures
             if not result.boolean_value:
                 eval_result = False
-        return_value = rule.get("return_value", {})
+        return_value = rule.get("returnValue", {})
         rule_id = rule.get("id", "")
 
         if eval_result:
