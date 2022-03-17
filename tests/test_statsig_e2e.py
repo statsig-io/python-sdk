@@ -1,3 +1,4 @@
+import time
 import os
 import unittest
 import json
@@ -29,6 +30,7 @@ class TestStatsigE2E(unittest.TestCase):
             api=cls.server.url, tier=StatsigEnvironmentTier.development)
 
         statsig.initialize("secret-key", options)
+        cls.initTime = round(time.time() * 1000)
 
     def check_logs(self, json):
         self.logs = json
@@ -155,6 +157,7 @@ class TestStatsigE2E(unittest.TestCase):
             "privateAttributes", None), None)
         self.assertEqual(events[0]["user"].get(
             "statsigEnvironment", None), {"tier": "development"})
+        self.assertAlmostEqual(events[0]["time"], self.initTime, delta=60000)
 
         self.assertEqual(events[1]["eventName"], "statsig::gate_exposure")
         self.assertEqual(events[1]["metadata"]["gate"], "on_for_statsig_email")
@@ -165,6 +168,7 @@ class TestStatsigE2E(unittest.TestCase):
             "privateAttributes", None), None)
         self.assertEqual(events[1]["user"].get(
             "statsigEnvironment", None), {"tier": "development"})
+        self.assertAlmostEqual(events[1]["time"], self.initTime, delta=60000)
 
         self.assertEqual(events[2]["eventName"], "statsig::gate_exposure")
         self.assertEqual(events[2]["metadata"]["gate"], "on_for_statsig_email")
@@ -174,6 +178,7 @@ class TestStatsigE2E(unittest.TestCase):
             "privateAttributes", None), None)
         self.assertEqual(events[2]["user"].get(
             "statsigEnvironment", None), {"tier": "development"})
+        self.assertAlmostEqual(events[2]["time"], self.initTime, delta=60000)
 
         self.assertEqual(events[3]["eventName"], "statsig::config_exposure")
         self.assertEqual(events[3]["metadata"]["config"], "test_config")
@@ -183,6 +188,7 @@ class TestStatsigE2E(unittest.TestCase):
             "privateAttributes", None), None)
         self.assertEqual(events[3]["user"].get(
             "statsigEnvironment", None), {"tier": "development"})
+        self.assertAlmostEqual(events[3]["time"], self.initTime, delta=60000)
 
         self.assertEqual(events[4]["eventName"], "statsig::config_exposure")
         self.assertEqual(events[4]["metadata"]["config"], "test_config")
@@ -191,6 +197,7 @@ class TestStatsigE2E(unittest.TestCase):
             "privateAttributes", None), None)
         self.assertEqual(events[4]["user"].get(
             "statsigEnvironment", None), {"tier": "development"})
+        self.assertAlmostEqual(events[4]["time"], self.initTime, delta=60000)
 
         self.assertEqual(events[5]["eventName"], "statsig::config_exposure")
         self.assertEqual(events[5]["metadata"]["config"], "sample_experiment")
@@ -200,6 +207,7 @@ class TestStatsigE2E(unittest.TestCase):
             "privateAttributes", None), None)
         self.assertEqual(events[5]["user"].get(
             "statsigEnvironment", None), {"tier": "development"})
+        self.assertAlmostEqual(events[5]["time"], self.initTime, delta=60000)
 
         self.assertEqual(events[6]["eventName"], "statsig::config_exposure")
         self.assertEqual(events[6]["metadata"]["config"], "sample_experiment")
@@ -209,6 +217,7 @@ class TestStatsigE2E(unittest.TestCase):
             "privateAttributes", None), None)
         self.assertEqual(events[6]["user"].get(
             "statsigEnvironment", None), {"tier": "development"})
+        self.assertAlmostEqual(events[6]["time"], self.initTime, delta=60000)
 
         self.assertEqual(events[7]["eventName"], "purchase")
         self.assertEqual(events[7]["value"], "SKU_12345")
@@ -221,6 +230,7 @@ class TestStatsigE2E(unittest.TestCase):
             "privateAttributes", None), None)
         self.assertEqual(events[7]["user"].get(
             "statsigEnvironment", None), {"tier": "development"})
+        self.assertAlmostEqual(events[7]["time"], self.initTime, delta=60000)
 
         # getLayer(user, 'a_layer')
         self.assertEqual(
