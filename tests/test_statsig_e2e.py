@@ -41,6 +41,7 @@ class TestStatsigE2E(unittest.TestCase):
             statsig.check_gate(self.statsig_user, "always_on_gate"),
             True
         )
+        self.assertIsNone(self.statsig_user._statsig_environment)
         self.assertEqual(
             statsig.check_gate(self.statsig_user, "on_for_statsig_email"),
             True
@@ -49,6 +50,7 @@ class TestStatsigE2E(unittest.TestCase):
             statsig.check_gate(self.random_user, "on_for_statsig_email"),
             False
         )
+        self.assertIsNone(self.random_user._statsig_environment)
 
     def test_b_dynamic_config(self):
         config = statsig.get_config(self.statsig_user, "test_config")

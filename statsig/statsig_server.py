@@ -1,4 +1,5 @@
 import asyncio
+import dataclasses
 import json
 import threading
 from statsig.layer import Layer
@@ -183,9 +184,10 @@ class StatsigServer:
         return result
 
     def __normalize_user(self, user):
+        userCopy = dataclasses.replace(user)
         if self._options is not None and self._options._environment is not None:
-            user._statsig_environment = self._options._environment
-        return user
+            userCopy._statsig_environment = self._options._environment
+        return userCopy
 
     def _sync(self, sync_func, interval):
         while True:
