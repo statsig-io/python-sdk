@@ -247,7 +247,8 @@ class TestStatsigE2E(unittest.TestCase):
                     ruleID="2RamGujUou6h2bVNQWhtNZ",
                     allocatedExperiment="sample_experiment"
                 ),
-                secondaryExposures=[]
+                secondaryExposures=[],
+                time=events[8]["time"]
             )
         )
 
@@ -265,7 +266,8 @@ class TestStatsigE2E(unittest.TestCase):
                     ruleID="default",
                     allocatedExperiment=""
                 ),
-                secondaryExposures=[]
+                secondaryExposures=[],
+                time=events[9]["time"]
             )
         )
 
@@ -287,7 +289,8 @@ class TestStatsigE2E(unittest.TestCase):
                     gate='always_on_gate',
                     gateValue='true',
                     ruleID='6N6Z8ODekNYZ7F8gFdoLP5'
-                )]
+                )],
+                time=events[10]["time"]
             )
         )
 
