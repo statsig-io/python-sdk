@@ -166,7 +166,7 @@ class StatsigServer:
         if result.fetch_from_server:
             network_config = self._network.post_request("get_config", {
                 "configName": config_name,
-                "user": user,
+                "user": user.to_dict(True),
                 "statsigMetadata": self.__statsig_metadata,
             })
             if network_config is None:
