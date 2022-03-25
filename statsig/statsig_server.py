@@ -203,6 +203,7 @@ class StatsigServer:
             self.__save_json_config_specs(specs)
         except ValueError:
             # JSON deconding failed, just let background thread update rulesets
+            logging.getLogger('statsig.sdk').exception('Failed to parse bootstrap_values')
             return
 
     def __save_json_config_specs(self, specs, notify=False):
