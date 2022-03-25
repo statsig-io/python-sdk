@@ -1,5 +1,6 @@
 import logging
 import time
+from uuid import uuid4
 import requests
 
 REQUEST_TIMEOUT = 20
@@ -18,6 +19,7 @@ class _StatsigNetwork:
         self.__timeout = options.timeout or REQUEST_TIMEOUT
         self.__local_mode = options.local_mode
         self.__log = logging.getLogger('statsig.sdk')
+        self.__session = str(uuid4())
 
     def post_request(self, endpoint, payload):
         if self.__local_mode:
@@ -28,6 +30,7 @@ class _StatsigNetwork:
             'Content-type': 'application/json',
             'STATSIG-API-KEY': self.__sdk_key,
             'STATSIG-CLIENT-TIME': str(round(time.time() * 1000)),
+            'STATSIG-SERVER-SESSION-ID': self.__session,
         }
         try:
             response = requests.post(
@@ -50,6 +53,7 @@ class _StatsigNetwork:
             'Content-type': 'application/json',
             'STATSIG-API-KEY': self.__sdk_key,
             'STATSIG-CLIENT-TIME': str(round(time.time() * 1000)),
+            'STATSIG-SERVER-SESSION-ID': self.__session,
         }
         try:
             response = requests.post(
@@ -67,6 +71,7 @@ class _StatsigNetwork:
         if self.__local_mode:
             return None
         try:
+            headers['STATSIG-SERVER-SESSION-ID'] = self.__session
             response = requests.get(
                 url, headers=headers, timeout=self.__timeout)
             if response.ok:
