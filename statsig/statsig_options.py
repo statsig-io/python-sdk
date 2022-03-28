@@ -7,7 +7,7 @@ class StatsigOptions:
 
     def __init__(
         self,
-        api: str = "https://api.statsig.com/v1/",
+        api: str = "https://statsigapi.net/v1/",
         tier: 'typing.Any' = None,
         timeout: int = None,
         rulesets_sync_interval: int = 10,
@@ -26,7 +26,7 @@ class StatsigOptions:
                 raise ValueError(
                     'StatsigEvent.tier must be a str or StatsigEnvironmentTier')
         if api is None:
-            api = "https://api.statsig.com/v1/"
+            api = "https://statsigapi.net/v1/"
         self.api = api
         self.timeout = timeout
         self.rulesets_sync_interval = rulesets_sync_interval

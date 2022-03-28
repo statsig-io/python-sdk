@@ -6,8 +6,8 @@ import time
 import requests
 
 TEST_URLS = [
-    "https://api.statsig.com/v1",
-    "https://latest.api.statsig.com/v1",
+    "https://statsigapi.net/v1",
+    "https://latest.statsigapi.net/v1",
 ]
 
 

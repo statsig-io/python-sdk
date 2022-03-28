@@ -1,6 +1,6 @@
-import asyncio
 import dataclasses
 import json
+import logging
 import threading
 from statsig.layer import Layer
 
