@@ -10,6 +10,8 @@ with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), 'README.md'))
 test_deps = [
     'Flask',
     'requests',
+    'user_agents',
+    'semver'
 ]
 extras = {
     'test': test_deps,
