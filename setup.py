@@ -8,7 +8,8 @@ with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), 'README.md'))
     README = r.read()
 
 test_deps = [
-    'Flask',
+    'Flask==2.0.3',
+    'Werkzeug==2.0.3',
     'requests',
     'user_agents',
     'semver'

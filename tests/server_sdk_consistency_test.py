@@ -7,7 +7,7 @@ import requests
 
 TEST_URLS = [
     "https://statsigapi.net/v1",
-    "https://latest.statsigapi.net/v1",
+    "https://staging.statsigapi.net/v1"
 ]
 
 
@@ -175,6 +175,14 @@ class ServerSDKConsistencyTest(unittest.TestCase):
                     f'\nExpected: {server_result["secondary_exposures"]}, Actual: {eval_result.secondary_exposures}')
             self.assertEqual(eval_result.secondary_exposures,
                              server_result.get("secondary_exposures"))
+
+            if eval_result.undelegated_secondary_exposures != server_result["undelegated_secondary_exposures"]:
+                print(
+                    f'\nDifferent undelegated_secondary_exposures for layer {name} user: {statsig_user.to_dict(True)}')
+                print(
+                    f'\nExpected: {server_result["undelegated_secondary_exposures"]}, Actual: {eval_result.undelegated_secondary_exposures}')
+            self.assertEqual(eval_result.undelegated_secondary_exposures,
+                             server_result.get("undelegated_secondary_exposures"))
             print(".", end="")
 
 

@@ -10,7 +10,7 @@ from ip3country import CountryLookup
 
 class _ConfigEvaluation:
 
-    def __init__(self, fetch_from_server=False, boolean_value=False, json_value={}, rule_id="", secondary_exposures=[], allocated_experiment=None):
+    def __init__(self, fetch_from_server=False, boolean_value=False, json_value={}, rule_id="", secondary_exposures=[], undelegated_secondary_exposures=[], allocated_experiment=None):
         if fetch_from_server is None:
             fetch_from_server = False
         self.fetch_from_server = fetch_from_server
@@ -26,6 +26,9 @@ class _ConfigEvaluation:
         if secondary_exposures is None:
             secondary_exposures = []
         self.secondary_exposures = secondary_exposures
+        if undelegated_secondary_exposures is None:
+            undelegated_secondary_exposures = []
+        self.undelegated_secondary_exposures = undelegated_secondary_exposures
         self.allocated_experiment = allocated_experiment
 
 
@@ -162,6 +165,12 @@ class _Evaluator:
             if result.secondary_exposures is not None and len(result.secondary_exposures) > 0:
                 exposures = exposures + result.secondary_exposures
             if result.boolean_value:
+
+                delegated_result = self.__evaluate_delegate(
+                    user, rule, exposures)
+                if delegated_result != None:
+                    return delegated_result
+
                 user_passes = self.__eval_pass_percentage(user, rule, config)
                 return _ConfigEvaluation(
                     False,
@@ -169,6 +178,7 @@ class _Evaluator:
                     result.json_value if user_passes else defaultValue,
                     result.rule_id,
                     exposures,
+                    [],
                     result.allocated_experiment
                 )
 
@@ -188,17 +198,23 @@ class _Evaluator:
         return_value = rule.get("returnValue", {})
         rule_id = rule.get("id", "")
 
-        if eval_result:
-            config_delegate = rule.get('configDelegate', None)
-            config = self._configs.get(config_delegate)
-            if config:
-                delegated_result = self.__evaluate(user, config)
-                delegated_result.allocated_experiment = config_delegate
-                delegated_result.secondary_exposures = exposures + \
-                    delegated_result.secondary_exposures
-                return delegated_result
-
         return _ConfigEvaluation(False, eval_result, return_value, rule_id, exposures)
+
+    def __evaluate_delegate(self, user, rule, exposures):
+        config_delegate = rule.get('configDelegate', None)
+        if config_delegate is None:
+            return None
+
+        config = self._configs.get(config_delegate)
+        if config is None:
+            return None
+
+        delegated_result = self.__evaluate(user, config)
+        delegated_result.allocated_experiment = config_delegate
+        delegated_result.secondary_exposures = exposures + \
+            delegated_result.secondary_exposures
+        delegated_result.undelegated_secondary_exposures = exposures
+        return delegated_result
 
     def __evaluate_condition(self, user, condition):
         value = None
