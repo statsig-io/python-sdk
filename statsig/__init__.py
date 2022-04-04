@@ -1,4 +1,5 @@
 from .dynamic_config import DynamicConfig
+from .layer import Layer
 from .statsig_event import StatsigEvent
 from .statsig_options import StatsigOptions
 from .statsig_user import StatsigUser

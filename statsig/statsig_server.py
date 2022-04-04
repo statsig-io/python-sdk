@@ -75,13 +75,23 @@ class StatsigServer:
 
     def get_layer(self, user: object, layer_name: str) -> Layer:
         if not self._verify_inputs(user, layer_name):
-            return Layer({})
+            return Layer._create(layer_name)
 
         user = self.__normalize_user(user)
         result = self._evaluator.get_layer(user, layer_name)
         result = self.__resolve_eval_result(
             user, layer_name, result=result, log_exposure=True, is_layer=True)
-        return Layer(result.json_value, layer_name, result.rule_id)
+
+        def log_func(layer: Layer, parameter_name: str):
+            self._logger.log_layer_exposure(
+                user, layer, parameter_name, result)
+
+        return Layer._create(
+            layer_name,
+            result.json_value,
+            result.rule_id,
+            log_func
+        )
 
     def log_event(self, event: object):
         if not self._initialized:
@@ -175,10 +185,7 @@ class StatsigServer:
 
             return _ConfigEvaluation(json_value=network_config.get("value", {}), rule_id=network_config.get("ruleID", ""))
         elif log_exposure:
-            if is_layer:
-                self._logger.log_layer_exposure(
-                    user, config_name, result.rule_id, result.secondary_exposures, result.allocated_experiment)
-            else:
+            if not is_layer:
                 self._logger.log_config_exposure(
                     user, config_name, result.rule_id, result.secondary_exposures)
         return result
@@ -203,7 +210,8 @@ class StatsigServer:
             self.__save_json_config_specs(specs)
         except ValueError:
             # JSON deconding failed, just let background thread update rulesets
-            logging.getLogger('statsig.sdk').exception('Failed to parse bootstrap_values')
+            logging.getLogger('statsig.sdk').exception(
+                'Failed to parse bootstrap_values')
             return
 
     def __save_json_config_specs(self, specs, notify=False):
@@ -213,7 +221,7 @@ class StatsigServer:
         if time is not None:
             self._last_update_time = time
         if specs.get("has_updates", False):
-            self._evaluator.setDownloadedConfigs(specs)
+            self._evaluator.set_downloaded_configs(specs)
             if callable(self._options.rules_updated_callback):
                 self._options.rules_updated_callback(json.dumps(specs))
 

@@ -132,24 +132,11 @@ class TestStatsigE2E(unittest.TestCase):
         }
         )
 
-    def test_f_layers(self):
-        config = statsig.get_layer(self.statsig_user, "a_layer")
-        self.assertEqual(config.get("experiment_param", "ERR"), "test")
-        self.assertEqual(config.get("layer_param", False), True)
-        self.assertEqual(config.get("second_layer_param", False), True)
-
-        config = statsig.get_layer(self.random_user, "b_layer_no_alloc")
-        self.assertEqual(config.get("b_param", "ERR"), "layer_default")
-
-        config = statsig.get_layer(self.random_user, "c_layer_with_holdout")
-        self.assertEqual(config.get(
-            'holdout_layer_param', 'ERR'), 'layer_default')
-
     # test_z ensures this runs last
     def test_z_logs(self):
         statsig.shutdown()
         events = self.logs["events"]
-        self.assertEqual(len(events), 11)
+        self.assertEqual(len(events), 8)
         self.assertEqual(events[0]["eventName"], "statsig::gate_exposure")
         self.assertEqual(events[0]["metadata"]["gate"], "always_on_gate")
         self.assertEqual(events[0]["metadata"]["gateValue"], "true")
@@ -234,71 +221,9 @@ class TestStatsigE2E(unittest.TestCase):
             "statsigEnvironment", None), {"tier": "development"})
         self.assertAlmostEqual(events[7]["time"], self.initTime, delta=60000)
 
-        # getLayer(user, 'a_layer')
-        self.assertEqual(
-            events[8],
-            dict(
-                user=dict(
-                    userID="123",
-                    email="testuser@statsig.com",
-                    statsigEnvironment=dict(tier="development")
-                ),
-                eventName="statsig::layer_exposure",
-                metadata=dict(
-                    config="a_layer",
-                    ruleID="2RamGujUou6h2bVNQWhtNZ",
-                    allocatedExperiment="sample_experiment"
-                ),
-                secondaryExposures=[],
-                time=events[8]["time"]
-            )
-        )
-
-        # getLayer(randomUser, 'b_layer_no_alloc')
-        self.assertEqual(
-            events[9],
-            dict(
-                user=dict(
-                    userID="random",
-                    statsigEnvironment=dict(tier="development")
-                ),
-                eventName="statsig::layer_exposure",
-                metadata=dict(
-                    config="b_layer_no_alloc",
-                    ruleID="default",
-                    allocatedExperiment=""
-                ),
-                secondaryExposures=[],
-                time=events[9]["time"]
-            )
-        )
-
-        # getLayer(randomUser, 'c_layer_with_holdout')
-        self.assertEqual(
-            events[10],
-            dict(
-                user=dict(
-                    userID="random",
-                    statsigEnvironment=dict(tier="development")
-                ),
-                eventName="statsig::layer_exposure",
-                metadata=dict(
-                    config="c_layer_with_holdout",
-                    ruleID="7d2E854TtGmfETdmJFip1L",
-                    allocatedExperiment=""
-                ),
-                secondaryExposures=[dict(
-                    gate='always_on_gate',
-                    gateValue='true',
-                    ruleID='6N6Z8ODekNYZ7F8gFdoLP5'
-                )],
-                time=events[10]["time"]
-            )
-        )
-
         self.assertEqual(self.logs["statsigMetadata"]["sdkType"], "py-server")
 
-    @ classmethod
+    @classmethod
     def tearDownClass(cls):
         cls.server.shutdown_server()
 

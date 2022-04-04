@@ -1,6 +1,9 @@
 import threading
 import queue
+
+from .evaluator import _ConfigEvaluation
 from .statsig_event import StatsigEvent
+from .layer import Layer
 
 _CONFIG_EXPOSURE_EVENT = "statsig::config_exposure"
 _LAYER_EXPOSURE_EVENT = "statsig::layer_exposure"
@@ -56,17 +59,25 @@ class _StatsigLogger:
         event._secondary_exposures = secondary_exposures
         self.log(event)
 
-    def log_layer_exposure(self, user, config, rule_id, secondary_exposures, allocated_experiment):
+    def log_layer_exposure(self, user, layer: Layer, parameter_name: str, config_evaluation: _ConfigEvaluation):
         event = StatsigEvent(user, _LAYER_EXPOSURE_EVENT)
+
+        allocated_experiment = ""
+        exposures = config_evaluation.secondary_exposures
+        is_explicit = parameter_name in config_evaluation.explicit_parameters
+        if is_explicit:
+            exposures = config_evaluation.undelegated_secondary_exposures
+            allocated_experiment = config_evaluation.allocated_experiment
+
         event.metadata = {
-            "config": config,
-            "ruleID": rule_id,
-            "allocatedExperiment": allocated_experiment or ""
+            "config": layer.name,
+            "ruleID": layer.rule_id,
+            "allocatedExperiment": allocated_experiment,
+            "parameterName": parameter_name,
+            "isExplicitParameter": "true" if is_explicit else "false"
         }
 
-        if secondary_exposures is None:
-            secondary_exposures = []
-        event._secondary_exposures = secondary_exposures
+        event._secondary_exposures = [] if exposures is None else exposures
         self.log(event)
 
     def __flush(self):
