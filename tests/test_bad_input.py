@@ -28,6 +28,15 @@ class TestBadInput(unittest.TestCase):
 
         self.assertTrue('user_id' in str(context.exception))
 
+        with self.assertRaises(ValueError) as context:
+            StatsigUser(None, custom_ids=dict())
+
+        self.assertTrue('user_id' in str(context.exception))
+
+        user = StatsigUser(None, custom_ids=dict(stableID='123'))
+        self.assertFalse(user.user_id)
+        self.assertTrue(user.custom_ids)
+
     def test_invalid_tier(self):
         with self.assertRaises(ValueError) as context:
             StatsigOptions(tier=123)
