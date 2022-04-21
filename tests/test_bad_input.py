@@ -30,7 +30,6 @@ class TestBadInput(unittest.TestCase):
             StatsigUser(None, custom_ids=dict())
         self.assertTrue('user_id' in str(context.exception))
 
-        u = StatsigUser(None, custom_ids=dict())
         user = StatsigUser(None, custom_ids=dict(stableID='123'))
         self.assertFalse(user.user_id)
         self.assertTrue(user.custom_ids)
