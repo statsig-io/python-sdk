@@ -2,8 +2,10 @@ from dataclasses import dataclass
 
 from statsig import statsig_environment_tier
 
+
 def _str_or_none(field):
     return str(field) if field is not None else None
+
 
 @dataclass
 class StatsigUser:
@@ -26,9 +28,10 @@ class StatsigUser:
     _statsig_environment: dict = None
 
     def __post_init__(self):
-        if self.user_id is None or self.user_id == "":
+        # ensure there is a user id or at least a custom ID, empty dict evaluates to false in python so we can use "not" operator to check
+        if (self.user_id is None or self.user_id == "") and (self.custom_ids is None or not self.custom_ids):
             raise ValueError(
-                'user_id is required: learn more https://docs.statsig.com/messages/serverRequiredUserID')
+                'user_id or at least a custom ID is required: learn more https://docs.statsig.com/messages/serverRequiredUserID')
 
     def to_dict(self, forEvaluation=False):
         user_nullable = {
@@ -61,5 +64,3 @@ class StatsigUser:
             return {'tier': tier.value}
 
         return None
-
-    
