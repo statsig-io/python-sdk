@@ -20,19 +20,17 @@ class TestBadInput(unittest.TestCase):
     def test_no_user_id(self):
         with self.assertRaises(ValueError) as context:
             StatsigUser("")
-
         self.assertTrue('user_id' in str(context.exception))
 
         with self.assertRaises(ValueError) as context:
             StatsigUser(None)
-
         self.assertTrue('user_id' in str(context.exception))
 
         with self.assertRaises(ValueError) as context:
             StatsigUser(None, custom_ids=dict())
-
         self.assertTrue('user_id' in str(context.exception))
 
+        u = StatsigUser(None, custom_ids=dict())
         user = StatsigUser(None, custom_ids=dict(stableID='123'))
         self.assertFalse(user.user_id)
         self.assertTrue(user.custom_ids)

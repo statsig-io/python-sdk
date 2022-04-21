@@ -29,7 +29,7 @@ class StatsigUser:
 
     def __post_init__(self):
         # ensure there is a user id or at least a custom ID, empty dict evaluates to false in python so we can use "not" operator to check
-        if (self.user_id is None or self.user_id == "") and not self.custom_ids:
+        if (self.user_id is None or self.user_id == "") and (self.custom_ids is None or not self.custom_ids):
             raise ValueError(
                 'user_id or at least a custom ID is required: learn more https://docs.statsig.com/messages/serverRequiredUserID')
 
