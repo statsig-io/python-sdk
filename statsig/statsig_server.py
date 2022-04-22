@@ -142,9 +142,9 @@ class StatsigServer:
         if not self._initialized:
             raise RuntimeError(
                 'Must call initialize before checking gates/configs/experiments or logging events')
-        if not user or not user.user_id:
+        if not user or (not user.user_id and not user.custom_ids):
             raise ValueError(
-                'A non-empty StatsigUser.user_id is required. See https://docs.statsig.com/messages/serverRequiredUserID')
+                'A non-empty StatsigUser with user_id or custom_ids is required. See https://docs.statsig.com/messages/serverRequiredUserID')
         if not variable_name:
             return False
 
