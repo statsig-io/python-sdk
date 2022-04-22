@@ -10,7 +10,7 @@ def _str_or_none(field):
 @dataclass
 class StatsigUser:
     """An object of properties relating to the current user
-    user_id is required: learn more https://docs.statsig.com/messages/serverRequiredUserID
+    user_id or at least a custom ID is required: learn more https://docs.statsig.com/messages/serverRequiredUserID
     Provide as many as possible to take advantage of advanced conditions in the statsig console
     A dictionary of additional fields can be provided under the custom field
     Set private_attributes for any user property you need for gate evaluation but prefer stripped from logs/metrics
@@ -29,7 +29,7 @@ class StatsigUser:
 
     def __post_init__(self):
         # ensure there is a user id or at least a custom ID, empty dict evaluates to false in python so we can use "not" operator to check
-        if (self.user_id is None or self.user_id == "") and (self.custom_ids is None or not self.custom_ids):
+        if not self.user_id and not self.custom_ids:
             raise ValueError(
                 'user_id or at least a custom ID is required: learn more https://docs.statsig.com/messages/serverRequiredUserID')
 
