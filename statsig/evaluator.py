@@ -344,9 +344,9 @@ class _Evaluator:
         elif op == "neq":
             return _ConfigEvaluation(False, value != target)
         elif op == "before":
-            return self.__compare_dates(value, target, lambda a, b: a.date() < b.date())
+            return self.__compare_dates(value, target, lambda a, b: a < b)
         elif op == "after":
-            return self.__compare_dates(value, target, lambda a, b: a.date() > b.date())
+            return self.__compare_dates(value, target, lambda a, b: a > b)
         elif op == "on":
             return self.__compare_dates(value, target, lambda a, b: a.date() == b.date())
         elif op == "in_segment_list" or op == "not_in_segment_list":
