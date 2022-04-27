@@ -6,12 +6,13 @@ from statsig import Layer
 class TestLayer(unittest.TestCase):
 
     def test_getters(self):
-        layer = Layer._create('my_layer', {
+        layer_value = {
             "str": "string",
             "num": 4,
             "bool": True,
             "arr": [17],
-        }, "default")
+        }
+        layer = Layer._create('my_layer', layer_value, "default")
 
         self.assertEqual(layer.get_name(), "my_layer")
         self.assertEqual(layer.rule_id, "default")
@@ -40,6 +41,8 @@ class TestLayer(unittest.TestCase):
 
         # List types do not differentiate the type of the values in the list
         self.assertEqual(layer.get_typed("arr", ["str_arr"]), [17])
+
+        self.assertEqual(layer.get_value(), layer_value)
 
 
 if __name__ == '__main__':

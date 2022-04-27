@@ -31,6 +31,13 @@ class Layer:
 
         return default
 
+    def get_value(self):
+        """Returns an object containing all values of the layer"""
+        value = self.__value
+        for key in value:
+            self._log_parameter_exposure(key)
+        return value
+
     def get_typed(self, key, default=None):
         """Returns the value of the layer at the given key
         iff the type matches the type of the provided default.
