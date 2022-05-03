@@ -65,7 +65,7 @@ class StatsigServer:
 
     def get_config(self, user: object, config_name: str):
         if not self._verify_inputs(user, config_name):
-            return DynamicConfig({})
+            return DynamicConfig({}, config_name, "")
 
         result = self.__get_config_server_fallback(user, config_name)
         return DynamicConfig(result.json_value, config_name, result.rule_id)

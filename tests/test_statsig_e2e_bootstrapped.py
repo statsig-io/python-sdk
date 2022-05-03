@@ -21,7 +21,7 @@ class TestStatsigE2E(unittest.TestCase):
         cls.random_user = StatsigUser("random")
         cls.logs = {}
         options = StatsigOptions(
-            api=cls.server.url, tier=StatsigEnvironmentTier.development)
+            api=cls.server.url, tier="development")
         options.bootstrap_values = CONFIG_SPECS_RESPONSE
         options.rules_updated_callback = cls.callback
         options.rulesets_sync_interval = 1

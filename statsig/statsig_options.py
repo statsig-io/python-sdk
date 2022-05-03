@@ -24,7 +24,7 @@ class StatsigOptions:
                 self.set_environment_parameter("tier", tier_str)
             else:
                 raise ValueError(
-                    'StatsigEvent.tier must be a str or StatsigEnvironmentTier')
+                    'StatsigOptions.tier must be a str or StatsigEnvironmentTier')
         if api is None:
             api = "https://statsigapi.net/v1/"
         self.api = api

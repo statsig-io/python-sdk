@@ -53,7 +53,7 @@ class StatsigUser:
         return {k: v for k, v in user_nullable.items() if v is not None}
 
     def _get_environment(self):
-        if self._statsig_environment is None or self._statsig_environment['tier'] is None:
+        if self._statsig_environment is None or not isinstance(self._statsig_environment, dict) or self._statsig_environment['tier'] is None:
             return None
 
         tier = self._statsig_environment['tier']
