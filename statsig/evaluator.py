@@ -259,7 +259,7 @@ class _Evaluator:
         elif type == "USER_BUCKET":
             salt = condition.get("additionalValues", {
                                  "salt": None}).get("salt")
-            salt_str = self.__get_value_as_string(salt)
+            salt_str = self.__get_value_as_string(salt) or ""
             unit_id = self.__get_unit_id(user, id_Type) or ""
             value = int(self.__compute_user_hash(
                 salt_str + "." + unit_id) % 1000)
