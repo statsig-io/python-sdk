@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Optional
 
 from statsig import statsig_environment_tier
 
@@ -15,17 +16,17 @@ class StatsigUser:
     A dictionary of additional fields can be provided under the custom field
     Set private_attributes for any user property you need for gate evaluation but prefer stripped from logs/metrics
     """
-    user_id: str
-    email: str = None
-    ip: str = None
-    user_agent: str = None
-    country: str = None
-    locale: str = None
-    app_version: str = None
-    custom: dict = None
-    private_attributes: dict = None
-    custom_ids: dict = None
-    _statsig_environment: dict = None
+    user_id: Optional[str] = None
+    email: Optional[str] = None
+    ip: Optional[str] = None
+    user_agent: Optional[str] = None
+    country: Optional[str] = None
+    locale: Optional[str] = None
+    app_version: Optional[str] = None
+    custom: Optional[dict] = None
+    private_attributes: Optional[dict] = None
+    custom_ids: Optional[dict] = None
+    _statsig_environment: Optional[dict] = None
 
     def __post_init__(self):
         # ensure there is a user id or at least a custom ID, empty dict evaluates to false in python so we can use "not" operator to check

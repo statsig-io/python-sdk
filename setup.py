@@ -1,5 +1,6 @@
 import os
 from setuptools import setup
+from statsig.version import __version__
 
 with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), 'statsig', 'version.py')) as f:
     exec(f.read())  # pylint: disable=exec-used
@@ -20,7 +21,7 @@ extras = {
 
 setup(
     name='statsig',
-    version=__version__,  # pylint: disable=undefined-variable
+    version=__version__,
     description='Statsig Python Server SDK',
     long_description=README,
     long_description_content_type="text/markdown",

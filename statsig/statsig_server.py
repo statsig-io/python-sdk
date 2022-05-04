@@ -2,7 +2,9 @@ import dataclasses
 import json
 import logging
 import threading
+from typing import Optional
 from statsig.layer import Layer
+from statsig.statsig_event import StatsigEvent
 
 from statsig.statsig_user import StatsigUser
 from .evaluator import _ConfigEvaluation, _Evaluator
@@ -56,26 +58,26 @@ class StatsigServer:
 
         self._initialized = True
 
-    def check_gate(self, user: object, gate_name: str):
+    def check_gate(self, user: StatsigUser, gate_name: str):
         if not self._verify_inputs(user, gate_name):
             return False
 
         result = self.__check_gate_server_fallback(user, gate_name)
         return result.boolean_value
 
-    def get_config(self, user: object, config_name: str):
+    def get_config(self, user: StatsigUser, config_name: str):
         if not self._verify_inputs(user, config_name):
             return DynamicConfig({}, config_name, "")
 
         result = self.__get_config_server_fallback(user, config_name)
         return DynamicConfig(result.json_value, config_name, result.rule_id)
 
-    def get_experiment(self, user: object, experiment_name: str):
+    def get_experiment(self, user: StatsigUser, experiment_name: str):
         return self.get_config(user, experiment_name)
 
-    def get_layer(self, user: object, layer_name: str) -> Layer:
+    def get_layer(self, user: StatsigUser, layer_name: str) -> Layer:
         if not self._verify_inputs(user, layer_name):
-            return Layer._create(layer_name)
+            return Layer._create(layer_name, {}, "")
 
         user = self.__normalize_user(user)
         result = self._evaluator.get_layer(user, layer_name)
@@ -93,7 +95,7 @@ class StatsigServer:
             log_func
         )
 
-    def log_event(self, event: object):
+    def log_event(self, event: StatsigEvent):
         if not self._initialized:
             raise RuntimeError(
                 'Must call initialize before checking gates/configs/experiments or logging events')
@@ -108,16 +110,16 @@ class StatsigServer:
             self.__background_download_configs.join()
             self.__background_download_idlists.join()
 
-    def override_gate(self, gate: str, value: bool, user_id: str = None):
+    def override_gate(self, gate: str, value: bool, user_id: Optional[str] = None):
         self._evaluator.override_gate(gate, value, user_id)
 
-    def override_config(self, config: str, value: object, user_id: str = None):
+    def override_config(self, config: str, value: object, user_id: Optional[str] = None):
         self._evaluator.override_config(config, value, user_id)
 
-    def override_experiment(self, experiment: str, value: object, user_id: str = None):
+    def override_experiment(self, experiment: str, value: object, user_id: Optional[str] = None):
         self._evaluator.override_config(experiment, value, user_id)
 
-    def evaluate_all(self, user: object):
+    def evaluate_all(self, user: StatsigUser):
         all_gates = dict()
         for gate in self._evaluator.get_all_gates():
             result = self.__check_gate_server_fallback(user, gate, False)
@@ -138,7 +140,7 @@ class StatsigServer:
             "dynamic_configs": all_configs
         })
 
-    def _verify_inputs(self, user: object, variable_name: str):
+    def _verify_inputs(self, user: StatsigUser, variable_name: str):
         if not self._initialized:
             raise RuntimeError(
                 'Must call initialize before checking gates/configs/experiments or logging events')
@@ -150,7 +152,7 @@ class StatsigServer:
 
         return True
 
-    def __check_gate_server_fallback(self, user: object, gate_name: str, log_exposure=True):
+    def __check_gate_server_fallback(self, user: StatsigUser, gate_name: str, log_exposure=True):
         user = self.__normalize_user(user)
         result = self._evaluator.check_gate(user, gate_name)
         if result.fetch_from_server:
@@ -167,7 +169,7 @@ class StatsigServer:
                 user, gate_name, result.boolean_value, result.rule_id, result.secondary_exposures)
         return result
 
-    def __get_config_server_fallback(self, user: object, config_name: str, log_exposure=True):
+    def __get_config_server_fallback(self, user: StatsigUser, config_name: str, log_exposure=True):
         user = self.__normalize_user(user)
 
         result = self._evaluator.get_config(user, config_name)
@@ -238,8 +240,10 @@ class StatsigServer:
         if resp is None:
             return
         try:
-            content_length = int(
-                resp.headers.get('content-length'))
+            content_length_str = resp.headers.get('content-length')
+            if content_length_str is None:
+                raise ValueError("Content length invalid.")
+            content_length = int(content_length_str)
             content = resp.text
             if content is None:
                 return

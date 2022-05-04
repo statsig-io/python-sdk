@@ -1,5 +1,5 @@
 import time
-import typing
+from typing import Union, Optional
 
 from dataclasses import dataclass
 from statsig.statsig_user import StatsigUser
@@ -14,9 +14,9 @@ class StatsigEvent:
     """
     user: StatsigUser
     event_name: str
-    value: 'typing.Any' = None
-    metadata: dict = None
-    _secondary_exposures: list = None
+    value: Union[str, int, None] = None
+    metadata: Optional[dict] = None
+    _secondary_exposures: Optional[list] = None
     _time: int = round(time.time() * 1000)
 
     def __post_init__(self):

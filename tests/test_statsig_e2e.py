@@ -21,7 +21,7 @@ class TestStatsigE2E(unittest.TestCase):
         cls.server.add_json_response(
             "/get_id_lists", json.loads("{}"))
         cls.server.add_log_event_response(
-            cls.check_logs.__get__(cls, cls.__class__))
+            cls.check_logs.__get__(cls, type(cls.__class__)))
         cls.statsig_user = StatsigUser(
             "123", email="testuser@statsig.com", private_attributes={"test": 123})
         cls.random_user = StatsigUser("random")

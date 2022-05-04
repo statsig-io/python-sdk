@@ -1,4 +1,5 @@
 import time
+from typing import Optional
 import unittest
 import json
 from .mockserver import MockServer
@@ -28,7 +29,7 @@ class TestStatsigE2E(unittest.TestCase):
         statsig.initialize("secret-key", options)
 
     @classmethod
-    def callback(cls, updates: str = None):
+    def callback(cls, updates: str = ""):
         if json.loads(updates) != json.loads(CONFIG_SPECS_RESPONSE):
             cls.failure = True
             raise ValueError("invalid rules updated callback")

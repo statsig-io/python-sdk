@@ -8,13 +8,13 @@ class StatsigOptions:
     def __init__(
         self,
         api: str = "https://statsigapi.net/v1/",
-        tier: 'typing.Any' = None,
-        timeout: int = None,
+        tier: typing.Union[str, StatsigEnvironmentTier, None] = None,
+        timeout: typing.Optional[int] = None,
         rulesets_sync_interval: int = 10,
         idlists_sync_interval: int = 60,
         local_mode: bool=False,
-        bootstrap_values: str = None,
-        rules_updated_callback: typing.Callable = None,
+        bootstrap_values: typing.Optional[str] = None,
+        rules_updated_callback: typing.Optional[typing.Callable] = None,
     ):
         self._environment = None
         if tier is not None:
