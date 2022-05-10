@@ -63,10 +63,10 @@ class _StatsigLogger:
         event = StatsigEvent(user, _LAYER_EXPOSURE_EVENT)
 
         allocated_experiment = ""
-        exposures = config_evaluation.secondary_exposures
+        exposures = config_evaluation.undelegated_secondary_exposures
         is_explicit = parameter_name in config_evaluation.explicit_parameters
         if is_explicit:
-            exposures = config_evaluation.undelegated_secondary_exposures
+            exposures = config_evaluation.secondary_exposures
             allocated_experiment = config_evaluation.allocated_experiment
 
         event.metadata = {

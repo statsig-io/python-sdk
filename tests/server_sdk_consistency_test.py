@@ -15,17 +15,11 @@ class ServerSDKConsistencyTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        if "test_api_key" in os.environ:
+        try:
             cls.SDK_KEY = os.environ["test_api_key"]
-        else:
-            try:
-                f = io.open("../ops/secrets/prod_keys/statsig-rulesets-eval-consistency-test-secret.key",
-                            mode="r", encoding="utf-8")
-                cls.SDK_KEY = f.read()
-                f.close()
-            except OSError:
-                print("THIS TEST IS EXPECTED TO FAIL FOR NON-STATSIG EMPLOYEES! If this is the only test failing, please proceed to submit a pull request. If you are a Statsig employee, chat with jkw.")
-                raise OSError("Failed to read sdk key")
+        except Exception:
+            print("THIS TEST IS EXPECTED TO FAIL FOR NON-STATSIG EMPLOYEES! If this is the only test failing, please proceed to submit a pull request. If you are a Statsig employee, chat with jkw.")
+            raise Exception("Failed to read sdk key")
 
     def test_all_regions(self):
         for api in TEST_URLS:
