@@ -42,7 +42,8 @@ class _StatsigNetwork:
                 else:
                     return None
         except Exception as e:
-            self.__log.warning('Request to %s failed', endpoint)
+            self.__log.warning(
+                'Network exception caught when making request to %s failed', endpoint)
             return None
 
     def retryable_request(self, endpoint, payload):
@@ -61,11 +62,12 @@ class _StatsigNetwork:
             if response.status_code in self.__RETRY_CODES:
                 return payload
             elif response.status_code >= 300:
-                self.__log.error("Request to %s failed with code %d",
-                                 endpoint, response.status_code)
+                self.__log.warning(
+                    "Request to %s failed with code %d", endpoint, response.status_code)
             return None
         except Exception:
-            self.__log.warning("Request to %s failed", endpoint)
+            self.__log.warning(
+                "Network exception caught when making request to %s failed", endpoint)
             return None
 
     def get_request(self, url, headers):
@@ -80,5 +82,6 @@ class _StatsigNetwork:
             else:
                 return None
         except Exception:
-            self.__log.warning('Request to %s failed', url)
+            self.__log.warning(
+                'Network exception caught when making request to %s failed', url)
             return None
