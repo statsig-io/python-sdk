@@ -80,7 +80,7 @@ class TestStatsigConcurrency(unittest.TestCase):
         statsig.initialize("secret-key", options)
         cls.initTime = round(time.time() * 1000)
 
-    def test_checking_concurrently(self):
+    def test_checking_and_updating_concurrently(self):
         self.threads = []
         for x in range(10):
             thread = threading.Thread(
