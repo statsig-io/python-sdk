@@ -233,6 +233,32 @@
           "salt": "e452510f-bd5b-42cb-a71e-00498a7903fc"
         }
       ]
+    },
+    {
+      "name": "on_for_id_list",
+      "type": "feature_gate",
+      "salt": "4ab7fc7b-c8a0-4ef1-b869-8894676786aa",
+      "enabled": true,
+      "defaultValue": false,
+      "rules": [
+        {
+          "name": "7w9rbTSffLT89pxqpyhuqA",
+          "groupName": "on for people in id list",
+          "passPercentage": 100,
+          "conditions": [
+            {
+              "type": "user_field",
+              "targetValue": "list_1",
+              "operator": "in_segment_list",
+              "field": "userID",
+              "additionalValues": {}
+            }
+          ],
+          "returnValue": true,
+          "id": "7w9rbTSffLT89pxqpyhuqA",
+          "salt": "e452510f-bd5b-42cb-a71e-00498a7903fD"
+        }
+      ]
     }
   ],
   "layer_configs": [
