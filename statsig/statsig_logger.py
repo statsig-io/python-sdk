@@ -12,28 +12,28 @@ _GATE_EXPOSURE_EVENT = "statsig::gate_exposure"
 
 class _StatsigLogger:
     def __init__(self, net, shutdown_event, statsig_metadata, local_mode):
-        self.__events = list()
-        self.__retry_logs = queue.Queue(maxsize=10)
-        self.__net = net
-        self.__statsig_metadata = statsig_metadata
-        self.__local_mode = local_mode
+        self._events = list()
+        self._retry_logs = queue.Queue(maxsize=10)
+        self._net = net
+        self._statsig_metadata = statsig_metadata
+        self._local_mode = local_mode
 
-        self.__background_flush = threading.Thread(
+        self._background_flush = threading.Thread(
             target=self._periodic_flush, args=(shutdown_event,))
-        self.__background_flush.daemon = True
-        self.__background_flush.start()
+        self._background_flush.daemon = True
+        self._background_flush.start()
 
-        self.__background_retry = threading.Thread(
+        self._background_retry = threading.Thread(
             target=self._periodic_retry, args=(shutdown_event,))
-        self.__background_retry.daemon = True
-        self.__background_retry.start()
+        self._background_retry.daemon = True
+        self._background_retry.start()
 
     def log(self, event):
-        if self.__local_mode:
+        if self._local_mode:
             return
-        self.__events.append(event.to_dict())
-        if len(self.__events) >= 500:
-            self.__flush()
+        self._events.append(event.to_dict())
+        if len(self._events) >= 1000:
+            self._flush()
 
     def log_gate_exposure(self, user, gate, value, rule_id, secondary_exposures):
         event = StatsigEvent(user, _GATE_EXPOSURE_EVENT)
@@ -80,35 +80,35 @@ class _StatsigLogger:
         event._secondary_exposures = [] if exposures is None else exposures
         self.log(event)
 
-    def __flush(self):
-        if len(self.__events) == 0:
+    def _flush(self):
+        if len(self._events) == 0:
             return
-        events_copy = self.__events.copy()
-        self.__events = list()
-        res = self.__net.retryable_request("log_event", {
+        events_copy = self._events.copy()
+        self._events = list()
+        res = self._net.retryable_request("log_event", {
             "events": events_copy,
-            "statsigMetadata": self.__statsig_metadata,
+            "statsigMetadata": self._statsig_metadata,
         })
         if res is not None:
-            self.__retry_logs.put(res, False)
+            self._retry_logs.put(res, False)
 
     def shutdown(self):
-        self.__flush()
-        self.__background_flush.join()
+        self._flush()
+        self._background_flush.join()
 
     def _periodic_flush(self, shutdown_event):
         while True:
             if shutdown_event.wait(60):
                 break
-            self.__flush()
+            self._flush()
 
     def _periodic_retry(self, shutdown_event):
         while True:
             if shutdown_event.wait(60):
                 break
-            for i in range(self.__retry_logs.qsize()):
-                payload = self.__retry_logs.get()
-                res = self.__net.retryable_request("log_event", payload)
+            for i in range(self._retry_logs.qsize()):
+                payload = self._retry_logs.get()
+                res = self._net.retryable_request("log_event", payload)
                 if res is not None:
-                    self.__retry_logs.put(res)
-                self.__retry_logs.task_done()
+                    self._retry_logs.put(res)
+                self._retry_logs.task_done()

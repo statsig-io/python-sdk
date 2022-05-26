@@ -18,12 +18,28 @@ class TestStatsigE2E(unittest.TestCase):
         cls.server.start()
         cls.server.add_json_response(
             "/download_config_specs", json.loads(CONFIG_SPECS_RESPONSE))
+
+        def idlist_download_callbackFunc():
+            return "+7/rrkvF6\n"
+        cls.server.add_callback_response(
+            "/list_1",
+            idlist_download_callbackFunc,
+            methods=('GET',)
+        )
         cls.server.add_json_response(
-            "/get_id_lists", json.loads("{}"))
+            "/get_id_lists", {
+                "list_1": {
+                    "name": "list_1",
+                    "size": 10,
+                    "url": cls.server.url + "/list_1",
+                    "creationTime": 1,
+                    "fileID": "file_id_1",
+                },
+            })
         cls.server.add_log_event_response(
             cls.check_logs.__get__(cls, type(cls.__class__)))
         cls.statsig_user = StatsigUser(
-            "123", email="testuser@statsig.com", private_attributes={"test": 123})
+            "regular_user_id", email="testuser@statsig.com", private_attributes={"test": 123})
         cls.random_user = StatsigUser("random")
         cls.logs = {}
         options = StatsigOptions(
@@ -99,6 +115,7 @@ class TestStatsigE2E(unittest.TestCase):
         self.assertEqual(len([]), 0)
 
     def test_e_evaluate_all(self):
+        print(statsig.evaluate_all(self.statsig_user))
         self.assertEqual(statsig.evaluate_all(self.statsig_user),
                          {
             "feature_gates": {
@@ -109,6 +126,10 @@ class TestStatsigE2E(unittest.TestCase):
                 "on_for_statsig_email": {
                     "value": True,
                     "rule_id": "7w9rbTSffLT89pxqpyhuqK"
+                },
+                "on_for_id_list": {
+                    "value": True,
+                    "rule_id": "7w9rbTSffLT89pxqpyhuqA"
                 }
             },
             "dynamic_configs": {
@@ -213,7 +234,7 @@ class TestStatsigE2E(unittest.TestCase):
         self.assertEqual(events[7]["metadata"]
                          ["item_name"], "diet_coke_48_pack")
         self.assertEqual(events[7]["metadata"]["price"], "9.99")
-        self.assertEqual(events[7]["user"]["userID"], "123")
+        self.assertEqual(events[7]["user"]["userID"], "regular_user_id")
         self.assertEqual(events[7]["user"]["email"], "testuser@statsig.com")
         self.assertEqual(events[7]["user"].get(
             "privateAttributes", None), None)
