@@ -17,7 +17,7 @@ class TestStatsigConcurrency(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.server = MockServer(port=1234)
+        cls.server = MockServer(port=1111)
         cls.server.start()
         cls.idlist_sync_count = 0
         cls.download_id_list_count = 0
@@ -25,26 +25,12 @@ class TestStatsigConcurrency(unittest.TestCase):
             "/download_config_specs", json.loads(CONFIG_SPECS_RESPONSE))
 
         def idlist_callbackFunc():
+            size = 10 + 3 * cls.idlist_sync_count
             cls.idlist_sync_count = cls.idlist_sync_count + 1
             return jsonify({
                 "list_1": {
                     "name": "list_1",
-                    "size": 3 * cls.idlist_sync_count,
-                    "url": cls.server.url + "/list_1",
-                    "creationTime": 1,
-                    "fileID": "file_id_1",
-                },
-            })
-        cls.server.add_callback_response(
-            "/get_id_lists",
-            idlist_callbackFunc,
-        )
-
-        def idlist_callbackFunc():
-            return jsonify({
-                "list_1": {
-                    "name": "list_1",
-                    "size": 3 * cls.idlist_sync_count,
+                    "size": size,
                     "url": cls.server.url + "/list_1",
                     "creationTime": 1,
                     "fileID": "file_id_1",
