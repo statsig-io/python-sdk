@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from statsig import statsig_environment_tier
+from statsig.statsig_errors import StatsigValueError
 
 
 def _str_or_none(field):
@@ -31,7 +32,7 @@ class StatsigUser:
     def __post_init__(self):
         # ensure there is a user id or at least a custom ID, empty dict evaluates to false in python so we can use "not" operator to check
         if not self.user_id and not self.custom_ids:
-            raise ValueError(
+            raise StatsigValueError(
                 'user_id or at least a custom ID is required: learn more https://docs.statsig.com/messages/serverRequiredUserID')
 
     def to_dict(self, forEvaluation=False):

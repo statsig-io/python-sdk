@@ -2,6 +2,7 @@ import time
 from typing import Union, Optional
 
 from dataclasses import dataclass
+from statsig.statsig_errors import StatsigValueError
 from statsig.statsig_user import StatsigUser
 
 
@@ -21,11 +22,13 @@ class StatsigEvent:
 
     def __post_init__(self):
         if self.user is None or not isinstance(self.user, StatsigUser):
-            raise ValueError('StatsigEvent.user must be set')
+            raise StatsigValueError('StatsigEvent.user must be set')
         if self.event_name is None or self.event_name == "":
-            raise ValueError('StatsigEvent.event_name must be a valid str')
+            raise StatsigValueError(
+                'StatsigEvent.event_name must be a valid str')
         if self.value is not None and not isinstance(self.value, str) and not isinstance(self.value, float) and not isinstance(self.value, int):
-            raise ValueError('StatsigEvent.value must be a str, float, or int')
+            raise StatsigValueError(
+                'StatsigEvent.value must be a str, float, or int')
 
     def to_dict(self):
         evt_nullable = {

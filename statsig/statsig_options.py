@@ -1,3 +1,4 @@
+from statsig.statsig_errors import StatsigValueError
 from .statsig_environment_tier import StatsigEnvironmentTier
 import typing
 
@@ -12,7 +13,7 @@ class StatsigOptions:
         timeout: typing.Optional[int] = None,
         rulesets_sync_interval: int = 10,
         idlists_sync_interval: int = 60,
-        local_mode: bool=False,
+        local_mode: bool = False,
         bootstrap_values: typing.Optional[str] = None,
         rules_updated_callback: typing.Optional[typing.Callable] = None,
     ):
@@ -23,7 +24,7 @@ class StatsigOptions:
                     tier, StatsigEnvironmentTier) else tier
                 self.set_environment_parameter("tier", tier_str)
             else:
-                raise ValueError(
+                raise StatsigValueError(
                     'StatsigOptions.tier must be a str or StatsigEnvironmentTier')
         if api is None:
             api = "https://statsigapi.net/v1/"
@@ -34,7 +35,7 @@ class StatsigOptions:
         self.local_mode = local_mode
         self.bootstrap_values = bootstrap_values
         self.rules_updated_callback = rules_updated_callback
-    
+
     def set_environment_parameter(self, key: str, value: str):
         if self._environment is None:
             self._environment = {}

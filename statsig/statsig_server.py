@@ -4,9 +4,12 @@ import logging
 import threading
 from typing import Optional
 from statsig.layer import Layer
+from statsig.statsig_errors import StatsigNameError, StatsigRuntimeError, StatsigValueError
 from statsig.statsig_event import StatsigEvent
+from statsig.statsig_metadata import _StatsigMetadata
 
 from statsig.statsig_user import StatsigUser
+from .statsig_error_boundary import _StatsigErrorBoundary
 from .evaluator import _ConfigEvaluation, _Evaluator
 from .statsig_network import _StatsigNetwork
 from .statsig_logger import _StatsigLogger
@@ -19,133 +22,171 @@ IDLISTS_SYNC_INTERVAL = 60
 
 
 class StatsigServer:
+    _errorBoundary: _StatsigErrorBoundary
+
+    def __init__(self) -> None:
+        self._errorBoundary = _StatsigErrorBoundary()
 
     def initialize(self, sdkKey: str, options=None):
         if sdkKey is None or not sdkKey.startswith("secret-"):
-            raise ValueError(
+            raise StatsigValueError(
                 'Invalid key provided.  You must use a Server Secret Key from the Statsig console.')
         if options is None:
             options = StatsigOptions()
-        self._options = options
-        self.__shutdown_event = threading.Event()
-        self.__statsig_metadata = {
-            "sdkVersion": __version__,
-            "sdkType": "py-server"
-        }
-        self._network = _StatsigNetwork(sdkKey, options)
-        self._logger = _StatsigLogger(
-            self._network, self.__shutdown_event, self.__statsig_metadata, options.local_mode)
-        self._evaluator = _Evaluator()
+        self._errorBoundary.set_api_key(sdkKey)
 
-        self._last_update_time = 0
+        def task():
+            self._options = options
+            self.__shutdown_event = threading.Event()
+            self.__statsig_metadata = _StatsigMetadata.get()
+            self._network = _StatsigNetwork(sdkKey, options)
+            self._logger = _StatsigLogger(
+                self._network, self.__shutdown_event, self.__statsig_metadata, options.local_mode)
+            self._evaluator = _Evaluator()
 
-        if not options.local_mode:
-            if options.bootstrap_values is not None:
-                self._bootstrap_config_specs()
-            else:
-                self._download_config_specs()
-            self.__background_download_configs = threading.Thread(
-                target=self._sync, args=(self._download_config_specs, options.rulesets_sync_interval or RULESETS_SYNC_INTERVAL,))
-            self.__background_download_configs.daemon = True
-            self.__background_download_configs.start()
+            self._last_update_time = 0
 
-        if not options.local_mode:
-            self._download_id_lists()
-            self.__background_download_idlists = threading.Thread(
-                target=self._sync, args=(self._download_id_lists, options.idlists_sync_interval or IDLISTS_SYNC_INTERVAL,))
-            self.__background_download_idlists.daemon = True
-            self.__background_download_idlists.start()
+            if not options.local_mode:
+                if options.bootstrap_values is not None:
+                    self._bootstrap_config_specs()
+                else:
+                    self._download_config_specs()
+                self.__background_download_configs = threading.Thread(
+                    target=self._sync, args=(self._download_config_specs, options.rulesets_sync_interval or RULESETS_SYNC_INTERVAL,))
+                self.__background_download_configs.daemon = True
+                self.__background_download_configs.start()
 
-        self._initialized = True
+            if not options.local_mode:
+                self._download_id_lists()
+                self.__background_download_idlists = threading.Thread(
+                    target=self._sync, args=(self._download_id_lists, options.idlists_sync_interval or IDLISTS_SYNC_INTERVAL,))
+                self.__background_download_idlists.daemon = True
+                self.__background_download_idlists.start()
+
+            self._initialized = True
+
+        def recover():
+            # Should still initialize and just return default values
+            self._initialized = True
+        self._errorBoundary.capture(task, recover)
 
     def check_gate(self, user: StatsigUser, gate_name: str):
-        if not self._verify_inputs(user, gate_name):
-            return False
+        def task():
+            if not self._verify_inputs(user, gate_name):
+                return False
 
-        result = self.__check_gate_server_fallback(user, gate_name)
-        return result.boolean_value
+            result = self.__check_gate_server_fallback(user, gate_name)
+            return result.boolean_value
+
+        return self._errorBoundary.capture(task, lambda: False)
 
     def get_config(self, user: StatsigUser, config_name: str):
-        if not self._verify_inputs(user, config_name):
-            return DynamicConfig({}, config_name, "")
+        def task():
+            if not self._verify_inputs(user, config_name):
+                return DynamicConfig({}, config_name, "")
 
-        result = self.__get_config_server_fallback(user, config_name)
-        return DynamicConfig(result.json_value, config_name, result.rule_id)
+            result = self.__get_config_server_fallback(user, config_name)
+            return DynamicConfig(result.json_value, config_name, result.rule_id)
+
+        return self._errorBoundary.capture(task, lambda: DynamicConfig({}, config_name, ""))
 
     def get_experiment(self, user: StatsigUser, experiment_name: str):
-        return self.get_config(user, experiment_name)
+        def task():
+            return self.get_config(user, experiment_name)
+        return self._errorBoundary.capture(task, lambda: DynamicConfig({}, experiment_name, ""))
 
     def get_layer(self, user: StatsigUser, layer_name: str) -> Layer:
-        if not self._verify_inputs(user, layer_name):
-            return Layer._create(layer_name, {}, "")
+        def task():
+            if not self._verify_inputs(user, layer_name):
+                return Layer._create(layer_name, {}, "")
 
-        user = self.__normalize_user(user)
-        result = self._evaluator.get_layer(user, layer_name)
-        result = self.__resolve_eval_result(
-            user, layer_name, result=result, log_exposure=True, is_layer=True)
+            normal_user = self.__normalize_user(user)
+            result = self._evaluator.get_layer(normal_user, layer_name)
+            result = self.__resolve_eval_result(
+                normal_user, layer_name, result=result, log_exposure=True, is_layer=True)
 
-        def log_func(layer: Layer, parameter_name: str):
-            self._logger.log_layer_exposure(
-                user, layer, parameter_name, result)
+            def log_func(layer: Layer, parameter_name: str):
+                self._logger.log_layer_exposure(
+                    normal_user, layer, parameter_name, result)
 
-        return Layer._create(
-            layer_name,
-            result.json_value,
-            result.rule_id,
-            log_func
-        )
+            return Layer._create(
+                layer_name,
+                result.json_value,
+                result.rule_id,
+                log_func
+            )
+
+        return self._errorBoundary.capture(task, lambda: Layer._create(layer_name, {}, ""))
 
     def log_event(self, event: StatsigEvent):
-        if not self._initialized:
-            raise RuntimeError(
-                'Must call initialize before checking gates/configs/experiments or logging events')
+        def task():
+            if not self._initialized:
+                raise StatsigRuntimeError(
+                    'Must call initialize before checking gates/configs/experiments or logging events')
 
-        event.user = self.__normalize_user(event.user)
-        self._logger.log(event)
+            event.user = self.__normalize_user(event.user)
+            self._logger.log(event)
+
+        self._errorBoundary.capture(task)
 
     def shutdown(self):
-        self.__shutdown_event.set()
-        self._logger.shutdown()
-        if not self._options.local_mode:
-            self.__background_download_configs.join()
-            self.__background_download_idlists.join()
+        def task():
+            self.__shutdown_event.set()
+            self._logger.shutdown()
+            if not self._options.local_mode:
+                self.__background_download_configs.join()
+                self.__background_download_idlists.join()
+
+        self._errorBoundary.capture(task)
 
     def override_gate(self, gate: str, value: bool, user_id: Optional[str] = None):
-        self._evaluator.override_gate(gate, value, user_id)
+        self._errorBoundary.capture(
+            lambda: self._evaluator.override_gate(gate, value, user_id))
 
     def override_config(self, config: str, value: object, user_id: Optional[str] = None):
-        self._evaluator.override_config(config, value, user_id)
+        self._errorBoundary.capture(
+            lambda: self._evaluator.override_config(config, value, user_id))
 
     def override_experiment(self, experiment: str, value: object, user_id: Optional[str] = None):
-        self._evaluator.override_config(experiment, value, user_id)
+        self._errorBoundary.capture(
+            lambda: self._evaluator.override_config(experiment, value, user_id))
 
     def evaluate_all(self, user: StatsigUser):
-        all_gates = dict()
-        for gate in self._evaluator.get_all_gates():
-            result = self.__check_gate_server_fallback(user, gate, False)
-            all_gates[gate] = {
-                "value": result.boolean_value,
-                "rule_id": result.rule_id
-            }
+        def task():
+            all_gates = dict()
+            for gate in self._evaluator.get_all_gates():
+                result = self.__check_gate_server_fallback(user, gate, False)
+                all_gates[gate] = {
+                    "value": result.boolean_value,
+                    "rule_id": result.rule_id
+                }
 
-        all_configs = dict()
-        for config in self._evaluator.get_all_configs():
-            result = self.__get_config_server_fallback(user, config, False)
-            all_configs[config] = {
-                "value": result.json_value,
-                "rule_id": result.rule_id
-            }
-        return dict({
-            "feature_gates": all_gates,
-            "dynamic_configs": all_configs
-        })
+            all_configs = dict()
+            for config in self._evaluator.get_all_configs():
+                result = self.__get_config_server_fallback(user, config, False)
+                all_configs[config] = {
+                    "value": result.json_value,
+                    "rule_id": result.rule_id
+                }
+            return dict({
+                "feature_gates": all_gates,
+                "dynamic_configs": all_configs
+            })
+
+        def recover():
+            return dict({
+                "feature_gates": dict(),
+                "dynamic_configs": dict()
+            })
+
+        return self._errorBoundary.capture(task, recover)
 
     def _verify_inputs(self, user: StatsigUser, variable_name: str):
         if not self._initialized:
-            raise RuntimeError(
+            raise StatsigRuntimeError(
                 'Must call initialize before checking gates/configs/experiments or logging events')
         if not user or (not user.user_id and not user.custom_ids):
-            raise ValueError(
+            raise StatsigValueError(
                 'A non-empty StatsigUser with user_id or custom_ids is required. See https://docs.statsig.com/messages/serverRequiredUserID')
         if not variable_name:
             return False
@@ -242,7 +283,7 @@ class StatsigServer:
         try:
             content_length_str = resp.headers.get('content-length')
             if content_length_str is None:
-                raise ValueError("Content length invalid.")
+                raise StatsigValueError("Content length invalid.")
             content_length = int(content_length_str)
             content = resp.text
             if content is None:
@@ -250,7 +291,7 @@ class StatsigServer:
             list = all_lists[list_name]
             first_char = content[0]
             if first_char != "+" and first_char != "-":
-                raise NameError("Seek range invalid.")
+                raise StatsigNameError("Seek range invalid.")
             lines = content.splitlines()
             for line in lines:
                 if len(line) <= 1:
