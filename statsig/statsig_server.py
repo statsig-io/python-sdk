@@ -35,7 +35,7 @@ class StatsigServer:
             options = StatsigOptions()
         self._errorBoundary.set_api_key(sdkKey)
 
-        def task():
+        try:
             self._options = options
             self.__shutdown_event = threading.Event()
             self.__statsig_metadata = _StatsigMetadata.get()
@@ -64,11 +64,11 @@ class StatsigServer:
                 self.__background_download_idlists.start()
 
             self._initialized = True
-
-        def recover():
-            # Should still initialize and just return default values
+        except (StatsigValueError, StatsigNameError, StatsigRuntimeError) as e:
+            raise e
+        except Exception as e:
+            self._errorBoundary.log_exception(e)
             self._initialized = True
-        self._errorBoundary.capture(task, recover)
 
     def check_gate(self, user: StatsigUser, gate_name: str):
         def task():
@@ -127,7 +127,8 @@ class StatsigServer:
             event.user = self.__normalize_user(event.user)
             self._logger.log(event)
 
-        self._errorBoundary.capture(task)
+
+        self._errorBoundary.swallow(task)
 
     def shutdown(self):
         def task():
@@ -137,18 +138,18 @@ class StatsigServer:
                 self.__background_download_configs.join()
                 self.__background_download_idlists.join()
 
-        self._errorBoundary.capture(task)
+        self._errorBoundary.swallow(task)
 
     def override_gate(self, gate: str, value: bool, user_id: Optional[str] = None):
-        self._errorBoundary.capture(
+        self._errorBoundary.swallow(
             lambda: self._evaluator.override_gate(gate, value, user_id))
 
     def override_config(self, config: str, value: object, user_id: Optional[str] = None):
-        self._errorBoundary.capture(
+        self._errorBoundary.swallow(
             lambda: self._evaluator.override_config(config, value, user_id))
 
     def override_experiment(self, experiment: str, value: object, user_id: Optional[str] = None):
-        self._errorBoundary.capture(
+        self._errorBoundary.swallow(
             lambda: self._evaluator.override_config(experiment, value, user_id))
 
     def evaluate_all(self, user: StatsigUser):

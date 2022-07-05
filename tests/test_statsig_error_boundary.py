@@ -58,7 +58,7 @@ class TestStatsigErrorBoundary(unittest.TestCase):
         def task():
             raise RuntimeError()
 
-        res = self._boundary.capture(task)
+        res = self._boundary.swallow(task)
         self.assertIsNone(res)
 
     def test_logging_to_correct_endpoint(self):
@@ -101,27 +101,27 @@ class TestStatsigErrorBoundary(unittest.TestCase):
         def test_value_error():
             def task():
                 raise StatsigValueError()
-            self._boundary.capture(task)
+            self._boundary.swallow(task)
 
         def test_name_error():
             def task():
                 raise StatsigNameError()
-            self._boundary.capture(task)
+            self._boundary.swallow(task)
 
         def test_runtime_error():
             def task():
                 raise StatsigRuntimeError()
-            self._boundary.capture(task)
+            self._boundary.swallow(task)
 
         def test_interrupts():
             def task():
                 raise KeyboardInterrupt()
-            self._boundary.capture(task)
+            self._boundary.swallow(task)
 
         def test_exits():
             def task():
                 raise SystemExit()
-            self._boundary.capture(task)
+            self._boundary.swallow(task)
 
         self.assertRaises(StatsigValueError, test_value_error)
         self.assertRaises(StatsigNameError, test_name_error)

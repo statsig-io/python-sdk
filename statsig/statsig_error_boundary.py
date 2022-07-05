@@ -17,20 +17,22 @@ class _StatsigErrorBoundary:
     def set_api_key(self, api_key):
         self._api_key = api_key
 
-    def capture(self, task, recover=None):
+    def capture(self, task, recover):
         try:
             return task()
         except (StatsigValueError, StatsigNameError, StatsigRuntimeError) as e:
             raise e
         except Exception as e:
-            print("[Statsig]: An unexpected exception occurred.")
+            print("[Statsig]: An unexpected error occurred.")
             traceback.print_exc()
 
             self.log_exception(e)
-
-            if (recover is None):
-                return None
             return recover()
+    
+    def swallow(self, task):
+        def empty_recover():
+            return None
+        self.capture(task, empty_recover)
 
     def log_exception(self, exception: Exception):
         try:
