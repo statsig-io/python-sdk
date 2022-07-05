@@ -41,7 +41,7 @@ class StatsigServer:
             self.__statsig_metadata = _StatsigMetadata.get()
             self._network = _StatsigNetwork(sdkKey, options)
             self._logger = _StatsigLogger(
-                self._network, self.__shutdown_event, self.__statsig_metadata, options.local_mode)
+                self._network, self.__shutdown_event, self.__statsig_metadata, options.local_mode, options.event_queue_size)
             self._evaluator = _Evaluator()
 
             self._last_update_time = 0
