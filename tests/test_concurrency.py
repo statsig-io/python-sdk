@@ -61,7 +61,7 @@ class TestStatsigConcurrency(unittest.TestCase):
         cls.random_user = StatsigUser("random")
         cls.logs = {}
         options = StatsigOptions(
-            api=cls.server.url, tier=StatsigEnvironmentTier.development, idlists_sync_interval=0.01, rulesets_sync_interval=0.01)
+            api=cls.server.url, tier=StatsigEnvironmentTier.development, idlists_sync_interval=0.01, rulesets_sync_interval=0.01, event_queue_size=400)
 
         statsig.initialize("secret-key", options)
         cls.initTime = round(time.time() * 1000)
@@ -77,8 +77,8 @@ class TestStatsigConcurrency(unittest.TestCase):
         for t in self.threads:
             t.join()
 
-        self.assertEqual(800, len(statsig.get_instance()._logger._events))
-        self.assertEqual(1000, self.event_count)
+        self.assertEqual(200, len(statsig.get_instance()._logger._events))
+        self.assertEqual(1600, self.event_count)
         statsig.shutdown()
 
         self.assertEqual(0, len(statsig.get_instance()._logger._events))

@@ -16,7 +16,7 @@ class StatsigOptions:
         local_mode: bool = False,
         bootstrap_values: typing.Optional[str] = None,
         rules_updated_callback: typing.Optional[typing.Callable] = None,
-        event_queue_size: typing.Optional[int] = 1000,
+        event_queue_size: typing.Optional[int] = 500,
     ):
         self._environment = None
         if tier is not None:
@@ -37,7 +37,7 @@ class StatsigOptions:
         self.bootstrap_values = bootstrap_values
         self.rules_updated_callback = rules_updated_callback
         if event_queue_size is None:
-            self.event_queue_size = 1000
+            self.event_queue_size = 500
         else:
             self.event_queue_size = event_queue_size
     
