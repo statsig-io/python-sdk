@@ -91,11 +91,13 @@ class TestStatsigErrorBoundary(unittest.TestCase):
     def test_logging_errors_only_once(self):
         self._capture_error()
 
+        self.assertEqual(len(self._get_requests()), 1)
         body = self._get_requests()[0]['body']
         self.assertEqual(body['exception'], "RuntimeError")
 
         self._capture_error()
         self.assertEqual(len(self._get_requests()), 1)
+        
 
     def test_does_not_catch_intended_error(self):
         def test_value_error():
