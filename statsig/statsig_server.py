@@ -41,7 +41,7 @@ class StatsigServer:
             self.__statsig_metadata = _StatsigMetadata.get()
             self._network = _StatsigNetwork(sdkKey, options)
             self._logger = _StatsigLogger(
-                self._network, self.__shutdown_event, self.__statsig_metadata, options.local_mode, options.event_queue_size)
+                self._network, self.__shutdown_event, self.__statsig_metadata, self._errorBoundary, options.local_mode, options.event_queue_size)
             self._evaluator = _Evaluator()
 
             self._last_update_time = 0
@@ -242,10 +242,13 @@ class StatsigServer:
 
     def _sync(self, sync_func, interval):
         while True:
-            if self.__shutdown_event.wait(interval):
-                break
-            sync_func()
-
+            try:
+                if self.__shutdown_event.wait(interval):
+                    break
+                sync_func()
+            except Exception as e:
+                self._errorBoundary.log_exception(e)
+           
     def _bootstrap_config_specs(self,):
         if self._options.bootstrap_values is None:
             return
