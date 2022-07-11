@@ -1,47 +1,32 @@
 import traceback
 import unittest
+from unittest.mock import patch
 
 from statsig.statsig_error_boundary import _StatsigErrorBoundary
 from statsig.statsig_errors import StatsigNameError, StatsigRuntimeError, StatsigValueError
 from statsig.statsig_metadata import _StatsigMetadata
 
-from tests.mockserver import MockServer
+
+def mocked_post(*args, **kwargs):
+    TestStatsigErrorBoundary.requests.append({
+        "url": args[0],
+        "body": kwargs['json'],
+        "headers": kwargs['headers']
+    })
 
 
+@patch('requests.post', side_effect=mocked_post)
 class TestStatsigErrorBoundary(unittest.TestCase):
+    requests: list
+
     _boundary: _StatsigErrorBoundary
-    _server: MockServer
-    _requests: list
-
-    @classmethod
-    def setUpClass(cls):
-        cls._server = MockServer(port=1236)
-        cls._server.start()
-        cls._requests = []
-
-        def on_request():
-            req = MockServer.get_request()
-            cls._requests.append({
-                "path": req.path,
-                "body": req.json,
-                "headers": req.headers
-            })
-            return req.json
-
-        cls._server.add_callback_response(
-            "/v1/sdk_exception", on_request)
-
-    @classmethod
-    def tearDownClass(cls):
-        cls._server.shutdown_server()
 
     def setUp(self):
-        self.__class__._requests = []
         self._boundary = _StatsigErrorBoundary()
         self._boundary.set_api_key('secret-key')
-        self._boundary.endpoint = self._server.url + "/v1/sdk_exception"
+        TestStatsigErrorBoundary.requests = []
 
-    def test_recovers_from_errors(self):
+    def test_recovers_from_errors(self, mock_post):
         called = False
 
         def task():
@@ -54,27 +39,27 @@ class TestStatsigErrorBoundary(unittest.TestCase):
         self._boundary.capture(task, recover)
         self.assertTrue(called)
 
-    def test_has_default_recovery_of_none(self):
+    def test_has_default_recovery_of_none(self, mock_post):
         def task():
             raise RuntimeError()
 
         res = self._boundary.swallow(task)
         self.assertIsNone(res)
 
-    def test_logging_to_correct_endpoint(self):
+    def test_logging_to_correct_endpoint(self, mock_post):
         self._capture_error()
 
         req = self._get_requests()[0]
-        self.assertEqual(req['path'], "/v1/sdk_exception")
+        self.assertEqual(req['url'], "https://statsigapi.net/v1/sdk_exception")
         self.assertEqual(
-            req['headers']['statsig-api-key'], "secret-key")
+            req['headers']['STATSIG-API-KEY'], "secret-key")
         metadata = _StatsigMetadata.get()
         self.assertEqual(
-            req['headers']['statsig-sdk-type'], metadata["sdkType"])
+            req['headers']['STATSIG-SDK-TYPE'], metadata["sdkType"])
         self.assertEqual(
-            req['headers']['statsig-sdk-version'], metadata["sdkVersion"])
+            req['headers']['STATSIG-SDK-VERSION'], metadata["sdkVersion"])
 
-    def test_logging_exception_details(self):
+    def test_logging_exception_details(self, mock_post):
         err = self._capture_error()
 
         body = self._get_requests()[0]['body']
@@ -82,13 +67,13 @@ class TestStatsigErrorBoundary(unittest.TestCase):
         self.assertEqual(body['info'], "".join(traceback.format_exception(
             type(err), err, err.__traceback__)))
 
-    def test_logging_statsig_metadata(self):
+    def test_logging_statsig_metadata(self, mock_post):
         self._capture_error()
 
         body = self._get_requests()[0]['body']
         self.assertEqual(body['statsigMetadata'], _StatsigMetadata.get())
 
-    def test_logging_errors_only_once(self):
+    def test_logging_errors_only_once(self, mock_post):
         self._capture_error()
 
         self.assertEqual(len(self._get_requests()), 1)
@@ -97,9 +82,8 @@ class TestStatsigErrorBoundary(unittest.TestCase):
 
         self._capture_error()
         self.assertEqual(len(self._get_requests()), 1)
-        
 
-    def test_does_not_catch_intended_error(self):
+    def test_does_not_catch_intended_error(self, mock_post):
         def test_value_error():
             def task():
                 raise StatsigValueError()
@@ -131,7 +115,7 @@ class TestStatsigErrorBoundary(unittest.TestCase):
         self.assertRaises(KeyboardInterrupt, test_interrupts)
         self.assertRaises(SystemExit, test_exits)
 
-    def test_returns_successful_results(self):
+    def test_returns_successful_results(self, mock_post):
         def task():
             return "the_result"
 
@@ -141,7 +125,7 @@ class TestStatsigErrorBoundary(unittest.TestCase):
         res = self._boundary.capture(task, recover)
         self.assertEqual(res, "the_result")
 
-    def test_returns_recovered_results(self):
+    def test_returns_recovered_results(self, mock_post):
         def task():
             raise RuntimeError()
 
@@ -164,7 +148,7 @@ class TestStatsigErrorBoundary(unittest.TestCase):
         return err
 
     def _get_requests(self):
-        return self.__class__._requests
+        return TestStatsigErrorBoundary.requests
 
 
 if __name__ == '__main__':
