@@ -338,7 +338,7 @@ class _Evaluator:
             str_target = self.__get_value_as_string(target)
             if str_value == None or str_target == None:
                 return _ConfigEvaluation(False, False)
-            return _ConfigEvaluation(False, bool(re.match(str_target, str_value)))
+            return _ConfigEvaluation(False, bool(re.search(str_target, str_value)))
         elif op == "eq":
             return _ConfigEvaluation(False, value == target)
         elif op == "neq":

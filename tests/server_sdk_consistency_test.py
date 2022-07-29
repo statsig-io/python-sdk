@@ -80,7 +80,7 @@ class ServerSDKConsistencyTest(unittest.TestCase):
                 print(
                     f'\nExpected: {server_result["value"]}, Actual: {eval_result.boolean_value}')
             self.assertEqual(eval_result.boolean_value,
-                             server_result["value"])
+                             server_result["value"], f"Gate result mismatch [{name}]")
             self.assertEqual(eval_result.boolean_value, sdk_result)
 
             if eval_result.rule_id != server_result["rule_id"]:
