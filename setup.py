@@ -31,7 +31,6 @@ setup(
     classifiers=[
         'Intended Audience :: Developers',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 3',
         'Topic :: Software Development :: Libraries'
     ],
@@ -43,5 +42,6 @@ setup(
     tests_require=test_deps,
     extras_require=extras,
     include_package_data=True,
-    packages=['statsig']
+    packages=['statsig'],
+    python_requires='>=3.0',
 )
