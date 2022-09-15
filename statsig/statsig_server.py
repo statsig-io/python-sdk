@@ -41,7 +41,8 @@ class StatsigServer:
             self.__statsig_metadata = _StatsigMetadata.get()
             self._network = _StatsigNetwork(sdkKey, options)
             self._logger = _StatsigLogger(
-                self._network, self.__shutdown_event, self.__statsig_metadata, self._errorBoundary, options.local_mode, options.event_queue_size)
+                self._network, self.__shutdown_event, self.__statsig_metadata, self._errorBoundary, options.local_mode,
+                options.event_queue_size)
             self._evaluator = _Evaluator()
 
             self._last_update_time = 0
@@ -52,14 +53,16 @@ class StatsigServer:
                 else:
                     self._download_config_specs()
                 self.__background_download_configs = threading.Thread(
-                    target=self._sync, args=(self._download_config_specs, options.rulesets_sync_interval or RULESETS_SYNC_INTERVAL,))
+                    target=self._sync,
+                    args=(self._download_config_specs, options.rulesets_sync_interval or RULESETS_SYNC_INTERVAL,))
                 self.__background_download_configs.daemon = True
                 self.__background_download_configs.start()
 
             if not options.local_mode:
                 self._download_id_lists()
                 self.__background_download_idlists = threading.Thread(
-                    target=self._sync, args=(self._download_id_lists, options.idlists_sync_interval or IDLISTS_SYNC_INTERVAL,))
+                    target=self._sync,
+                    args=(self._download_id_lists, options.idlists_sync_interval or IDLISTS_SYNC_INTERVAL,))
                 self.__background_download_idlists.daemon = True
                 self.__background_download_idlists.start()
 
@@ -93,6 +96,7 @@ class StatsigServer:
     def get_experiment(self, user: StatsigUser, experiment_name: str):
         def task():
             return self.get_config(user, experiment_name)
+
         return self._errorBoundary.capture(task, lambda: DynamicConfig({}, experiment_name, ""))
 
     def get_layer(self, user: StatsigUser, layer_name: str) -> Layer:
@@ -127,7 +131,6 @@ class StatsigServer:
             event.user = self.__normalize_user(event.user)
             self._logger.log(event)
 
-
         self._errorBoundary.swallow(task)
 
     def shutdown(self):
@@ -151,6 +154,15 @@ class StatsigServer:
     def override_experiment(self, experiment: str, value: object, user_id: Optional[str] = None):
         self._errorBoundary.swallow(
             lambda: self._evaluator.override_config(experiment, value, user_id))
+
+    def get_client_initialize_response(self, user: StatsigUser):
+        def task():
+            return self._evaluator.get_client_initialize_response(self.__normalize_user(user))
+
+        def recover():
+            return None
+
+        return self._errorBoundary.capture(task, recover)
 
     def evaluate_all(self, user: StatsigUser):
         def task():
@@ -227,7 +239,8 @@ class StatsigServer:
             if network_config is None:
                 return _ConfigEvaluation()
 
-            return _ConfigEvaluation(json_value=network_config.get("value", {}), rule_id=network_config.get("ruleID", ""))
+            return _ConfigEvaluation(json_value=network_config.get("value", {}),
+                                     rule_id=network_config.get("ruleID", ""))
         elif log_exposure:
             if not is_layer:
                 self._logger.log_config_exposure(
@@ -248,8 +261,8 @@ class StatsigServer:
                 sync_func()
             except Exception as e:
                 self._errorBoundary.log_exception(e)
-           
-    def _bootstrap_config_specs(self,):
+
+    def _bootstrap_config_specs(self, ):
         if self._options.bootstrap_values is None:
             return
         try:

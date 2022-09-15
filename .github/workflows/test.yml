@@ -23,3 +23,4 @@ jobs:
       - run: python3 -m unittest discover
         env:
           test_api_key: ${{ secrets.SDK_CONSISTENCY_TEST_COMPANY_API_KEY }}
+          test_client_key: ${{ secrets.KONG_CLIENT_SDK_KEY }}

@@ -6,8 +6,8 @@ from .statsig_server import StatsigServer
 __instance = StatsigServer()
 
 
-def initialize(secretKey, options=None):
-    __instance.initialize(secretKey, options)
+def initialize(secret_key: str, options=None):
+    __instance.initialize(secret_key, options)
 
 
 def check_gate(user: StatsigUser, gate: str):
@@ -40,6 +40,10 @@ def override_config(config: str, value: object, user_id: Optional[str] = None):
 
 def override_experiment(experiment: str, value: object, user_id: Optional[str] = None):
     __instance.override_experiment(experiment, value, user_id)
+
+
+def get_client_initialize_response(user: StatsigUser):
+    return __instance.get_client_initialize_response(user)
 
 
 def evaluate_all(user: StatsigUser):

@@ -7,10 +7,15 @@ from struct import unpack
 from ua_parser import user_agent_parser
 from ip3country import CountryLookup
 
+from statsig import StatsigUser
+from .client_initialize_formatter import ClientInitializeResponseFormatter
+
 
 class _ConfigEvaluation:
 
-    def __init__(self, fetch_from_server=False, boolean_value=False, json_value={}, rule_id="", secondary_exposures=[], undelegated_secondary_exposures=[], allocated_experiment=None, explicit_parameters=[]):
+    def __init__(self, fetch_from_server=False, boolean_value=False, json_value={}, rule_id="", secondary_exposures=[],
+                 undelegated_secondary_exposures=[], allocated_experiment=None, explicit_parameters=[],
+                 is_experiment_group=False):
         if fetch_from_server is None:
             fetch_from_server = False
         self.fetch_from_server = fetch_from_server
@@ -31,6 +36,7 @@ class _ConfigEvaluation:
         self.undelegated_secondary_exposures = undelegated_secondary_exposures
         self.allocated_experiment = allocated_experiment
         self.explicit_parameters = explicit_parameters
+        self.is_experiment_group = is_experiment_group is True
 
 
 class _Evaluator:
@@ -39,7 +45,9 @@ class _Evaluator:
         self._gates = dict()
         self._id_lists = dict()
         self._layers = dict()
+        self._experiment_to_layer = dict()
         self._country_lookup = CountryLookup()
+        self._time = 0
 
         self._gate_overrides = dict()
         self._config_overrides = dict()
@@ -63,9 +71,18 @@ class _Evaluator:
             if name is not None:
                 new_layers[name] = config
 
+        new_experiment_to_layer = dict()
+        layers_dict = configs.get("layers", {})
+        for layer_name in layers_dict:
+            experiments = layers_dict[layer_name]
+            for experiment_name in experiments:
+                new_experiment_to_layer[experiment_name] = layer_name
+
         self._gates = new_gates
         self._configs = new_configs
         self._layers = new_layers
+        self._experiment_to_layer = new_experiment_to_layer
+        self._time = configs.get("time", 0)
 
     def get_id_lists(self):
         return self._id_lists
@@ -83,6 +100,15 @@ class _Evaluator:
             config_overrides = dict()
         config_overrides[user_id] = value
         self._config_overrides[config] = config_overrides
+
+    def get_client_initialize_response(self, user: StatsigUser):
+        if self._time == 0:
+            return None
+
+        return ClientInitializeResponseFormatter \
+            .get_formatted_response(self.__eval_config, user, self._gates,
+                                    self._configs, self._layers,
+                                    self._experiment_to_layer)
 
     def __lookup_gate_override(self, user, gate):
         gate_overrides = self._gate_overrides.get(gate)
@@ -166,7 +192,6 @@ class _Evaluator:
             if result.secondary_exposures is not None and len(result.secondary_exposures) > 0:
                 exposures = exposures + result.secondary_exposures
             if result.boolean_value:
-
                 delegated_result = self.__evaluate_delegate(
                     user, rule, exposures)
                 if delegated_result is not None:
@@ -178,7 +203,8 @@ class _Evaluator:
                     user_passes,
                     result.json_value if user_passes else defaultValue,
                     result.rule_id,
-                    exposures
+                    exposures,
+                    is_experiment_group=result.is_experiment_group
                 )
 
         return _ConfigEvaluation(False, False, defaultValue, "default", exposures)
@@ -197,7 +223,8 @@ class _Evaluator:
         return_value = rule.get("returnValue", {})
         rule_id = rule.get("id", "")
 
-        return _ConfigEvaluation(False, eval_result, return_value, rule_id, exposures)
+        return _ConfigEvaluation(False, eval_result, return_value, rule_id, exposures,
+                                 is_experiment_group=rule.get("isExperimentGroup", False))
 
     def __evaluate_delegate(self, user, rule, exposures):
         config_delegate = rule.get('configDelegate', None)
@@ -213,7 +240,7 @@ class _Evaluator:
             "explicitParameters", [])
         delegated_result.allocated_experiment = config_delegate
         delegated_result.secondary_exposures = exposures + \
-            delegated_result.secondary_exposures
+                                               delegated_result.secondary_exposures
         delegated_result.undelegated_secondary_exposures = exposures
         return delegated_result
 
@@ -258,7 +285,7 @@ class _Evaluator:
             value = self.__get_from_environment(user, field)
         elif type == "USER_BUCKET":
             salt = condition.get("additionalValues", {
-                                 "salt": None}).get("salt")
+                "salt": None}).get("salt")
             salt_str = self.__get_value_as_string(salt) or ""
             unit_id = self.__get_unit_id(user, id_Type) or ""
             value = int(self.__compute_user_hash(
@@ -318,21 +345,29 @@ class _Evaluator:
                 value, target, lambda a, b: self.__version_compare(a, b) != 0)
             return _ConfigEvaluation(False, res)
         elif op == "any":
-            return _ConfigEvaluation(False, self.__match_string_in_array(value, target, lambda a, b: a.upper().lower() == b.upper().lower()))
+            return _ConfigEvaluation(False, self.__match_string_in_array(value, target, lambda a,
+                                                                                               b: a.upper().lower() == b.upper().lower()))
         elif op == "none":
-            return _ConfigEvaluation(False, not self.__match_string_in_array(value, target, lambda a, b: a.upper().lower() == b.upper().lower()))
+            return _ConfigEvaluation(False, not self.__match_string_in_array(value, target, lambda a,
+                                                                                                   b: a.upper().lower() == b.upper().lower()))
         elif op == "any_case_sensitive":
             return _ConfigEvaluation(False, self.__match_string_in_array(value, target, lambda a, b: a == b))
         elif op == "none_case_sensitive":
             return _ConfigEvaluation(False, not self.__match_string_in_array(value, target, lambda a, b: a == b))
         elif op == "str_starts_with_any":
-            return _ConfigEvaluation(False, self.__match_string_in_array(value, target, lambda a, b: a.upper().lower().startswith(b.upper().lower())))
+            return _ConfigEvaluation(False, self.__match_string_in_array(value, target,
+                                                                         lambda a, b: a.upper().lower().startswith(
+                                                                             b.upper().lower())))
         elif op == "str_ends_with_any":
-            return _ConfigEvaluation(False, self.__match_string_in_array(value, target, lambda a, b: a.upper().lower().endswith(b.upper().lower())))
+            return _ConfigEvaluation(False, self.__match_string_in_array(value, target,
+                                                                         lambda a, b: a.upper().lower().endswith(
+                                                                             b.upper().lower())))
         elif op == "str_contains_any":
-            return _ConfigEvaluation(False, self.__match_string_in_array(value, target, lambda a, b: b.upper().lower() in a.upper().lower()))
+            return _ConfigEvaluation(False, self.__match_string_in_array(value, target, lambda a,
+                                                                                               b: b.upper().lower() in a.upper().lower()))
         elif op == "str_contains_none":
-            return _ConfigEvaluation(False, not self.__match_string_in_array(value, target, lambda a, b: b.upper().lower() in a.upper().lower()))
+            return _ConfigEvaluation(False, not self.__match_string_in_array(value, target, lambda a,
+                                                                                                   b: b.upper().lower() in a.upper().lower()))
         elif op == "str_matches":
             str_value = self.__get_value_as_string(value)
             str_target = self.__get_value_as_string(target)
