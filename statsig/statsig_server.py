@@ -292,7 +292,7 @@ class StatsigServer:
         })
         self.__save_json_config_specs(specs, True)
 
-    def _download_id_list(self, url, list_name, all_lists, start_index):
+    def _download_id_list(self, url, list_name, local_list, all_lists, start_index):
         resp = self._network.get_request(
             url, headers={"Range": "bytes=%s-" % start_index})
         if resp is None:
@@ -305,7 +305,6 @@ class StatsigServer:
             content = resp.text
             if content is None:
                 return
-            list = all_lists[list_name]
             first_char = content[0]
             if first_char != "+" and first_char != "-":
                 raise StatsigNameError("Seek range invalid.")
@@ -316,14 +315,13 @@ class StatsigServer:
                 op = line[0]
                 id = line[1:].strip()
                 if op == "+":
-                    list.get("ids", set()).add(id)
+                    local_list.get("ids", set()).add(id)
                 elif op == "-":
-                    list.get("ids", set()).discard(id)
-            list["readBytes"] = start_index + content_length
+                    local_list.get("ids", set()).discard(id)
+            local_list["readBytes"] = start_index + content_length
+            all_lists[list_name] = local_list
         except Exception as e:
             self._errorBoundary.log_exception(e)
-            # something went wrong with the content, reset the list to start over time next
-            all_lists.pop(list_name, None)
 
     def _download_id_lists(self):
         try: 
@@ -359,13 +357,13 @@ class StatsigServer:
                         "fileID": new_file_id,
                         "creationTime": new_creation_time,
                     }
-                    local_id_lists[list_name] = local_list
+                    
                 read_bytes = local_list.get("readBytes", 0)
                 # check if read bytes count is the same as total file size; only download additional ids if sizes don't match
                 if size <= read_bytes or url == "":
                     continue
                 thread = threading.Thread(
-                    target=self._download_id_list, args=(url, list_name, local_id_lists, read_bytes, ))
+                    target=self._download_id_list, args=(url, list_name, local_list, local_id_lists, read_bytes, ))
                 thread.daemon = True
                 thread_pool.append(thread)
                 thread.start()

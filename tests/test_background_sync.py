@@ -200,7 +200,7 @@ class TestBackgroundSync(unittest.TestCase):
         self.assertEqual(self.idlist_1_download_count, 2)
         self.assertEqual(self.idlist_2_download_count, 1)
         self.assertEqual(self.idlist_3_download_count, 0)
-        # list_2 gets deleted; list_1 had an id deleted so now has 0 ids
+        # list_2 gets deleted; list_1 had an id deleted so now has a single id
         self.assertEqual(
             id_lists,
             dict(
@@ -260,10 +260,17 @@ class TestBackgroundSync(unittest.TestCase):
         self.assertEqual(self.idlist_1_download_count, 4)
         self.assertEqual(self.idlist_2_download_count, 1)
         self.assertEqual(self.idlist_3_download_count, 1)
-        # endpoint returned corrupted response for list_1, should reset; list_3 get something
+        # endpoint returned corrupted response for list_1; should keep previous list_1 in memory, and list_3
         self.assertEqual(
             id_lists,
             dict(
+                list_1=dict(
+                    ids=set("3"),
+                    readBytes=3,
+                    url=self.server.url + "/list_1",
+                    fileID="file_id_1_a",
+                    creationTime=3,
+                ),
                 list_3=dict(
                     ids=set("0"),
                     readBytes=3,
@@ -287,7 +294,7 @@ class TestBackgroundSync(unittest.TestCase):
             dict(
                 list_1=dict(
                     ids=set(["3", "5", "6"]),
-                    readBytes=18,
+                    readBytes=21,
                     url=self.server.url + "/list_1",
                     fileID="file_id_1_a",
                     creationTime=3,
