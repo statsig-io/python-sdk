@@ -9,9 +9,12 @@ from statsig import statsig, StatsigServer, StatsigOptions, StatsigEnvironmentTi
 
 
 class TestBackgroundSync(unittest.TestCase):
+    server: MockServer
+    client: StatsigServer
+    
     def test_sync_cycle(self):
-        server = MockServer(port=5677)
-        server.start()
+        self.server = MockServer(port=5677)
+        self.server.start()
 
         self.config_sync_count = 0
         self.idlist_sync_count = 0
@@ -34,7 +37,7 @@ class TestBackgroundSync(unittest.TestCase):
             self.config_sync_count = self.config_sync_count + 1
             return jsonify(config_response)
 
-        server.add_callback_response(
+        self.server.add_callback_response(
             "/download_config_specs",
             config_callbackFunc,
         )
@@ -46,14 +49,14 @@ class TestBackgroundSync(unittest.TestCase):
                     "list_1": {
                         "name": "list_1",
                         "size": 3,
-                        "url": server.url + "/list_1",
+                        "url": self.server.url + "/list_1",
                         "creationTime": 1,
                         "fileID": "file_id_1",
                     },
                     "list_2": {
                         "name": "list_2",
                         "size": 3,
-                        "url": server.url + "/list_2",
+                        "url": self.server.url + "/list_2",
                         "creationTime": 1,
                         "fileID": "file_id_2",
                     },
@@ -64,7 +67,7 @@ class TestBackgroundSync(unittest.TestCase):
                     "list_1": {
                         "name": "list_1",
                         "size": 9,
-                        "url": server.url + "/list_1",
+                        "url": self.server.url + "/list_1",
                         "creationTime": 1,
                         "fileID": "file_id_1",
                     },
@@ -75,7 +78,7 @@ class TestBackgroundSync(unittest.TestCase):
                     "list_1": {
                         "name": "list_1",
                         "size": 3,
-                        "url": server.url + "/list_1",
+                        "url": self.server.url + "/list_1",
                         "creationTime": 3,
                         "fileID": "file_id_1_a",
                     },
@@ -86,7 +89,7 @@ class TestBackgroundSync(unittest.TestCase):
                     "list_1": {
                         "name": "list_1",
                         "size": 9,
-                        "url": server.url + "/list_1",
+                        "url": self.server.url + "/list_1",
                         "creationTime": 1,
                         "fileID": "file_id_1",
                     },
@@ -96,20 +99,20 @@ class TestBackgroundSync(unittest.TestCase):
                 "list_1": {
                     "name": "list_1",
                     "size": 18,
-                    "url": server.url + "/list_1",
+                    "url": self.server.url + "/list_1",
                     "creationTime": 3,
                     "fileID": "file_id_1_a",
                 },
                 "list_3": {
                     "name": "list_3",
                     "size": 3,
-                    "url": server.url + "/list_3",
+                    "url": self.server.url + "/list_3",
                     "creationTime": 5,
                     "fileID": "file_id_3",
                 },
             })
 
-        server.add_callback_response(
+        self.server.add_callback_response(
             "/get_id_lists",
             idlist_callbackFunc,
         )
@@ -139,31 +142,31 @@ class TestBackgroundSync(unittest.TestCase):
             self.idlist_3_download_count = self.idlist_3_download_count + 1
             return "+0\r"
 
-        server.add_callback_response(
+        self.server.add_callback_response(
             "/list_1",
             idlist_1_download_callbackFunc,
             methods=('GET',)
         )
-        server.add_callback_response(
+        self.server.add_callback_response(
             "/list_2",
             idlist_2_download_callbackFunc,
             methods=('GET',)
         )
-        server.add_callback_response(
+        self.server.add_callback_response(
             "/list_3",
             idlist_3_download_callbackFunc,
             methods=('GET',)
         )
 
         options = StatsigOptions(
-            api=server.url,
+            api=self.server.url,
             tier=StatsigEnvironmentTier.development,
             rulesets_sync_interval=1,
             idlists_sync_interval=1,
         )
-        client = StatsigServer()
-        client.initialize("secret-key", options)
-        id_lists = client._evaluator.get_id_lists()
+        self.client = StatsigServer()
+        self.client.initialize("secret-key", options)
+        id_lists = self.client._evaluator.get_id_lists()
 
         self.assertEqual(self.config_sync_count, 1)
         self.assertEqual(self.idlist_sync_count, 1)
@@ -177,14 +180,14 @@ class TestBackgroundSync(unittest.TestCase):
                 list_1=dict(
                     ids=set("1"),
                     readBytes=3,
-                    url=server.url + "/list_1",
+                    url=self.server.url + "/list_1",
                     fileID="file_id_1",
                     creationTime=1,
                 ),
                 list_2=dict(
                     ids=set("a"),
                     readBytes=3,
-                    url=server.url + "/list_2",
+                    url=self.server.url + "/list_2",
                     fileID="file_id_2",
                     creationTime=1,
                 ),
@@ -204,7 +207,7 @@ class TestBackgroundSync(unittest.TestCase):
                 list_1=dict(
                     ids=set("2"),
                     readBytes=12,
-                    url=server.url + "/list_1",
+                    url=self.server.url + "/list_1",
                     fileID="file_id_1",
                     creationTime=1,
                 ),
@@ -224,7 +227,7 @@ class TestBackgroundSync(unittest.TestCase):
                 list_1=dict(
                     ids=set("3"),
                     readBytes=3,
-                    url=server.url + "/list_1",
+                    url=self.server.url + "/list_1",
                     fileID="file_id_1_a",
                     creationTime=3,
                 ),
@@ -244,7 +247,7 @@ class TestBackgroundSync(unittest.TestCase):
                 list_1=dict(
                     ids=set("3"),
                     readBytes=3,
-                    url=server.url + "/list_1",
+                    url=self.server.url + "/list_1",
                     fileID="file_id_1_a",
                     creationTime=3,
                 ),
@@ -264,7 +267,7 @@ class TestBackgroundSync(unittest.TestCase):
                 list_3=dict(
                     ids=set("0"),
                     readBytes=3,
-                    url=server.url + "/list_3",
+                    url=self.server.url + "/list_3",
                     fileID="file_id_3",
                     creationTime=5,
                 ),
@@ -285,21 +288,21 @@ class TestBackgroundSync(unittest.TestCase):
                 list_1=dict(
                     ids=set(["3", "5", "6"]),
                     readBytes=18,
-                    url=server.url + "/list_1",
+                    url=self.server.url + "/list_1",
                     fileID="file_id_1_a",
                     creationTime=3,
                 ),
                 list_3=dict(
                     ids=set("0"),
                     readBytes=3,
-                    url=server.url + "/list_3",
+                    url=self.server.url + "/list_3",
                     fileID="file_id_3",
                     creationTime=5,
                 ),
             )
         )
 
-        client.shutdown()
+        self.client.shutdown()
 
         # verify no more calls after shutdown() is called
         time.sleep(3)
@@ -308,11 +311,10 @@ class TestBackgroundSync(unittest.TestCase):
         self.assertEqual(self.idlist_1_download_count, 5)
         self.assertEqual(self.idlist_2_download_count, 1)
         self.assertEqual(self.idlist_3_download_count, 1)
-        server.shutdown_server()
 
     def test_sync_cycle_no_idlist(self):
-        server = MockServer(port=5678)
-        server.start()
+        self.server = MockServer(port=5678)
+        self.server.start()
 
         self.config_sync_count = 0
         self.idlist_sync_count = 0
@@ -329,7 +331,7 @@ class TestBackgroundSync(unittest.TestCase):
             self.config_sync_count = self.config_sync_count + 1
             return jsonify(config_response)
 
-        server.add_callback_response(
+        self.server.add_callback_response(
             "/download_config_specs",
             config_callbackFunc,
         )
@@ -338,19 +340,19 @@ class TestBackgroundSync(unittest.TestCase):
             self.idlist_sync_count = self.idlist_sync_count + 1
             return jsonify({})
 
-        server.add_callback_response(
+        self.server.add_callback_response(
             "/get_id_lists",
             idlist_callbackFunc,
         )
 
         options = StatsigOptions(
-            api=server.url,
+            api=self.server.url,
             tier=StatsigEnvironmentTier.development,
             rulesets_sync_interval=1,
             idlists_sync_interval=1,
         )
-        client = StatsigServer()
-        client.initialize("secret-key", options)
+        self.client = StatsigServer()
+        self.client.initialize("secret-key", options)
 
         self.assertEqual(self.config_sync_count, 1)
         self.assertEqual(self.idlist_sync_count, 1)
@@ -359,9 +361,12 @@ class TestBackgroundSync(unittest.TestCase):
         self.assertEqual(self.config_sync_count, 2)
         self.assertEqual(self.idlist_sync_count, 2)
 
-        client.shutdown()
+        self.client.shutdown()
         time.sleep(3)
         self.assertEqual(self.config_sync_count, 2)
         self.assertEqual(self.idlist_sync_count, 2)
 
-        server.shutdown_server()
+
+    def tearDown(self):
+        self.client.shutdown()
+        self.server.shutdown_server()
