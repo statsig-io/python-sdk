@@ -128,9 +128,6 @@ class StatsigServer:
             self._logger.shutdown()
             self._spec_store.shutdown()
 
-            if not self._options.local_mode:
-                self.__background_download_idlists.join()
-
         self._errorBoundary.swallow(task)
 
     def override_gate(self, gate: str, value: bool, user_id: Optional[str] = None):

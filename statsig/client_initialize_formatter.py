@@ -92,10 +92,11 @@ class ClientInitializeResponseFormatter:
                 delegate_spec = spec_store.get_config(delegate)
                 delegate_result = eval_func(user, delegate_spec)
 
-                result["allocated_experiment_name"] = hash_name(delegate)
-                result["is_user_in_experiment"] = delegate_result.is_experiment_group
-                result["is_experiment_active"] = delegate_spec.get("isActive", False) is True
-                result["explicit_parameters"] = delegate_spec.get("explicitParameters", [])
+                if delegate_spec is not None:
+                    result["allocated_experiment_name"] = hash_name(delegate)
+                    result["is_user_in_experiment"] = delegate_result.is_experiment_group
+                    result["is_experiment_active"] = delegate_spec.get("isActive", False) is True
+                    result["explicit_parameters"] = delegate_spec.get("explicitParameters", [])
 
             result["undelegated_secondary_exposures"] = clean_exposures(
                 eval_result.undelegated_secondary_exposures or [])

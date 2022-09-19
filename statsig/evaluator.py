@@ -219,7 +219,7 @@ class _Evaluator:
             if other_result.secondary_exposures is not None and len(other_result.secondary_exposures) > 0:
                 exposures = other_result.secondary_exposures + exposures
             pass_gate = other_result.boolean_value if type == "PASS_GATE" else not other_result.boolean_value
-            return _ConfigEvaluation(other_result.fetch_from_server, pass_gate, {}, None, exposures)
+            return _ConfigEvaluation(other_result.fetch_from_server, pass_gate, {}, "", exposures)
         elif type == "IP_BASED":
             value = self.__get_from_user(user, field)
             if value is None:
