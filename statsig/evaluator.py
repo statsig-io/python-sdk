@@ -9,6 +9,7 @@ from ip3country import CountryLookup
 
 from statsig import StatsigUser
 from .client_initialize_formatter import ClientInitializeResponseFormatter
+from .spec_store import _SpecStore
 
 
 class _ConfigEvaluation:
@@ -40,52 +41,12 @@ class _ConfigEvaluation:
 
 
 class _Evaluator:
-    def __init__(self):
-        self._configs = dict()
-        self._gates = dict()
-        self._id_lists = dict()
-        self._layers = dict()
-        self._experiment_to_layer = dict()
-        self._country_lookup = CountryLookup()
-        self._time = 0
+    def __init__(self, spec_store: _SpecStore):
+        self._spec_store = spec_store
 
+        self._country_lookup = CountryLookup()
         self._gate_overrides = dict()
         self._config_overrides = dict()
-
-    def set_downloaded_configs(self, configs):
-        new_gates = dict()
-        for gate in configs.get("feature_gates", []):
-            name = gate.get("name")
-            if name is not None:
-                new_gates[name] = gate
-
-        new_configs = dict()
-        for config in configs.get("dynamic_configs", []):
-            name = config.get("name")
-            if name is not None:
-                new_configs[name] = config
-
-        new_layers = dict()
-        for config in configs.get("layer_configs", []):
-            name = config.get("name")
-            if name is not None:
-                new_layers[name] = config
-
-        new_experiment_to_layer = dict()
-        layers_dict = configs.get("layers", {})
-        for layer_name in layers_dict:
-            experiments = layers_dict[layer_name]
-            for experiment_name in experiments:
-                new_experiment_to_layer[experiment_name] = layer_name
-
-        self._gates = new_gates
-        self._configs = new_configs
-        self._layers = new_layers
-        self._experiment_to_layer = new_experiment_to_layer
-        self._time = configs.get("time", 0)
-
-    def get_id_lists(self):
-        return self._id_lists
 
     def override_gate(self, gate, value, user_id=None):
         gate_overrides = self._gate_overrides.get(gate)
@@ -102,13 +63,11 @@ class _Evaluator:
         self._config_overrides[config] = config_overrides
 
     def get_client_initialize_response(self, user: StatsigUser):
-        if self._time == 0:
+        if not self._spec_store.is_ready_for_checks():
             return None
 
         return ClientInitializeResponseFormatter \
-            .get_formatted_response(self.__eval_config, user, self._gates,
-                                    self._configs, self._layers,
-                                    self._experiment_to_layer)
+            .get_formatted_response(self.__eval_config, user, self._spec_store)
 
     def __lookup_gate_override(self, user, gate):
         gate_overrides = self._gate_overrides.get(gate)
@@ -143,18 +102,18 @@ class _Evaluator:
         override = self.__lookup_gate_override(user, gate)
         if override is not None:
             return override
-        eval_gate = self._gates.get(gate)
+        eval_gate = self._spec_store.get_gate(gate)
         return self.__eval_config(user, eval_gate)
 
     def get_config(self, user, config):
         override = self.__lookup_config_override(user, config)
         if override is not None:
             return override
-        eval_config = self._configs.get(config)
+        eval_config = self._spec_store.get_config(config)
         return self.__eval_config(user, eval_config)
 
     def get_layer(self, user, layer):
-        eval_layer = self._layers.get(layer)
+        eval_layer = self._spec_store.get_layer(layer)
         return self.__eval_config(user, eval_layer)
 
     def __eval_config(self, user, config):
@@ -164,19 +123,13 @@ class _Evaluator:
         return self.__evaluate(user, config)
 
     def __check_id_in_list(self, id, list_name):
-        list = self._id_lists.get(list_name)
-        if list is None:
+        curr_list = self._spec_store.get_id_list(list_name)
+        if curr_list is None:
             return False
-        ids = list.get("ids", set())
+        ids = curr_list.get("ids", set())
         hashed = base64.b64encode(
             sha256(str(id).encode('utf-8')).digest()).decode('utf-8')[0:8]
         return hashed in ids
-
-    def get_all_gates(self):
-        return self._gates
-
-    def get_all_configs(self):
-        return self._configs
 
     def __evaluate(self, user, config):
         exposures = []
@@ -231,7 +184,7 @@ class _Evaluator:
         if config_delegate is None:
             return None
 
-        config = self._configs.get(config_delegate)
+        config = self._spec_store.get_config(config_delegate)
         if config is None:
             return None
 

@@ -11,8 +11,9 @@ class _StatsigErrorBoundary:
     _seen: set
     _api_key: str
 
-    def __init__(self):
+    def __init__(self, is_silent=False):
         self._seen = set()
+        self._is_silent = is_silent
 
     def set_api_key(self, api_key):
         self._api_key = api_key
@@ -23,21 +24,23 @@ class _StatsigErrorBoundary:
         except (StatsigValueError, StatsigNameError, StatsigRuntimeError) as e:
             raise e
         except Exception as e:
-            print("[Statsig]: An unexpected error occurred.")
-            traceback.print_exc()
+            if self._is_silent is False:
+                print("[Statsig]: An unexpected error occurred.")
+                traceback.print_exc()
 
             self.log_exception(e)
             return recover()
-    
+
     def swallow(self, task):
         def empty_recover():
             return None
+
         self.capture(task, empty_recover)
 
     def log_exception(self, exception: Exception):
         try:
             name = type(exception).__name__
-            if (self._api_key is None or name in self._seen):
+            if self._api_key is None or name in self._seen:
                 return
 
             self._seen.add(name)

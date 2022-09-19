@@ -1,5 +1,6 @@
 import unittest
 
+from statsig import StatsigOptions
 from statsig.dynamic_config import DynamicConfig
 from statsig.layer import Layer
 from statsig.statsig_event import StatsigEvent
@@ -26,18 +27,22 @@ class TestStatsigErrorBoundaryUsage(unittest.TestCase):
 
     def setUp(self):
         self._instance = StatsigServer()
+        self._instance._errorBoundary._is_silent = True
         self._instance.initialize("secret-key")
         self._user = StatsigUser("dloomb")
 
         self._instance._evaluator = "_BAD_EVALUATOR_"  # type: ignore - intentional
+        self._instance._spec_store = "_BAD_SPEC_STORE_"  # type: ignore - intentional
         self._instance._logger = "_BAD_LOGGER_"  # type: ignore - intentional
         TestStatsigErrorBoundaryUsage.requests = []
 
     def test_errors_with_initialize(self, mock_post):
         statsig = StatsigServer()
-        statsig._download_config_specs = "_BAD_DOWNLOAD_"  # type: ignore - intentional
+        statsig._bootstrap_config_specs = "_BAD_BOOTSTRAP_"  # type: ignore - intentional
 
-        res = statsig.initialize("secret-key")
+        opts = StatsigOptions()
+        opts.bootstrap_values = {}
+        res = statsig.initialize("secret-key", opts)
 
         self.assertEqual(len(self._get_requests()), 1)
         trace = self._get_requests()[0]['body']['info']

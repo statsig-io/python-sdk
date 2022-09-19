@@ -9,13 +9,13 @@ from statsig.statsig_event import StatsigEvent
 from statsig.statsig_metadata import _StatsigMetadata
 
 from statsig.statsig_user import StatsigUser
+from .spec_store import _SpecStore
 from .statsig_error_boundary import _StatsigErrorBoundary
 from .evaluator import _ConfigEvaluation, _Evaluator
 from .statsig_network import _StatsigNetwork
 from .statsig_logger import _StatsigLogger
 from .dynamic_config import DynamicConfig
 from .statsig_options import StatsigOptions
-from .version import __version__
 
 RULESETS_SYNC_INTERVAL = 10
 IDLISTS_SYNC_INTERVAL = 60
@@ -43,28 +43,17 @@ class StatsigServer:
             self._logger = _StatsigLogger(
                 self._network, self.__shutdown_event, self.__statsig_metadata, self._errorBoundary, options.local_mode,
                 options.event_queue_size)
-            self._evaluator = _Evaluator()
-
-            self._last_update_time = 0
+            self._spec_store = _SpecStore(self._network, self._options, self.__statsig_metadata, self._errorBoundary,
+                                          self.__shutdown_event)
+            self._evaluator = _Evaluator(self._spec_store)
 
             if not options.local_mode:
                 if options.bootstrap_values is not None:
                     self._bootstrap_config_specs()
                 else:
-                    self._download_config_specs()
-                self.__background_download_configs = threading.Thread(
-                    target=self._sync,
-                    args=(self._download_config_specs, options.rulesets_sync_interval or RULESETS_SYNC_INTERVAL,))
-                self.__background_download_configs.daemon = True
-                self.__background_download_configs.start()
+                    self._spec_store.download_config_specs()
 
-            if not options.local_mode:
-                self._download_id_lists()
-                self.__background_download_idlists = threading.Thread(
-                    target=self._sync,
-                    args=(self._download_id_lists, options.idlists_sync_interval or IDLISTS_SYNC_INTERVAL,))
-                self.__background_download_idlists.daemon = True
-                self.__background_download_idlists.start()
+                self._spec_store.download_id_lists()
 
             self._initialized = True
         except (StatsigValueError, StatsigNameError, StatsigRuntimeError) as e:
@@ -137,8 +126,9 @@ class StatsigServer:
         def task():
             self.__shutdown_event.set()
             self._logger.shutdown()
+            self._spec_store.shutdown()
+
             if not self._options.local_mode:
-                self.__background_download_configs.join()
                 self.__background_download_idlists.join()
 
         self._errorBoundary.swallow(task)
@@ -167,7 +157,7 @@ class StatsigServer:
     def evaluate_all(self, user: StatsigUser):
         def task():
             all_gates = dict()
-            for gate in self._evaluator.get_all_gates():
+            for gate in self._spec_store.get_all_gates():
                 result = self.__check_gate_server_fallback(user, gate, False)
                 all_gates[gate] = {
                     "value": result.boolean_value,
@@ -175,7 +165,7 @@ class StatsigServer:
                 }
 
             all_configs = dict()
-            for config in self._evaluator.get_all_configs():
+            for config in self._spec_store.get_all_configs():
                 result = self.__get_config_server_fallback(user, config, False)
                 all_configs[config] = {
                     "value": result.json_value,
@@ -262,122 +252,17 @@ class StatsigServer:
             except Exception as e:
                 self._errorBoundary.log_exception(e)
 
-    def _bootstrap_config_specs(self, ):
+    def _bootstrap_config_specs(self):
         if self._options.bootstrap_values is None:
             return
         try:
             specs = json.loads(self._options.bootstrap_values)
-            self.__save_json_config_specs(specs)
+            if specs is None:
+                return
+
+            self._spec_store.process(specs)
         except ValueError:
             # JSON deconding failed, just let background thread update rulesets
             logging.getLogger('statsig.sdk').exception(
                 'Failed to parse bootstrap_values')
             return
-
-    def __save_json_config_specs(self, specs, notify=False):
-        if specs is None:
-            return
-        time = specs.get("time")
-        if time is not None:
-            self._last_update_time = time
-        if specs.get("has_updates", False):
-            self._evaluator.set_downloaded_configs(specs)
-            if callable(self._options.rules_updated_callback):
-                self._options.rules_updated_callback(json.dumps(specs))
-
-    def _download_config_specs(self):
-        specs = self._network.post_request("download_config_specs", {
-            "statsigMetadata": self.__statsig_metadata,
-            "sinceTime": self._last_update_time,
-        })
-        self.__save_json_config_specs(specs, True)
-
-    def _download_id_list(self, url, list_name, local_list, all_lists, start_index):
-        resp = self._network.get_request(
-            url, headers={"Range": "bytes=%s-" % start_index})
-        if resp is None:
-            return
-        try:
-            content_length_str = resp.headers.get('content-length')
-            if content_length_str is None:
-                raise StatsigValueError("Content length invalid.")
-            content_length = int(content_length_str)
-            content = resp.text
-            if content is None:
-                return
-            first_char = content[0]
-            if first_char != "+" and first_char != "-":
-                raise StatsigNameError("Seek range invalid.")
-            lines = content.splitlines()
-            for line in lines:
-                if len(line) <= 1:
-                    continue
-                op = line[0]
-                id = line[1:].strip()
-                if op == "+":
-                    local_list.get("ids", set()).add(id)
-                elif op == "-":
-                    local_list.get("ids", set()).discard(id)
-            local_list["readBytes"] = start_index + content_length
-            all_lists[list_name] = local_list
-        except Exception as e:
-            self._errorBoundary.log_exception(e)
-
-    def _download_id_lists(self):
-        try: 
-            server_id_lists = self._network.post_request("get_id_lists", {
-                "statsigMetadata": self.__statsig_metadata,
-            })
-            if server_id_lists is None:
-                return
-
-            local_id_lists = self._evaluator.get_id_lists()
-            thread_pool = []
-
-            for list_name in server_id_lists:
-                server_list = server_id_lists.get(list_name, dict())
-                url = server_list.get("url", None)
-                size = server_list.get("size", 0)
-                local_list = local_id_lists.get(list_name, dict())
-
-                new_creation_time = server_list.get("creationTime", 0)
-                old_creation_time = local_list.get("creationTime", 0)
-                new_file_id = server_list.get("fileID", None)
-                old_file_id = local_list.get("fileID", "")
-
-                if url is None or new_creation_time < old_creation_time or new_file_id is None:
-                    continue
-
-                # should reset the list if a new file has been created
-                if new_file_id != old_file_id and new_creation_time >= old_creation_time:
-                    local_list = {
-                        "ids": set(),
-                        "readBytes": 0,
-                        "url": url,
-                        "fileID": new_file_id,
-                        "creationTime": new_creation_time,
-                    }
-                    
-                read_bytes = local_list.get("readBytes", 0)
-                # check if read bytes count is the same as total file size; only download additional ids if sizes don't match
-                if size <= read_bytes or url == "":
-                    continue
-                thread = threading.Thread(
-                    target=self._download_id_list, args=(url, list_name, local_list, local_id_lists, read_bytes, ))
-                thread.daemon = True
-                thread_pool.append(thread)
-                thread.start()
-
-            for thread in thread_pool:
-                thread.join()
-
-            deleted_lists = []
-            for list_name in local_id_lists:
-                if list_name not in server_id_lists:
-                    deleted_lists.append(list_name)
-
-            # remove any list that has been deleted
-            for list_name in deleted_lists:
-                local_id_lists.pop(list_name, None)
-        except Exception as e:
-            self._errorBoundary.log_exception(e)

@@ -166,7 +166,7 @@ class TestBackgroundSync(unittest.TestCase):
         )
         self.client = StatsigServer()
         self.client.initialize("secret-key", options)
-        id_lists = self.client._evaluator.get_id_lists()
+        id_lists = self.client._spec_store.get_all_id_lists()
 
         self.assertEqual(self.config_sync_count, 1)
         self.assertEqual(self.idlist_sync_count, 1)

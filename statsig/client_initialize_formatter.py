@@ -1,6 +1,9 @@
 import base64
 from hashlib import sha256
 
+from .statsig_user import StatsigUser
+from .spec_store import _SpecStore
+
 
 def hash_name(name: str):
     return base64.b64encode(
@@ -21,15 +24,13 @@ def clean_exposures(exposures):
 class ClientInitializeResponseFormatter:
 
     @staticmethod
-    def get_formatted_response(eval_func, user, gates, configs, layers, experiment_to_layer):
+    def get_formatted_response(eval_func, user: StatsigUser, spec_store: _SpecStore):
         def config_to_response(config_name, config_spec):
             eval_result = eval_func(user, config_spec)
             if eval_result is None:
                 return None
 
-
-            hashed_name = base64.b64encode(
-                sha256(config_name.encode('utf-8')).digest()).decode('utf-8')
+            hashed_name = hash_name(config_name)
             result = {
                 "name": hashed_name,
                 "rule_id": eval_result.rule_id,
@@ -71,11 +72,14 @@ class ClientInitializeResponseFormatter:
             result["is_in_layer"] = True
             result["explicit_parameters"] = config_spec.get("explicitParameters", [])
 
-            layer_name = experiment_to_layer.get(config_name, None)
-            if layer_name is None or layers.get(layer_name, None) is None:
+            layer_name = spec_store.get_layer_name_for_experiment(config_name)
+            if layer_name is None or spec_store.get_layer(layer_name) is None:
                 return
 
-            layer = layers.get(layer_name, {})
+            layer = spec_store.get_layer(layer_name)
+            if layer is None:
+                return
+
             layer_value = layer.get("defaultValue", {})
             current_value = result.get("value", {})
             result["value"] = {**layer_value, **current_value}
@@ -85,7 +89,7 @@ class ClientInitializeResponseFormatter:
             result["explicit_parameters"] = config_spec.get("explicitParameters", [])
 
             if delegate is not None and delegate != "":
-                delegate_spec = configs[delegate]
+                delegate_spec = spec_store.get_config(delegate)
                 delegate_result = eval_func(user, delegate_spec)
 
                 result["allocated_experiment_name"] = hash_name(delegate)
@@ -105,9 +109,9 @@ class ClientInitializeResponseFormatter:
             return config_to_response(name, spec)
 
         return {
-            "feature_gates": filter_nones(map(map_fnc, gates.items())),
-            "dynamic_configs": filter_nones(map(map_fnc, configs.items())),
-            "layer_configs": filter_nones(map(map_fnc, layers.items())),
+            "feature_gates": filter_nones(map(map_fnc, spec_store.get_all_gates().items())),
+            "dynamic_configs": filter_nones(map(map_fnc, spec_store.get_all_configs().items())),
+            "layer_configs": filter_nones(map(map_fnc, spec_store.get_all_layers().items())),
             "sdkParams": {},
             "has_updates": True,
             "generator": "statsig-python-sdk",
