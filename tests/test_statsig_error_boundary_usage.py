@@ -42,12 +42,11 @@ class TestStatsigErrorBoundaryUsage(unittest.TestCase):
 
         opts = StatsigOptions()
         opts.bootstrap_values = {}
-        res = statsig.initialize("secret-key", opts)
+        statsig.initialize("secret-key", opts)
 
         self.assertEqual(len(self._get_requests()), 1)
         trace = self._get_requests()[0]['body']['info']
         self.assertIn('object is not callable', trace)
-        self.assertFalse(res)
         self.assertTrue(statsig._initialized)
 
     def test_errors_with_check_gate(self, mock_post):
@@ -88,44 +87,39 @@ class TestStatsigErrorBoundaryUsage(unittest.TestCase):
         self.assertEqual(res.name, "a_layer")
 
     def test_errors_with_log_event(self, mock_post):
-        res = self._instance.log_event(StatsigEvent(self._user, "an_event"))
+        self._instance.log_event(StatsigEvent(self._user, "an_event"))
 
         self.assertEqual(len(self._get_requests()), 1)
         trace = self._get_requests()[0]['body']['info']
         self.assertIn('object has no attribute \'log\'\n', trace)
-        self.assertIsNone(res)
 
     def test_errors_with_shutdown(self, mock_post):
-        res = self._instance.shutdown()
+        self._instance.shutdown()
 
         self.assertEqual(len(self._get_requests()), 1)
         trace = self._get_requests()[0]['body']['info']
         self.assertIn('object has no attribute \'shutdown\'\n', trace)
-        self.assertIsNone(res)
 
     def test_errors_with_override_gate(self, mock_post):
-        res = self._instance.override_gate("a_gate", False)
+        self._instance.override_gate("a_gate", False)
 
         self.assertEqual(len(self._get_requests()), 1)
         trace = self._get_requests()[0]['body']['info']
         self.assertIn('object has no attribute \'override_gate\'\n', trace)
-        self.assertIsNone(res)
 
     def test_errors_with_override_config(self, mock_post):
-        res = self._instance.override_config("a_config", {})
+        self._instance.override_config("a_config", {})
 
         self.assertEqual(len(self._get_requests()), 1)
         trace = self._get_requests()[0]['body']['info']
         self.assertIn('object has no attribute \'override_config\'\n', trace)
-        self.assertIsNone(res)
 
     def test_errors_with_override_experiment(self, mock_post):
-        res = self._instance.override_experiment("an_experiment", {})
+        self._instance.override_experiment("an_experiment", {})
 
         self.assertEqual(len(self._get_requests()), 1)
         trace = self._get_requests()[0]['body']['info']
         self.assertIn('object has no attribute \'override_config\'\n', trace)
-        self.assertIsNone(res)
 
     def test_errors_with_evaluate_all(self, mock_post):
         res = self._instance.evaluate_all(self._user)
