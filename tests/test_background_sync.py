@@ -1,172 +1,162 @@
-import threading
 import time
 import unittest
 
-from flask.json import jsonify
+from unittest.mock import patch
 from .mockserver import MockServer
-
-from statsig import statsig, StatsigServer, StatsigOptions, StatsigEnvironmentTier
+from statsig import StatsigServer, StatsigOptions, StatsigEnvironmentTier
+from .network_stub import NetworkStub
 
 
 class TestBackgroundSync(unittest.TestCase):
-    server: MockServer
-    client: StatsigServer
-    
-    def test_sync_cycle(self):
-        self.server = MockServer(port=5677)
-        self.server.start()
+    _client: StatsigServer
+    _api_override = "http://test-background-sync"
 
+    _network_stub = NetworkStub(_api_override)
+
+    def setUp(self):
+        self._network_stub.reset()
+
+    def tearDown(self):
+        self._client.shutdown()
+
+    @patch('requests.post', side_effect=_network_stub.mock)
+    @patch('requests.get', side_effect=_network_stub.mock)
+    def test_sync_cycle(self, mock_post, mock_get):
         self.config_sync_count = 0
         self.idlist_sync_count = 0
         self.idlist_1_download_count = 0
         self.idlist_2_download_count = 0
         self.idlist_3_download_count = 0
 
-        config_response = {
-            "dynamic_configs": [{"name": "config_1"}],
-            "feature_gates": [{"name": "gate_1"}, {"name": "gate_2"}],
-            "id_lists": {
-                "list_1": True,
-                "list_2": True,
-            },
-            "has_updates": True,
-            "time": 1,
-        }
-
-        def config_callbackFunc():
+        def download_config_specs_callback(url: str, data: dict):
             self.config_sync_count = self.config_sync_count + 1
-            return jsonify(config_response)
+            return {
+                "dynamic_configs": [{"name": "config_1"}],
+                "feature_gates": [{"name": "gate_1"}, {"name": "gate_2"}],
+                "id_lists": {
+                    "list_1": True,
+                    "list_2": True,
+                },
+                "has_updates": True,
+                "time": 1,
+            }
 
-        self.server.add_callback_response(
-            "/download_config_specs",
-            config_callbackFunc,
-        )
+        self._network_stub.stub_request_with_function("download_config_specs", 200, download_config_specs_callback)
 
-        def idlist_callbackFunc():
+        def get_id_lists_callback(url: str, data: dict):
             self.idlist_sync_count = self.idlist_sync_count + 1
-            if self.idlist_sync_count == 1:
-                return jsonify({
-                    "list_1": {
-                        "name": "list_1",
-                        "size": 3,
-                        "url": self.server.url + "/list_1",
-                        "creationTime": 1,
-                        "fileID": "file_id_1",
-                    },
-                    "list_2": {
-                        "name": "list_2",
-                        "size": 3,
-                        "url": self.server.url + "/list_2",
-                        "creationTime": 1,
-                        "fileID": "file_id_2",
-                    },
-                })
-            elif self.idlist_sync_count == 2:
-                # list_1 increased, list_2 deleted
-                return jsonify({
-                    "list_1": {
-                        "name": "list_1",
-                        "size": 9,
-                        "url": self.server.url + "/list_1",
-                        "creationTime": 1,
-                        "fileID": "file_id_1",
-                    },
-                })
-            elif self.idlist_sync_count == 3:
-                # list_1 reset to new file
-                return jsonify({
-                    "list_1": {
-                        "name": "list_1",
-                        "size": 3,
-                        "url": self.server.url + "/list_1",
-                        "creationTime": 3,
-                        "fileID": "file_id_1_a",
-                    },
-                })
-            elif self.idlist_sync_count == 4:
-                # list_1 returned old file for some reason
-                return jsonify({
-                    "list_1": {
-                        "name": "list_1",
-                        "size": 9,
-                        "url": self.server.url + "/list_1",
-                        "creationTime": 1,
-                        "fileID": "file_id_1",
-                    },
-                })
-            # return same list and another one afterwards
-            return jsonify({
+
+            match self.idlist_sync_count:
+                case 1:
+                    return {
+                        "list_1": {
+                            "name": "list_1",
+                            "size": 3,
+                            "url": self._api_override + "/list_1",
+                            "creationTime": 1,
+                            "fileID": "file_id_1",
+                        },
+                        "list_2": {
+                            "name": "list_2",
+                            "size": 3,
+                            "url": self._api_override + "/list_2",
+                            "creationTime": 1,
+                            "fileID": "file_id_2",
+                        },
+                    }
+                case 2:
+                    return {
+                        "list_1": {
+                            "name": "list_1",
+                            "size": 9,
+                            "url": self._api_override + "/list_1",
+                            "creationTime": 1,
+                            "fileID": "file_id_1",
+                        },
+                    }
+                case 3:
+                    return {
+                        "list_1": {
+                            "name": "list_1",
+                            "size": 3,
+                            "url": self._api_override + "/list_1",
+                            "creationTime": 3,
+                            "fileID": "file_id_1_a",
+                        },
+                    }
+                case 4:
+                    return {
+                        "list_1": {
+                            "name": "list_1",
+                            "size": 9,
+                            "url": self._api_override + "/list_1",
+                            "creationTime": 1,
+                            "fileID": "file_id_1",
+                        },
+                    }
+
+            return {
                 "list_1": {
                     "name": "list_1",
                     "size": 18,
-                    "url": self.server.url + "/list_1",
+                    "url": self._api_override + "/list_1",
                     "creationTime": 3,
                     "fileID": "file_id_1_a",
                 },
                 "list_3": {
                     "name": "list_3",
                     "size": 3,
-                    "url": self.server.url + "/list_3",
+                    "url": self._api_override + "/list_3",
                     "creationTime": 5,
                     "fileID": "file_id_3",
                 },
-            })
+            }
 
-        self.server.add_callback_response(
-            "/get_id_lists",
-            idlist_callbackFunc,
-        )
+        self._network_stub.stub_request_with_function("get_id_lists", 200, get_id_lists_callback)
 
-        def idlist_1_download_callbackFunc():
+        def id_list_1_callback(url: str, data: dict):
             self.idlist_1_download_count = self.idlist_1_download_count + 1
-            if self.idlist_sync_count == 1:
-                return "+1\r"
-            elif self.idlist_sync_count == 2:
-                return "+1\r-1\r+2\r"
-            elif self.idlist_sync_count == 3:
-                # list_1 reset to new file
-                return "+3\r"
-            elif self.idlist_sync_count == 4:
-                # list_1 returned old file for some reason
-                return "+1\r-1\r+2\r"
-            elif self.idlist_sync_count == 5:
-                # corrupted response
-                return "3"
+
+            match self.idlist_sync_count:
+                case 1:
+                    return "+1\r"
+                case 2:
+                    return "+1\r-1\r+2\r"
+                case 3:
+                    # list_1 reset to new file
+                    return "+3\r"
+                case 4:
+                    # list_1 returned old file for some reason
+                    return "+1\r-1\r+2\r"
+                case 5:
+                    # corrupted response
+                    return "3"
+
             return "+3\r+4\r+5\r+4\r-4\r+6\r"
 
-        def idlist_2_download_callbackFunc():
+        self._network_stub.stub_request_with_function("list_1", 200, id_list_1_callback)
+
+        def id_list_2_callback(url: str, data: dict):
             self.idlist_2_download_count = self.idlist_2_download_count + 1
             return "+a\r"
 
-        def idlist_3_download_callbackFunc():
+        self._network_stub.stub_request_with_function("list_2", 200, id_list_2_callback)
+
+        def id_list_3_callback(url: str, data: dict):
             self.idlist_3_download_count = self.idlist_3_download_count + 1
             return "+0\r"
 
-        self.server.add_callback_response(
-            "/list_1",
-            idlist_1_download_callbackFunc,
-            methods=('GET',)
-        )
-        self.server.add_callback_response(
-            "/list_2",
-            idlist_2_download_callbackFunc,
-            methods=('GET',)
-        )
-        self.server.add_callback_response(
-            "/list_3",
-            idlist_3_download_callbackFunc,
-            methods=('GET',)
-        )
+        self._network_stub.stub_request_with_function("list_3", 200, id_list_3_callback)
 
         options = StatsigOptions(
-            api=self.server.url,
+            api=self._api_override,
             tier=StatsigEnvironmentTier.development,
             rulesets_sync_interval=1,
             idlists_sync_interval=1,
         )
-        self.client = StatsigServer()
-        self.client.initialize("secret-key", options)
-        id_lists = self.client._spec_store.get_all_id_lists()
+        self._client = StatsigServer()
+        self._client.initialize("secret-key", options)
+        id_lists = self._client._spec_store.get_all_id_lists()
 
         self.assertEqual(self.config_sync_count, 1)
         self.assertEqual(self.idlist_sync_count, 1)
@@ -180,14 +170,14 @@ class TestBackgroundSync(unittest.TestCase):
                 list_1=dict(
                     ids=set("1"),
                     readBytes=3,
-                    url=self.server.url + "/list_1",
+                    url=self._api_override + "/list_1",
                     fileID="file_id_1",
                     creationTime=1,
                 ),
                 list_2=dict(
                     ids=set("a"),
                     readBytes=3,
-                    url=self.server.url + "/list_2",
+                    url=self._api_override + "/list_2",
                     fileID="file_id_2",
                     creationTime=1,
                 ),
@@ -200,6 +190,7 @@ class TestBackgroundSync(unittest.TestCase):
         self.assertEqual(self.idlist_1_download_count, 2)
         self.assertEqual(self.idlist_2_download_count, 1)
         self.assertEqual(self.idlist_3_download_count, 0)
+
         # list_2 gets deleted; list_1 had an id deleted so now has a single id
         self.assertEqual(
             id_lists,
@@ -207,7 +198,7 @@ class TestBackgroundSync(unittest.TestCase):
                 list_1=dict(
                     ids=set("2"),
                     readBytes=12,
-                    url=self.server.url + "/list_1",
+                    url=self._api_override + "/list_1",
                     fileID="file_id_1",
                     creationTime=1,
                 ),
@@ -227,7 +218,7 @@ class TestBackgroundSync(unittest.TestCase):
                 list_1=dict(
                     ids=set("3"),
                     readBytes=3,
-                    url=self.server.url + "/list_1",
+                    url=self._api_override + "/list_1",
                     fileID="file_id_1_a",
                     creationTime=3,
                 ),
@@ -247,7 +238,7 @@ class TestBackgroundSync(unittest.TestCase):
                 list_1=dict(
                     ids=set("3"),
                     readBytes=3,
-                    url=self.server.url + "/list_1",
+                    url=self._api_override + "/list_1",
                     fileID="file_id_1_a",
                     creationTime=3,
                 ),
@@ -267,14 +258,14 @@ class TestBackgroundSync(unittest.TestCase):
                 list_1=dict(
                     ids=set("3"),
                     readBytes=3,
-                    url=self.server.url + "/list_1",
+                    url=self._api_override + "/list_1",
                     fileID="file_id_1_a",
                     creationTime=3,
                 ),
                 list_3=dict(
                     ids=set("0"),
                     readBytes=3,
-                    url=self.server.url + "/list_3",
+                    url=self._api_override + "/list_3",
                     fileID="file_id_3",
                     creationTime=5,
                 ),
@@ -295,21 +286,21 @@ class TestBackgroundSync(unittest.TestCase):
                 list_1=dict(
                     ids=set(["3", "5", "6"]),
                     readBytes=21,
-                    url=self.server.url + "/list_1",
+                    url=self._api_override + "/list_1",
                     fileID="file_id_1_a",
                     creationTime=3,
                 ),
                 list_3=dict(
                     ids=set("0"),
                     readBytes=3,
-                    url=self.server.url + "/list_3",
+                    url=self._api_override + "/list_3",
                     fileID="file_id_3",
                     creationTime=5,
                 ),
             )
         )
 
-        self.client.shutdown()
+        self._client.shutdown()
 
         # verify no more calls after shutdown() is called
         time.sleep(3)
@@ -319,47 +310,37 @@ class TestBackgroundSync(unittest.TestCase):
         self.assertEqual(self.idlist_2_download_count, 1)
         self.assertEqual(self.idlist_3_download_count, 1)
 
-    def test_sync_cycle_no_idlist(self):
-        self.server = MockServer(port=5678)
-        self.server.start()
-
+    @patch('requests.post', side_effect=_network_stub.mock)
+    @patch('requests.get', side_effect=_network_stub.mock)
+    def test_sync_cycle_no_idlist(self, mock_post, mock_get):
         self.config_sync_count = 0
         self.idlist_sync_count = 0
 
-        config_response = {
-            "dynamic_configs": [{"name": "config_1"}],
-            "feature_gates": [{"name": "gate_1"}, {"name": "gate_2"}],
-            "id_lists": {},
-            "has_updates": True,
-            "time": 1,
-        }
-
-        def config_callbackFunc():
+        def download_config_specs_callback(url: str, data: dict):
             self.config_sync_count = self.config_sync_count + 1
-            return jsonify(config_response)
+            return {
+                "dynamic_configs": [{"name": "config_1"}],
+                "feature_gates": [{"name": "gate_1"}, {"name": "gate_2"}],
+                "id_lists": {},
+                "has_updates": True,
+                "time": 1,
+            }
 
-        self.server.add_callback_response(
-            "/download_config_specs",
-            config_callbackFunc,
-        )
+        self._network_stub.stub_request_with_function("download_config_specs", 200, download_config_specs_callback)
 
-        def idlist_callbackFunc():
+        def get_id_lists_callback(url: str, data: dict):
             self.idlist_sync_count = self.idlist_sync_count + 1
-            return jsonify({})
 
-        self.server.add_callback_response(
-            "/get_id_lists",
-            idlist_callbackFunc,
-        )
+        self._network_stub.stub_request_with_function("get_id_lists", 200, get_id_lists_callback)
 
         options = StatsigOptions(
-            api=self.server.url,
+            api=self._api_override,
             tier=StatsigEnvironmentTier.development,
             rulesets_sync_interval=1,
             idlists_sync_interval=1,
         )
-        self.client = StatsigServer()
-        self.client.initialize("secret-key", options)
+        self._client = StatsigServer()
+        self._client.initialize("secret-key", options)
 
         self.assertEqual(self.config_sync_count, 1)
         self.assertEqual(self.idlist_sync_count, 1)
@@ -368,12 +349,7 @@ class TestBackgroundSync(unittest.TestCase):
         self.assertEqual(self.config_sync_count, 2)
         self.assertEqual(self.idlist_sync_count, 2)
 
-        self.client.shutdown()
+        self._client.shutdown()
         time.sleep(3)
         self.assertEqual(self.config_sync_count, 2)
         self.assertEqual(self.idlist_sync_count, 2)
-
-
-    def tearDown(self):
-        self.client.shutdown()
-        self.server.shutdown_server()

@@ -38,15 +38,11 @@ class TestStatsigErrorBoundaryUsage(unittest.TestCase):
 
     def test_errors_with_initialize(self, mock_post):
         statsig = StatsigServer()
-        statsig._bootstrap_config_specs = "_BAD_BOOTSTRAP_"  # type: ignore - intentional
-
-        opts = StatsigOptions()
-        opts.bootstrap_values = {}
-        statsig.initialize("secret-key", opts)
+        statsig.initialize("secret-key", "_BAD_OPTIONS_")
 
         self.assertEqual(len(self._get_requests()), 1)
         trace = self._get_requests()[0]['body']['info']
-        self.assertIn('object is not callable', trace)
+        self.assertIn("AttributeError: 'str' object has no attribute 'api'", trace)
         self.assertTrue(statsig._initialized)
 
     def test_errors_with_check_gate(self, mock_post):

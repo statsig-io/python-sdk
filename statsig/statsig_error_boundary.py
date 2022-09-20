@@ -1,4 +1,3 @@
-from copyreg import constructor
 import traceback
 import requests
 from statsig.statsig_errors import StatsigNameError, StatsigRuntimeError, StatsigValueError

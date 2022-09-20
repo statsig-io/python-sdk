@@ -24,6 +24,7 @@ class TestStatsigErrorBoundary(unittest.TestCase):
     def setUp(self):
         self._boundary = _StatsigErrorBoundary()
         self._boundary.set_api_key('secret-key')
+        self._boundary._is_silent = True
         TestStatsigErrorBoundary.requests = []
 
     def test_recovers_from_errors(self, mock_post):
