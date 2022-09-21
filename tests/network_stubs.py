@@ -1,4 +1,0 @@
-
-class NetworkStubs:
-    events: list
-

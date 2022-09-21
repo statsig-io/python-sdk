@@ -1,7 +1,7 @@
 import traceback
 import unittest
-from unittest.mock import patch
 
+from unittest.mock import patch
 from statsig.statsig_error_boundary import _StatsigErrorBoundary
 from statsig.statsig_errors import StatsigNameError, StatsigRuntimeError, StatsigValueError
 from statsig.statsig_metadata import _StatsigMetadata
@@ -88,26 +88,31 @@ class TestStatsigErrorBoundary(unittest.TestCase):
         def test_value_error():
             def task():
                 raise StatsigValueError()
+
             self._boundary.swallow(task)
 
         def test_name_error():
             def task():
                 raise StatsigNameError()
+
             self._boundary.swallow(task)
 
         def test_runtime_error():
             def task():
                 raise StatsigRuntimeError()
+
             self._boundary.swallow(task)
 
         def test_interrupts():
             def task():
                 raise KeyboardInterrupt()
+
             self._boundary.swallow(task)
 
         def test_exits():
             def task():
                 raise SystemExit()
+
             self._boundary.swallow(task)
 
         self.assertRaises(StatsigValueError, test_value_error)

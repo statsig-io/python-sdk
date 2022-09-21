@@ -1,4 +1,3 @@
-import io
 import os
 from statsig import StatsigUser, StatsigServer, StatsigOptions
 import unittest

@@ -65,7 +65,7 @@ class _StatsigNetwork:
                 self.__log.warning(
                     "Request to %s failed with code %d", endpoint, response.status_code)
             return None
-        except Exception:
+        except Exception as e:
             self.__log.warning(
                 "Network exception caught when making request to %s failed", endpoint)
             return None
@@ -81,7 +81,7 @@ class _StatsigNetwork:
                 return response
             else:
                 return None
-        except Exception:
+        except Exception as e:
             self.__log.warning(
                 'Network exception caught when making request to %s failed', url)
             return None

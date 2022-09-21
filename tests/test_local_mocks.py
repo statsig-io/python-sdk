@@ -1,4 +1,3 @@
-from threading import local
 import unittest
 
 from statsig import StatsigServer, StatsigUser, StatsigOptions

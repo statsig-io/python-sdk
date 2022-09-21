@@ -6,7 +6,7 @@ import requests
 
 from statsig import StatsigOptions, statsig, StatsigUser
 from statsig.evaluator import _ConfigEvaluation
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock
 
 user = {
     'userID': '123',

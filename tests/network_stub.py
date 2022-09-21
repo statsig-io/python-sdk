@@ -3,6 +3,7 @@ from urllib.parse import urlparse, ParseResult
 
 
 class NetworkStub:
+    host: str
     class StubResponse:
         def __init__(self, status, data=None, headers=None):
             if headers is None:
@@ -18,13 +19,16 @@ class NetworkStub:
             return self._json
 
     def __init__(self, host: str):
-        self._host = host
+        self.host = host
         self._stubs = {}
 
     def reset(self):
         self._stubs = {}
 
-    def stub_request_with_dict(self, path, response_code: int, response_body: dict):
+    def stub_request_with_value(self, path, response_code: int, response_body: dict | str):
+        if not isinstance(response_body, dict) and not isinstance(response_body, str):
+            raise "Must provide a dictionary or string"
+
         self._stubs[path] = {
             "response_code": response_code,
             "response_body": response_body,
@@ -32,6 +36,9 @@ class NetworkStub:
 
     def stub_request_with_function(self, path, response_code: int,
                                    response_func: Callable[[str, dict], object]):
+        if not callable(response_func):
+            raise "Must provide a function"
+
         self._stubs[path] = {
             "response_code": response_code,
             "response_func": response_func
@@ -41,7 +48,7 @@ class NetworkStub:
         instance: NetworkStub = args[0]
         url: ParseResult = urlparse(args[1])
 
-        if (url.scheme + "://" + url.hostname) != instance._host:
+        if (url.scheme + "://" + url.hostname) != instance.host:
             return
 
         paths = list(instance._stubs.keys())

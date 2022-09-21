@@ -2,7 +2,6 @@ import time
 import unittest
 
 from unittest.mock import patch
-from .mockserver import MockServer
 from statsig import StatsigServer, StatsigOptions, StatsigEnvironmentTier
 from .network_stub import NetworkStub
 

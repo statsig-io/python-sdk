@@ -1,74 +1,76 @@
 import unittest
 import os
 import json
+from unittest.mock import patch
 
-from .mockserver import MockServer
-from statsig import statsig, StatsigUser, StatsigOptions, StatsigEvent, StatsigEnvironmentTier, Layer
+from tests.network_stub import NetworkStub
+from statsig import statsig, StatsigUser, StatsigOptions, StatsigEnvironmentTier, Layer
 
-with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), '../testdata/layer_exposures_download_config_specs.json')) as r:
+with open(os.path.join(os.path.abspath(os.path.dirname(__file__)),
+                       '../testdata/layer_exposures_download_config_specs.json')) as r:
     CONFIG_SPECS_RESPONSE = r.read()
 
 methods = ['get', 'get_typed']
 
+_network_stub = NetworkStub("http://test-layer-exposure")
 
+
+@patch('requests.post', side_effect=_network_stub.mock)
 class TestLayerExposures(unittest.TestCase):
-    response = json.loads("{}")
-    user = StatsigUser("dloomb")
-    logs = {}
+    _user = StatsigUser("dloomb")
+    _logs = {}
 
     @classmethod
     def setUpClass(cls):
-        cls.server = MockServer(port=1234)
-        cls.server.start()
-        cls.server.add_log_event_response(
-            cls._check_logs.__get__(cls, cls.__class__))
-        cls.server.add_json_response(
-            "/download_config_specs", json.loads(CONFIG_SPECS_RESPONSE))
+        _network_stub.reset()
+        _network_stub.stub_request_with_value("download_config_specs", 200, json.loads(CONFIG_SPECS_RESPONSE))
+
+        def log_event_callback(url: str, data: dict):
+            cls._logs = data["json"]
+
+        _network_stub.stub_request_with_function("log_event", 202, log_event_callback)
 
         cls.options = StatsigOptions(
-            api=cls.server.url, tier=StatsigEnvironmentTier.development)
+            api=_network_stub.host,
+            tier=StatsigEnvironmentTier.development)
 
-    @classmethod
-    def tearDownClass(cls):
-        cls.server.shutdown_server()
-
-    def test_does_not_log_on_get_layer(self):
+    def test_does_not_log_on_get_layer(self, mock_post):
         self._start()
-        statsig.get_layer(self.user, 'unallocated_layer')
+        statsig.get_layer(self._user, 'unallocated_layer')
         statsig.shutdown()
 
-        events = TestLayerExposures.logs["events"]
+        events = TestLayerExposures._logs["events"]
         self.assertEqual(len(events), 0)
 
-    def test_does_not_log_on_invalid_type(self):
+    def test_does_not_log_on_invalid_type(self, mock_post):
         self._start()
-        layer = statsig.get_layer(self.user, 'unallocated_layer')
+        layer = statsig.get_layer(self._user, 'unallocated_layer')
         layer.get_typed('an_int', 'err')
         statsig.shutdown()
 
-        events = TestLayerExposures.logs["events"]
+        events = TestLayerExposures._logs["events"]
         self.assertEqual(len(events), 0)
 
-    def test_does_not_log_non_existent_keys(self):
+    def test_does_not_log_non_existent_keys(self, mock_post):
         for method in methods:
             with self.subTest('with method ' + method, method=method):
                 self._start()
-                layer = statsig.get_layer(self.user, 'unallocated_layer')
+                layer = statsig.get_layer(self._user, 'unallocated_layer')
                 getattr(Layer, method)(layer, 'a_string', 'err')
                 statsig.shutdown()
 
-                events = TestLayerExposures.logs["events"]
+                events = TestLayerExposures._logs["events"]
                 self.assertEqual(len(events), 0)
 
-    def test_unallocated_layer_logging(self):
+    def test_unallocated_layer_logging(self, mock_post):
         for method in methods:
             with self.subTest('with method ' + method, method=method):
                 self._start()
-                layer = statsig.get_layer(self.user, 'unallocated_layer')
+                layer = statsig.get_layer(self._user, 'unallocated_layer')
                 getattr(Layer, method)(layer, 'an_int', 0)
                 statsig.shutdown()
 
-                events = TestLayerExposures.logs["events"]
+                events = TestLayerExposures._logs["events"]
                 self.assertEqual(len(events), 1)
 
                 self.assertEqual({
@@ -79,17 +81,17 @@ class TestLayerExposures(unittest.TestCase):
                     'isExplicitParameter': 'false'
                 }, events[0].get('metadata', {}))
 
-    def test_explicit_vs_implicit_parameter_logging(self):
+    def test_explicit_vs_implicit_parameter_logging(self, mock_post):
         for method in methods:
             with self.subTest('with method ' + method, method=method):
                 self._start()
                 layer = statsig.get_layer(
-                    self.user, 'explicit_vs_implicit_parameter_layer')
+                    self._user, 'explicit_vs_implicit_parameter_layer')
                 getattr(Layer, method)(layer, 'an_int', 0)
                 getattr(Layer, method)(layer, 'a_string', 'err')
                 statsig.shutdown()
 
-                events = TestLayerExposures.logs["events"]
+                events = TestLayerExposures._logs["events"]
                 self.assertEqual(len(events), 2)
                 self.assertEqual({
                     'config': 'explicit_vs_implicit_parameter_layer',
@@ -107,12 +109,12 @@ class TestLayerExposures(unittest.TestCase):
                     'isExplicitParameter': 'false'
                 }, events[1].get('metadata', {}))
 
-    def test_different_object_type_logging(self):
+    def test_different_object_type_logging(self, mock_post):
         for method in methods:
             with self.subTest('with method ' + method, method=method):
                 self._start()
                 layer = statsig.get_layer(
-                    self.user, 'different_object_type_logging_layer')
+                    self._user, 'different_object_type_logging_layer')
                 getattr(Layer, method)(layer, 'a_bool', False)
                 getattr(Layer, method)(layer, 'an_int', 0)
                 getattr(Layer, method)(layer, 'a_double', 0.0)
@@ -122,7 +124,7 @@ class TestLayerExposures(unittest.TestCase):
                 getattr(Layer, method)(layer, 'an_object', {})
                 statsig.shutdown()
 
-                events = TestLayerExposures.logs["events"]
+                events = TestLayerExposures._logs["events"]
                 self.assertEqual(len(events), 7)
 
                 self.assertEqual("a_bool", events[0].get(
@@ -140,7 +142,7 @@ class TestLayerExposures(unittest.TestCase):
                 self.assertEqual("an_object", events[6].get(
                     'metadata', {}).get('parameterName', ''))
 
-    def test_logs_user_and_event_name(self):
+    def test_logs_user_and_event_name(self, mock_post):
         for method in methods:
             with self.subTest('with method ' + method, method=method):
                 self._start()
@@ -149,7 +151,7 @@ class TestLayerExposures(unittest.TestCase):
                 getattr(Layer, method)(layer, 'an_int', 0)
                 statsig.shutdown()
 
-                events = TestLayerExposures.logs["events"]
+                events = TestLayerExposures._logs["events"]
                 self.assertEqual(len(events), 1)
 
                 self.assertEqual('statsig::layer_exposure',
@@ -162,10 +164,10 @@ class TestLayerExposures(unittest.TestCase):
                     events[0].get('user', {}))
 
     def _check_logs(self, json):
-        TestLayerExposures.logs = json
+        TestLayerExposures._logs = json
 
     def _start(self):
-        TestLayerExposures.logs = {'events': []}
+        TestLayerExposures._logs = {'events': []}
         statsig.initialize("secret-key", self.options)
 
 

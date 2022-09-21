@@ -1,13 +1,10 @@
 import unittest
 
-from statsig import StatsigOptions
 from statsig.dynamic_config import DynamicConfig
 from statsig.layer import Layer
 from statsig.statsig_event import StatsigEvent
-
 from statsig.statsig_server import StatsigServer
 from statsig.statsig_user import StatsigUser
-
 from unittest.mock import patch
 
 

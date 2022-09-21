@@ -2,57 +2,54 @@ import time
 import os
 import unittest
 import json
-from .mockserver import MockServer
 
+from unittest.mock import patch
+from tests.network_stub import NetworkStub
 from statsig import statsig, StatsigUser, StatsigOptions, StatsigEvent, StatsigEnvironmentTier
 
 with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), '../testdata/download_config_specs.json')) as r:
     CONFIG_SPECS_RESPONSE = r.read()
 
+_network_stub = NetworkStub("http://test-statsig-e2e")
 
+
+@patch('requests.post', side_effect=_network_stub.mock)
+@patch('requests.get', side_effect=_network_stub.mock)
 class TestStatsigE2E(unittest.TestCase):
+    _logs = {}
 
     @classmethod
-    def setUpClass(cls):
-        cls.server = MockServer(port=1234)
-        cls.server.start()
-        cls.server.add_json_response(
-            "/download_config_specs", json.loads(CONFIG_SPECS_RESPONSE))
+    @patch('requests.post', side_effect=_network_stub.mock)
+    @patch('requests.get', side_effect=_network_stub.mock)
+    def setUpClass(cls, mock_post, mock_get):
+        _network_stub.stub_request_with_value("download_config_specs", 200, json.loads(CONFIG_SPECS_RESPONSE))
+        _network_stub.stub_request_with_value("list_1", 200, "+7/rrkvF6\n")
+        _network_stub.stub_request_with_value("get_id_lists", 200, {"list_1": {
+            "name": "list_1",
+            "size": 10,
+            "url": _network_stub.host + "/list_1",
+            "creationTime": 1,
+            "fileID": "file_id_1",
+        }})
 
-        def idlist_download_callbackFunc():
-            return "+7/rrkvF6\n"
-        cls.server.add_callback_response(
-            "/list_1",
-            idlist_download_callbackFunc,
-            methods=('GET',)
-        )
-        cls.server.add_json_response(
-            "/get_id_lists", {
-                "list_1": {
-                    "name": "list_1",
-                    "size": 10,
-                    "url": cls.server.url + "/list_1",
-                    "creationTime": 1,
-                    "fileID": "file_id_1",
-                },
-            })
-        cls.server.add_log_event_response(
-            cls.check_logs.__get__(cls, type(cls.__class__)))
+        def log_event_callback(url: str, data: dict):
+            cls._logs = data["json"]
+
+        _network_stub.stub_request_with_function("log_event", 202, log_event_callback)
+
         cls.statsig_user = StatsigUser(
             "regular_user_id", email="testuser@statsig.com", private_attributes={"test": 123})
         cls.random_user = StatsigUser("random")
-        cls.logs = {}
+        cls._logs = {}
         options = StatsigOptions(
-            api=cls.server.url, tier=StatsigEnvironmentTier.development)
+            api=_network_stub.host,
+            tier=StatsigEnvironmentTier.development)
 
         statsig.initialize("secret-key", options)
         cls.initTime = round(time.time() * 1000)
 
-    def check_logs(self, json):
-        self.logs = json
-
     # hacky, yet effective. python runs tests in alphabetical order.
-    def test_a_check_gate(self):
+    def test_a_check_gate(self, mock_post, mock_get):
         self.assertEqual(
             statsig.check_gate(self.statsig_user, "always_on_gate"),
             True
@@ -68,7 +65,7 @@ class TestStatsigE2E(unittest.TestCase):
         )
         self.assertIsNone(self.random_user._statsig_environment)
 
-    def test_b_dynamic_config(self):
+    def test_b_dynamic_config(self, mock_post, mock_get):
         config = statsig.get_config(self.statsig_user, "test_config")
         self.assertEqual(
             config.get_value(),
@@ -88,7 +85,7 @@ class TestStatsigE2E(unittest.TestCase):
             )
         )
 
-    def test_c_experiment(self):
+    def test_c_experiment(self, mock_post, mock_get):
         config = statsig.get_experiment(self.statsig_user, "sample_experiment")
         self.assertEqual(
             config.get_value(),
@@ -108,55 +105,54 @@ class TestStatsigE2E(unittest.TestCase):
             )
         )
 
-    def test_d_log_event(self):
+    def test_d_log_event(self, mock_post, mock_get):
         event = StatsigEvent(self.statsig_user, "purchase", value="SKU_12345", metadata=dict(
             price="9.99", item_name="diet_coke_48_pack"))
         statsig.log_event(event)
         self.assertEqual(len([]), 0)
 
-    def test_e_evaluate_all(self):
-        print(statsig.evaluate_all(self.statsig_user))
+    def test_e_evaluate_all(self, mock_post, mock_get):
         self.assertEqual(statsig.evaluate_all(self.statsig_user),
                          {
-            "feature_gates": {
-                "always_on_gate": {
-                    "value": True,
-                    "rule_id": "6N6Z8ODekNYZ7F8gFdoLP5"
-                },
-                "on_for_statsig_email": {
-                    "value": True,
-                    "rule_id": "7w9rbTSffLT89pxqpyhuqK"
-                },
-                "on_for_id_list": {
-                    "value": True,
-                    "rule_id": "7w9rbTSffLT89pxqpyhuqA"
-                }
-            },
-            "dynamic_configs": {
-                "test_config": {
-                    "value": {
-                        "boolean": False,
-                        "number": 7,
-                        "string": "statsig"
-                    },
-                    "rule_id": "1kNmlB23wylPFZi1M0Divl"
-                },
-                "sample_experiment": {
-                    "value": {
-                        "experiment_param": "test",
-                        "layer_param": True,
-                        "second_layer_param": True
-                    },
-                    "rule_id": "2RamGujUou6h2bVNQWhtNZ"
-                }
-            }
-        }
-        )
+                             "feature_gates": {
+                                 "always_on_gate": {
+                                     "value": True,
+                                     "rule_id": "6N6Z8ODekNYZ7F8gFdoLP5"
+                                 },
+                                 "on_for_statsig_email": {
+                                     "value": True,
+                                     "rule_id": "7w9rbTSffLT89pxqpyhuqK"
+                                 },
+                                 "on_for_id_list": {
+                                     "value": True,
+                                     "rule_id": "7w9rbTSffLT89pxqpyhuqA"
+                                 }
+                             },
+                             "dynamic_configs": {
+                                 "test_config": {
+                                     "value": {
+                                         "boolean": False,
+                                         "number": 7,
+                                         "string": "statsig"
+                                     },
+                                     "rule_id": "1kNmlB23wylPFZi1M0Divl"
+                                 },
+                                 "sample_experiment": {
+                                     "value": {
+                                         "experiment_param": "test",
+                                         "layer_param": True,
+                                         "second_layer_param": True
+                                     },
+                                     "rule_id": "2RamGujUou6h2bVNQWhtNZ"
+                                 }
+                             }
+                         }
+                         )
 
     # test_z ensures this runs last
-    def test_z_logs(self):
+    def test_z_logs(self, mock_post, mock_get):
         statsig.shutdown()
-        events = self.logs["events"]
+        events = self._logs["events"]
         self.assertEqual(len(events), 8)
         self.assertEqual(events[0]["eventName"], "statsig::gate_exposure")
         self.assertEqual(events[0]["metadata"]["gate"], "always_on_gate")
@@ -242,11 +238,7 @@ class TestStatsigE2E(unittest.TestCase):
             "statsigEnvironment", None), {"tier": "development"})
         self.assertAlmostEqual(events[7]["time"], self.initTime, delta=60000)
 
-        self.assertEqual(self.logs["statsigMetadata"]["sdkType"], "py-server")
-
-    @classmethod
-    def tearDownClass(cls):
-        cls.server.shutdown_server()
+        self.assertEqual(self._logs["statsigMetadata"]["sdkType"], "py-server")
 
 
 if __name__ == '__main__':

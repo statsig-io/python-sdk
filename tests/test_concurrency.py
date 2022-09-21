@@ -4,9 +4,8 @@ import os
 import unittest
 import json
 
-from flask import jsonify
-from .mockserver import MockServer
-
+from unittest.mock import patch
+from tests.network_stub import NetworkStub
 from statsig import statsig, StatsigUser, StatsigOptions, StatsigEvent, StatsigEnvironmentTier
 
 with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), '../testdata/download_config_specs.json')) as r:
@@ -14,59 +13,67 @@ with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), '../testdata/
 
 
 class TestStatsigConcurrency(unittest.TestCase):
+    _api_override = "http://test-statsig-concurrency"
+    _network_stub = NetworkStub(_api_override)
+    _idlist_sync_count = 0
+    _download_id_list_count = 0
+    _event_count = 0
 
     @classmethod
-    def setUpClass(cls):
-        cls.server = MockServer(port=1111)
-        cls.server.start()
-        cls.idlist_sync_count = 0
-        cls.download_id_list_count = 0
-        cls.server.add_json_response(
-            "/download_config_specs", json.loads(CONFIG_SPECS_RESPONSE))
+    @patch('requests.post', side_effect=_network_stub.mock)
+    @patch('requests.get', side_effect=_network_stub.mock)
+    def setUpClass(cls, mock_post, mock_get):
+        cls._idlist_sync_count = 0
+        cls._download_id_list_count = 0
+        cls._event_count = 0
 
-        def idlist_callbackFunc():
-            size = 10 + 3 * cls.idlist_sync_count
-            cls.idlist_sync_count = cls.idlist_sync_count + 1
-            return jsonify({
+        cls._network_stub.stub_request_with_value("download_config_specs", 200, json.loads(CONFIG_SPECS_RESPONSE))
+
+        def id_lists_callback(url: str, data: dict):
+            size = 10 + 3 * cls._idlist_sync_count
+            cls._idlist_sync_count += 1
+            return {
                 "list_1": {
                     "name": "list_1",
                     "size": size,
-                    "url": cls.server.url + "/list_1",
+                    "url": cls._api_override + "/list_1",
                     "creationTime": 1,
                     "fileID": "file_id_1",
                 },
-            })
-        cls.server.add_callback_response(
-            "/get_id_lists",
-            idlist_callbackFunc,
-        )
+            }
 
-        def idlist_download_callbackFunc():
-            cls.download_id_list_count += 1
-            if cls.download_id_list_count == 1:
+        cls._network_stub.stub_request_with_function("get_id_lists", 200, id_lists_callback)
+
+        def id_list_download_callback(url: str, data: dict):
+            cls._download_id_list_count += 1
+            if cls._download_id_list_count == 1:
                 return "+7/rrkvF6\n"
-            return f'+{cls.download_id_list_count}\n-{cls.download_id_list_count}\n'
+            return f'+{cls._download_id_list_count}\n-{cls._download_id_list_count}\n'
 
-        cls.server.add_callback_response(
-            "/list_1",
-            idlist_download_callbackFunc,
-            methods=('GET',)
-        )
+        cls._network_stub.stub_request_with_function("list_1", 202, id_list_download_callback)
 
-        cls.server.add_log_event_response(
-            cls._count_logs.__get__(cls, cls.__class__))
-        cls.event_count = 0
+        def log_event_callback(url: str, data: dict):
+            cls._event_count += len(data["json"]["events"])
+
+        cls._network_stub.stub_request_with_function("log_event", 202, log_event_callback)
+
         cls.statsig_user = StatsigUser(
             "123", email="testuser@statsig.com", private_attributes={"test": 123})
         cls.random_user = StatsigUser("random")
         cls.logs = {}
         options = StatsigOptions(
-            api=cls.server.url, tier=StatsigEnvironmentTier.development, idlists_sync_interval=0.01, rulesets_sync_interval=0.01, event_queue_size=400)
+            api=cls._api_override,
+            tier=StatsigEnvironmentTier.development,
+            idlists_sync_interval=0.01,
+            rulesets_sync_interval=0.01,
+            event_queue_size=400)
 
         statsig.initialize("secret-key", options)
         cls.initTime = round(time.time() * 1000)
 
-    def test_checking_and_updating_concurrently(self):
+    @patch('requests.post', side_effect=_network_stub.mock)
+    @patch('requests.get', side_effect=_network_stub.mock)
+    def test_checking_and_updating_concurrently(self, mock_post, mock_get):
         self.threads = []
         for x in range(10):
             thread = threading.Thread(
@@ -78,11 +85,11 @@ class TestStatsigConcurrency(unittest.TestCase):
             t.join()
 
         self.assertEqual(200, len(statsig.get_instance()._logger._events))
-        self.assertEqual(1600, self.event_count)
+        self.assertEqual(1600, self._event_count)
         statsig.shutdown()
 
         self.assertEqual(0, len(statsig.get_instance()._logger._events))
-        self.assertEqual(1800, self.event_count)
+        self.assertEqual(1800, self._event_count)
 
     def run_checks(self, interval, times):
         for x in range(times):
@@ -110,13 +117,6 @@ class TestStatsigConcurrency(unittest.TestCase):
                 user, "a_layer").get("layer_param", False))
 
             time.sleep(interval)
-
-    def _count_logs(self, json):
-        self.event_count += len(json["events"])
-
-    @classmethod
-    def tearDownClass(cls):
-        cls.server.shutdown_server()
 
 
 if __name__ == '__main__':
