@@ -1,6 +1,5 @@
 import dataclasses
 import json
-import logging
 import threading
 from typing import Optional
 from statsig.layer import Layer
@@ -46,15 +45,6 @@ class StatsigServer:
             self._spec_store = _SpecStore(self._network, self._options, self.__statsig_metadata, self._errorBoundary,
                                           self.__shutdown_event)
             self._evaluator = _Evaluator(self._spec_store)
-
-            if not options.local_mode:
-                if options.bootstrap_values is not None:
-                    self._bootstrap_config_specs()
-                else:
-                    self._spec_store.download_config_specs()
-
-                self._spec_store.download_id_lists()
-
             self._initialized = True
         except (StatsigValueError, StatsigNameError, StatsigRuntimeError) as e:
             raise e
@@ -249,17 +239,3 @@ class StatsigServer:
             except Exception as e:
                 self._errorBoundary.log_exception(e)
 
-    def _bootstrap_config_specs(self):
-        if self._options.bootstrap_values is None:
-            return
-        try:
-            specs = json.loads(self._options.bootstrap_values)
-            if specs is None:
-                return
-
-            self._spec_store.process(specs)
-        except ValueError:
-            # JSON deconding failed, just let background thread update rulesets
-            logging.getLogger('statsig.sdk').exception(
-                'Failed to parse bootstrap_values')
-            return

@@ -1,23 +1,27 @@
 from statsig.statsig_errors import StatsigValueError
+from .interface_data_store import IDataStore
 from .statsig_environment_tier import StatsigEnvironmentTier
-import typing
+
+from typing import Optional, Union, Callable
 
 
 class StatsigOptions:
     """An object of properties for initializing the sdk with additional parameters"""
 
     def __init__(
-        self,
-        api: str = "https://statsigapi.net/v1/",
-        tier: typing.Union[str, StatsigEnvironmentTier, None] = None,
-        timeout: typing.Optional[int] = None,
-        rulesets_sync_interval: int = 10,
-        idlists_sync_interval: int = 60,
-        local_mode: bool = False,
-        bootstrap_values: typing.Optional[str] = None,
-        rules_updated_callback: typing.Optional[typing.Callable] = None,
-        event_queue_size: typing.Optional[int] = 500,
+            self,
+            api: str = "https://statsigapi.net/v1/",
+            tier: Union[str, StatsigEnvironmentTier, None] = None,
+            timeout: Optional[int] = None,
+            rulesets_sync_interval: int = 10,
+            idlists_sync_interval: int = 60,
+            local_mode: bool = False,
+            bootstrap_values: Optional[str] = None,
+            rules_updated_callback: Optional[Callable] = None,
+            event_queue_size: Optional[int] = 500,
+            data_store: Optional[IDataStore] = None
     ):
+        self.data_store = data_store
         self._environment = None
         if tier is not None:
             if isinstance(tier, str) or isinstance(tier, StatsigEnvironmentTier):
@@ -40,7 +44,7 @@ class StatsigOptions:
             self.event_queue_size = 500
         else:
             self.event_queue_size = event_queue_size
-    
+
     def set_environment_parameter(self, key: str, value: str):
         if self._environment is None:
             self._environment = {}

@@ -1,4 +1,5 @@
 import json
+import logging
 import threading
 
 from .statsig_error_boundary import _StatsigErrorBoundary
@@ -8,6 +9,16 @@ from .statsig_options import StatsigOptions
 
 RULESETS_SYNC_INTERVAL = 10
 IDLISTS_SYNC_INTERVAL = 60
+STORAGE_ADAPTER_KEY = "statsig.cache"
+
+
+def _is_specs_json_valid(specs_json):
+    if specs_json is None or specs_json.get("time") is None:
+        return False
+    if specs_json.get("has_updates", False) is False:
+        return False
+
+    return True
 
 
 class _SpecStore:
@@ -28,10 +39,13 @@ class _SpecStore:
         self._id_lists = dict()
 
         if not options.local_mode:
+            self._initialize_specs()
+            self._download_id_lists()
+
             self._background_download_configs = self._spawn_background_sync_thread(
-                (self.download_config_specs, options.rulesets_sync_interval or RULESETS_SYNC_INTERVAL))
+                (self._download_config_specs, options.rulesets_sync_interval or RULESETS_SYNC_INTERVAL))
             self._background_download_idlists = self._spawn_background_sync_thread(
-                (self.download_id_lists, options.idlists_sync_interval or IDLISTS_SYNC_INTERVAL))
+                (self._download_id_lists, options.idlists_sync_interval or IDLISTS_SYNC_INTERVAL))
 
     def is_ready_for_checks(self):
         return self._last_update_time != 0
@@ -70,18 +84,32 @@ class _SpecStore:
     def get_all_id_lists(self):
         return self._id_lists
 
-    def process(self, specs_json):
-        if specs_json is None or specs_json.get("time") is None:
-            return
-        if specs_json.get("has_updates", False) is False:
+    def _initialize_specs(self):
+        if self._options.data_store is not None:
+            if self._options.bootstrap_values is not None:
+                logging.getLogger('statsig.sdk').warning(
+                    "data_store gets priority over bootstrap_values. bootstrap_values will be ignored")
+
+            self._load_config_specs_from_storage_adapter()
+            if self._last_update_time is 0:
+                self._download_config_specs()
+
+        elif self._options.bootstrap_values is not None:
+            self._bootstrap_config_specs()
+
+        else:
+            self._download_config_specs()
+
+    def _process_specs(self, specs_json):
+        if not _is_specs_json_valid(specs_json):
             return
 
         def get_parsed_specs(key: str):
             parsed = dict()
-            for gate in specs_json.get(key, []):
-                spec_name = gate.get("name")
+            for spec in specs_json.get(key, []):
+                spec_name = spec.get("name")
                 if spec_name is not None:
-                    parsed[spec_name] = gate
+                    parsed[spec_name] = spec
             return parsed
 
         new_gates = get_parsed_specs("feature_gates")
@@ -104,14 +132,74 @@ class _SpecStore:
         if callable(self._options.rules_updated_callback):
             self._options.rules_updated_callback(json.dumps(specs_json))
 
-    def download_config_specs(self):
+    def _load_config_specs_from_storage_adapter(self):
+        if self._options.data_store is None:
+            return
+
+        cache_string = self._options.data_store.get(STORAGE_ADAPTER_KEY)
+        if not isinstance(cache_string, str):
+            return
+
+        cache = json.loads(cache_string)
+        if not isinstance(cache, dict):
+            logging.getLogger('statsig.sdk').warning("Invalid type returned from StatsigOptions.data_store")
+            return
+
+        adapter_time = cache.get("last_update_time", None)
+        if not isinstance(adapter_time, int) or adapter_time < self._last_update_time:
+            return
+
+        self._gates = cache.get("gates", None) or self._gates
+        self._configs = cache.get("configs", None) or self._configs
+        self._layers = cache.get("layers", None) or self._layers
+        self._experiment_to_layer = cache.get("experiment_to_layer", None) or self._experiment_to_layer
+        self._last_update_time = cache.get("last_update_time", None) or self._last_update_time
+
+    def _bootstrap_config_specs(self):
+        if self._options.bootstrap_values is None:
+            return
+
+        try:
+            specs = json.loads(self._options.bootstrap_values)
+            if specs is None:
+                return
+
+            self._process_specs(specs)
+        except ValueError:
+            # JSON decoding failed, just let background thread update rulesets
+            logging.getLogger('statsig.sdk').exception(
+                'Failed to parse bootstrap_values')
+            return
+
+    def _download_config_specs(self):
         specs = self._network.post_request("download_config_specs", {
             "statsigMetadata": self._statsig_metadata,
             "sinceTime": self._last_update_time,
         })
-        self.process(specs)
 
-    def download_id_lists(self):
+        if not _is_specs_json_valid(specs):
+            return
+
+        self._process_specs(specs)
+        self._save_to_storage_adapter()
+
+    def _save_to_storage_adapter(self):
+        if self._options.data_store is None:
+            return
+
+        if self._last_update_time is 0:
+            return
+
+        cache = {
+            "gates": self._gates,
+            "configs": self._configs,
+            "layers": self._layers,
+            "experiment_to_layer": self._experiment_to_layer,
+            "last_update_time": self._last_update_time
+        }
+        self._options.data_store.set(STORAGE_ADAPTER_KEY, json.dumps(cache))
+
+    def _download_id_lists(self):
         try:
             server_id_lists = self._network.post_request("get_id_lists", {
                 "statsigMetadata": self._statsig_metadata,
@@ -152,7 +240,8 @@ class _SpecStore:
                 if size <= read_bytes or url == "":
                     continue
                 thread = threading.Thread(
-                    target=self._download_single_id_list, args=(url, list_name, local_list, local_id_lists, read_bytes,))
+                    target=self._download_single_id_list,
+                    args=(url, list_name, local_list, local_id_lists, read_bytes,))
                 thread.daemon = True
                 thread_pool.append(thread)
                 thread.start()
