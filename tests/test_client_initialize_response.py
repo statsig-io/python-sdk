@@ -92,6 +92,9 @@ class TestClientInitializeResponse(unittest.TestCase):
 
     def validate_consistency(self, server_data, sdk_data):
         def rm_secondary_exposure_hashes(value):
+            if not isinstance(value, dict):
+                return value
+
             exposures = value.get("secondary_exposures", None)
             if exposures is None:
                 return value

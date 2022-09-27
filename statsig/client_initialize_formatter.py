@@ -109,6 +109,13 @@ class ClientInitializeResponseFormatter:
             spec = entry[1]
             return config_to_response(name, spec)
 
+        evaluated_keys = {}
+        if user.user_id is not None:
+            evaluated_keys["userID"] = user.user_id
+
+        if user.custom_ids is not None:
+            evaluated_keys["customIDs"] = user.custom_ids
+
         return {
             "feature_gates": filter_nones(map(map_fnc, spec_store.get_all_gates().items())),
             "dynamic_configs": filter_nones(map(map_fnc, spec_store.get_all_configs().items())),
@@ -116,5 +123,6 @@ class ClientInitializeResponseFormatter:
             "sdkParams": {},
             "has_updates": True,
             "generator": "statsig-python-sdk",
+            "evaluated_keys": evaluated_keys,
             "time": 0,
         }
