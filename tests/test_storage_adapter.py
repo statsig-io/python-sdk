@@ -13,32 +13,40 @@ with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), '../testdata/
 class _TestAdapter(IDataStore):
     is_shutdown = False
     data = {
-        "statsig.cache": {
-            "last_update_time": 1,
-            "gates": {"gate_from_adapter": {
+        "statsig.cache": json.dumps({
+            "dynamic_configs": [],
+            "feature_gates": [{
                 "name": "gate_from_adapter",
                 "type": "feature_gate",
-                "salt": "47403b4e-7829-43d1-b1ac-3992a5c1b4ac",
+                "salt": "64fa52a6-4195-4658-b124-aa0be3ff8860",
                 "enabled": True,
                 "defaultValue": False,
                 "rules": [{
-                    "name": "6N6Z8ODekNYZ7F8gFdoLP5",
-                    "groupName": "everyone",
+                    "name": "6X3qJgyfwA81IJ2dxI7lYp",
+                    "groupName": "public",
                     "passPercentage": 100,
-                    "conditions": [{"type": "public", }],
+                    "conditions": [{"type": "public"}],
                     "returnValue": True,
-                    "id": "6N6Z8ODekNYZ7F8gFdoLP5",
-                    "salt": "14862979-1468-4e49-9b2a-c8bb100eed8f"
-                }]
-            }}
-        }
+                    "id": "6X3qJgyfwA81IJ2dxI7lYp",
+                    "salt": "6X3qJgyfwA81IJ2dxI7lYp",
+                    "idType": "userID"
+                }],
+                "idType": "userID",
+                "entity": "feature_gate"
+            }],
+            "id_lists": {},
+            "layers": {},
+            "layer_configs": [],
+            "has_updates": True,
+            "time": 1663803098618
+        })
     }
 
     def get(self, key: str):
-        return json.dumps(self.data.get(key, None))
+        return self.data.get(key, None)
 
     def set(self, key: str, value: str):
-        self.data[key] = json.loads(value)
+        self.data[key] = value
 
     def shutdown(self):
         self.is_shutdown = True
@@ -78,8 +86,9 @@ class TestStorageAdapter(unittest.TestCase):
         self._data_adapter.data = {}
         statsig.initialize("secret-key", self._options)
 
-        self.assertEqual(['always_on_gate', 'on_for_statsig_email', 'on_for_id_list'],
-                         list(self._data_adapter.data["statsig.cache"]["gates"].keys()))
+        stored_string = self._data_adapter.data["statsig.cache"]
+        expected_string = json.dumps(CONFIG_SPECS_RESPONSE)
+        self.assertEqual(stored_string, expected_string)
 
     @patch('requests.post', side_effect=_network_stub.mock)
     def test_calls_network_when_adapter_is_empty(self, mock_post):

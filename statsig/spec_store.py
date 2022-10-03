@@ -132,29 +132,6 @@ class _SpecStore:
         if callable(self._options.rules_updated_callback):
             self._options.rules_updated_callback(json.dumps(specs_json))
 
-    def _load_config_specs_from_storage_adapter(self):
-        if self._options.data_store is None:
-            return
-
-        cache_string = self._options.data_store.get(STORAGE_ADAPTER_KEY)
-        if not isinstance(cache_string, str):
-            return
-
-        cache = json.loads(cache_string)
-        if not isinstance(cache, dict):
-            logging.getLogger('statsig.sdk').warning("Invalid type returned from StatsigOptions.data_store")
-            return
-
-        adapter_time = cache.get("last_update_time", None)
-        if not isinstance(adapter_time, int) or adapter_time < self._last_update_time:
-            return
-
-        self._gates = cache.get("gates", None) or self._gates
-        self._configs = cache.get("configs", None) or self._configs
-        self._layers = cache.get("layers", None) or self._layers
-        self._experiment_to_layer = cache.get("experiment_to_layer", None) or self._experiment_to_layer
-        self._last_update_time = cache.get("last_update_time", None) or self._last_update_time
-
     def _bootstrap_config_specs(self):
         if self._options.bootstrap_values is None:
             return
@@ -181,23 +158,38 @@ class _SpecStore:
             return
 
         self._process_specs(specs)
-        self._save_to_storage_adapter()
+        self._save_to_storage_adapter(specs)
 
-    def _save_to_storage_adapter(self):
+    def _save_to_storage_adapter(self, specs):
+        if not _is_specs_json_valid(specs):
+            return
+
         if self._options.data_store is None:
             return
 
         if self._last_update_time is 0:
             return
 
-        cache = {
-            "gates": self._gates,
-            "configs": self._configs,
-            "layers": self._layers,
-            "experiment_to_layer": self._experiment_to_layer,
-            "last_update_time": self._last_update_time
-        }
-        self._options.data_store.set(STORAGE_ADAPTER_KEY, json.dumps(cache))
+        self._options.data_store.set(STORAGE_ADAPTER_KEY, json.dumps(specs))
+
+    def _load_config_specs_from_storage_adapter(self):
+        if self._options.data_store is None:
+            return
+
+        cache_string = self._options.data_store.get(STORAGE_ADAPTER_KEY)
+        if not isinstance(cache_string, str):
+            return
+
+        cache = json.loads(cache_string)
+        if not isinstance(cache, dict):
+            logging.getLogger('statsig.sdk').warning("Invalid type returned from StatsigOptions.data_store")
+            return
+
+        adapter_time = cache.get("time", None)
+        if not isinstance(adapter_time, int) or adapter_time < self._last_update_time:
+            return
+
+        self._process_specs(cache)
 
     def _download_id_lists(self):
         try:
