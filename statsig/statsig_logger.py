@@ -1,5 +1,5 @@
+import collections
 import threading
-import queue
 
 from .evaluator import _ConfigEvaluation
 from .statsig_event import StatsigEvent
@@ -9,10 +9,11 @@ _CONFIG_EXPOSURE_EVENT = "statsig::config_exposure"
 _LAYER_EXPOSURE_EVENT = "statsig::layer_exposure"
 _GATE_EXPOSURE_EVENT = "statsig::gate_exposure"
 
+
 class _StatsigLogger:
     def __init__(self, net, shutdown_event, statsig_metadata, error_boundary, local_mode, event_queue_size):
         self._events = list()
-        self._retry_logs = queue.Queue(maxsize=10)
+        self._retry_logs = collections.deque(maxlen=10)
         self._net = net
         self._statsig_metadata = statsig_metadata
         self._local_mode = local_mode
@@ -91,7 +92,7 @@ class _StatsigLogger:
             "statsigMetadata": self._statsig_metadata,
         })
         if res is not None:
-            self._retry_logs.put(res, False)
+            self._retry_logs.append(res)
 
     def shutdown(self):
         self._flush()
@@ -111,9 +112,15 @@ class _StatsigLogger:
         while True:
             if shutdown_event.wait(60):
                 break
-            for i in range(self._retry_logs.qsize()):
-                payload = self._retry_logs.get()
+
+            length = len(self._retry_logs)
+            for i in range(length):
+                try:
+                    payload = self._retry_logs.pop()
+                except IndexError:
+                    break
+
                 res = self._net.retryable_request("log_event", payload)
                 if res is not None:
-                    self._retry_logs.put(res)
-                self._retry_logs.task_done()
+                    self._retry_logs.append(res)
+
