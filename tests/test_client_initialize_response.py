@@ -95,15 +95,17 @@ class TestClientInitializeResponse(unittest.TestCase):
             if not isinstance(value, dict):
                 return value
 
-            exposures = value.get("secondary_exposures", None)
-            if exposures is None:
+            se = value.get("secondary_exposures", [])
+            use = value.get("undelegated_secondary_exposures", [])
+            if se is None and use is None:
                 return value
 
             def overwrite_name(exposure):
                 exposure["gate"] = "__REMOVED_FOR_TEST__"
                 return exposure
 
-            value["secondary_exposures"] = list(map(overwrite_name, exposures))
+            value["secondary_exposures"] = list(map(overwrite_name, se))
+            value["undelegated_secondary_exposures"] = list(map(overwrite_name, use))
             return value
 
         for key in server_data:
