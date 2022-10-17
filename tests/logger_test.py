@@ -65,17 +65,13 @@ class LoggerTest(unittest.TestCase):
         log_event = self._events[2]
 
         self.assertNotEqual(gate_exposure["time"], config_exposure["time"])
-        self.assertDictEqual(gate_exposure["metadata"], {
-            "gate": "a_gate",
-            "gateValue": "false",
-            "ruleID": ""
-        })
-        self.assertNotEqual(config_exposure["time"], log_event["time"])
+        self.assertEqual("a_gate", gate_exposure["metadata"]["gate"])
+        self.assertEqual("false", gate_exposure["metadata"]["gateValue"])
+        self.assertEqual("", gate_exposure["metadata"]["ruleID"])
 
-        self.assertDictEqual(config_exposure["metadata"], {
-            "config": "a_config",
-            "ruleID": ""
-        })
+        self.assertNotEqual(config_exposure["time"], log_event["time"])
+        self.assertEqual("a_config", config_exposure["metadata"]["config"])
+        self.assertEqual("", config_exposure["metadata"]["ruleID"])
 
         self.assertFalse("metadata" in log_event)
         self.assertEqual(10, log_event["value"])

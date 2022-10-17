@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 from tests.network_stub import NetworkStub
 from statsig import statsig, StatsigUser, StatsigOptions, StatsigEnvironmentTier, Layer
+from tests.test_case_with_extras import TestCaseWithExtras
 
 with open(os.path.join(os.path.abspath(os.path.dirname(__file__)),
                        '../testdata/layer_exposures_download_config_specs.json')) as r:
@@ -16,7 +17,7 @@ _network_stub = NetworkStub("http://test-layer-exposure")
 
 
 @patch('requests.post', side_effect=_network_stub.mock)
-class TestLayerExposures(unittest.TestCase):
+class TestLayerExposures(TestCaseWithExtras):
     _user = StatsigUser("dloomb")
     _logs = {}
 
@@ -73,7 +74,7 @@ class TestLayerExposures(unittest.TestCase):
                 events = TestLayerExposures._logs["events"]
                 self.assertEqual(len(events), 1)
 
-                self.assertEqual({
+                self.assertSubsetOf({
                     'config': 'unallocated_layer',
                     'ruleID': 'default',
                     'allocatedExperiment': '',
@@ -93,7 +94,8 @@ class TestLayerExposures(unittest.TestCase):
 
                 events = TestLayerExposures._logs["events"]
                 self.assertEqual(len(events), 2)
-                self.assertEqual({
+
+                self.assertSubsetOf({
                     'config': 'explicit_vs_implicit_parameter_layer',
                     'ruleID': 'alwaysPass',
                     'allocatedExperiment': 'experiment',
@@ -101,7 +103,7 @@ class TestLayerExposures(unittest.TestCase):
                     'isExplicitParameter': 'true'
                 }, events[0].get('metadata', {}))
 
-                self.assertEqual({
+                self.assertSubsetOf({
                     'config': 'explicit_vs_implicit_parameter_layer',
                     'ruleID': 'alwaysPass',
                     'allocatedExperiment': '',

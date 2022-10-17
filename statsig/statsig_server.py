@@ -206,7 +206,8 @@ class StatsigServer:
             return _ConfigEvaluation(boolean_value=network_gate.get("value"), rule_id=network_gate.get("rule_id"))
         elif log_exposure:
             self._logger.log_gate_exposure(
-                user, gate_name, result.boolean_value, result.rule_id, result.secondary_exposures)
+                user, gate_name, result.boolean_value, result.rule_id, result.secondary_exposures,
+                result.evaluation_details)
         return result
 
     def __get_config_server_fallback(self, user: StatsigUser, config_name: str, log_exposure=True):
@@ -230,7 +231,7 @@ class StatsigServer:
         elif log_exposure:
             if not is_layer:
                 self._logger.log_config_exposure(
-                    user, config_name, result.rule_id, result.secondary_exposures)
+                    user, config_name, result.rule_id, result.secondary_exposures, result.evaluation_details)
         return result
 
     def __normalize_user(self, user):

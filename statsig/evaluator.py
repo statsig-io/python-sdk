@@ -9,14 +9,23 @@ from ip3country import CountryLookup
 
 from statsig import StatsigUser
 from .client_initialize_formatter import ClientInitializeResponseFormatter
+from .evaluation_details import EvaluationDetails, EvaluationReason
 from .spec_store import _SpecStore
 
 
 class _ConfigEvaluation:
 
-    def __init__(self, fetch_from_server=False, boolean_value=False, json_value={}, rule_id="", secondary_exposures=[],
-                 undelegated_secondary_exposures=[], allocated_experiment=None, explicit_parameters=[],
-                 is_experiment_group=False):
+    def __init__(self,
+                 fetch_from_server=False,
+                 boolean_value=False,
+                 json_value={},
+                 rule_id="",
+                 secondary_exposures=[],
+                 undelegated_secondary_exposures=[],
+                 allocated_experiment=None,
+                 explicit_parameters=[],
+                 is_experiment_group=False,
+                 evaluation_details=None):
         if fetch_from_server is None:
             fetch_from_server = False
         self.fetch_from_server = fetch_from_server
@@ -38,6 +47,8 @@ class _ConfigEvaluation:
         self.allocated_experiment = allocated_experiment
         self.explicit_parameters = explicit_parameters
         self.is_experiment_group = is_experiment_group is True
+
+        self.evaluation_details = evaluation_details
 
 
 class _Evaluator:
@@ -69,18 +80,25 @@ class _Evaluator:
         return ClientInitializeResponseFormatter \
             .get_formatted_response(self.__eval_config, user, self._spec_store)
 
+    def _create_evaluation_details(self, reason: EvaluationReason):
+        if reason == EvaluationReason.uninitialized:
+            return EvaluationDetails(0, 0, reason)
+
+        return EvaluationDetails(self._spec_store.last_update_time, self._spec_store.initial_update_time, reason)
+
     def __lookup_gate_override(self, user, gate):
         gate_overrides = self._gate_overrides.get(gate)
         if gate_overrides is None:
             return None
 
+        eval_details = self._create_evaluation_details(EvaluationReason.local_override)
         override = gate_overrides.get(user.user_id)
         if override is not None:
-            return _ConfigEvaluation(boolean_value=override, rule_id="override")
+            return _ConfigEvaluation(boolean_value=override, rule_id="override", evaluation_details=eval_details)
 
         all_override = gate_overrides.get(None)
         if all_override is not None:
-            return _ConfigEvaluation(boolean_value=all_override, rule_id="override")
+            return _ConfigEvaluation(boolean_value=all_override, rule_id="override", evaluation_details=eval_details)
 
         return None
 
@@ -89,19 +107,24 @@ class _Evaluator:
         if config_overrides is None:
             return None
 
+        eval_details = self._create_evaluation_details(EvaluationReason.local_override)
         override = config_overrides.get(user.user_id)
         if override is not None:
-            return _ConfigEvaluation(json_value=override, rule_id="override")
+            return _ConfigEvaluation(json_value=override, rule_id="override", evaluation_details=eval_details)
 
         all_override = config_overrides.get(None)
         if all_override is not None:
-            return _ConfigEvaluation(json_value=all_override, rule_id="override")
+            return _ConfigEvaluation(json_value=all_override, rule_id="override", evaluation_details=eval_details)
         return None
 
     def check_gate(self, user, gate):
         override = self.__lookup_gate_override(user, gate)
         if override is not None:
             return override
+
+        if self._spec_store.init_reason == EvaluationReason.uninitialized:
+            return _ConfigEvaluation(evaluation_details=self._create_evaluation_details(EvaluationReason.uninitialized))
+
         eval_gate = self._spec_store.get_gate(gate)
         return self.__eval_config(user, eval_gate)
 
@@ -109,16 +132,23 @@ class _Evaluator:
         override = self.__lookup_config_override(user, config)
         if override is not None:
             return override
+
+        if self._spec_store.init_reason == EvaluationReason.uninitialized:
+            return _ConfigEvaluation(evaluation_details=self._create_evaluation_details(EvaluationReason.uninitialized))
+
         eval_config = self._spec_store.get_config(config)
         return self.__eval_config(user, eval_config)
 
     def get_layer(self, user, layer):
+        if self._spec_store.init_reason == EvaluationReason.uninitialized:
+            return _ConfigEvaluation(evaluation_details=self._create_evaluation_details(EvaluationReason.uninitialized))
+
         eval_layer = self._spec_store.get_layer(layer)
         return self.__eval_config(user, eval_layer)
 
     def __eval_config(self, user, config):
         if config is None:
-            return _ConfigEvaluation()
+            return _ConfigEvaluation(evaluation_details=self._create_evaluation_details(EvaluationReason.unrecognized))
 
         return self.__evaluate(user, config)
 
@@ -134,9 +164,11 @@ class _Evaluator:
     def __evaluate(self, user, config):
         exposures = []
         enabled = config.get("enabled", False)
-        defaultValue = config.get("defaultValue", {})
+        default_value = config.get("defaultValue", {})
+        evaluation_details = self._create_evaluation_details(self._spec_store.init_reason)
         if not enabled:
-            return _ConfigEvaluation(False, False, defaultValue, "disabled", exposures)
+            return _ConfigEvaluation(False, False, default_value, "disabled", exposures,
+                                     evaluation_details=evaluation_details)
 
         for rule in config.get("rules", []):
             result = self.__evaluate_rule(user, rule)
@@ -154,13 +186,15 @@ class _Evaluator:
                 return _ConfigEvaluation(
                     False,
                     user_passes,
-                    result.json_value if user_passes else defaultValue,
+                    result.json_value if user_passes else default_value,
                     result.rule_id,
                     exposures,
-                    is_experiment_group=result.is_experiment_group
+                    is_experiment_group=result.is_experiment_group,
+                    evaluation_details=evaluation_details
                 )
 
-        return _ConfigEvaluation(False, False, defaultValue, "default", exposures)
+        return _ConfigEvaluation(False, False, default_value, "default", exposures,
+                                 evaluation_details=evaluation_details)
 
     def __evaluate_rule(self, user, rule):
         exposures = []
@@ -192,8 +226,7 @@ class _Evaluator:
         delegated_result.explicit_parameters = config.get(
             "explicitParameters", [])
         delegated_result.allocated_experiment = config_delegate
-        delegated_result.secondary_exposures = exposures + \
-                                               delegated_result.secondary_exposures
+        delegated_result.secondary_exposures = exposures + delegated_result.secondary_exposures
         delegated_result.undelegated_secondary_exposures = exposures
         return delegated_result
 

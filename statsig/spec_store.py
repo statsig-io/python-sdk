@@ -3,6 +3,7 @@ import logging
 import threading
 from concurrent.futures import ThreadPoolExecutor, wait
 
+from .evaluation_details import EvaluationReason
 from .statsig_error_boundary import _StatsigErrorBoundary
 from .statsig_errors import StatsigValueError, StatsigNameError
 from .statsig_network import _StatsigNetwork
@@ -26,6 +27,10 @@ def _is_specs_json_valid(specs_json):
 class _SpecStore:
     def __init__(self, network: _StatsigNetwork, options: StatsigOptions, statsig_metadata: dict,
                  error_boundary: _StatsigErrorBoundary, shutdown_event: threading.Event):
+        self.last_update_time = 0
+        self.initial_update_time = 0
+        self.init_reason = EvaluationReason.uninitialized
+
         self._network = network
         self._options = options
         self._statsig_metadata = statsig_metadata
@@ -37,12 +42,12 @@ class _SpecStore:
         self._gates = dict()
         self._layers = dict()
         self._experiment_to_layer = dict()
-        self._last_update_time = 0
 
         self._id_lists = dict()
 
         if not options.local_mode:
             self._initialize_specs()
+            self.initial_update_time = -1 if self.last_update_time == 0 else self.last_update_time
             self._download_id_lists()
 
             self._background_download_configs = spawn_background_thread(self._sync, (
@@ -54,7 +59,7 @@ class _SpecStore:
             ), error_boundary)
 
     def is_ready_for_checks(self):
-        return self._last_update_time != 0
+        return self.last_update_time != 0
 
     def shutdown(self):
         if self._options.local_mode:
@@ -97,7 +102,7 @@ class _SpecStore:
                     "data_store gets priority over bootstrap_values. bootstrap_values will be ignored")
 
             self._load_config_specs_from_storage_adapter()
-            if self._last_update_time == 0:
+            if self.last_update_time == 0:
                 self._download_config_specs()
 
         elif self._options.bootstrap_values is not None:
@@ -106,9 +111,9 @@ class _SpecStore:
         else:
             self._download_config_specs()
 
-    def _process_specs(self, specs_json):
+    def _process_specs(self, specs_json) -> bool:
         if not _is_specs_json_valid(specs_json):
-            return
+            return False
 
         def get_parsed_specs(key: str):
             parsed = dict()
@@ -133,10 +138,12 @@ class _SpecStore:
         self._configs = new_configs
         self._layers = new_layers
         self._experiment_to_layer = new_experiment_to_layer
-        self._last_update_time = specs_json.get("time", 0)
+        self.last_update_time = specs_json.get("time", 0)
 
         if callable(self._options.rules_updated_callback):
             self._options.rules_updated_callback(json.dumps(specs_json))
+
+        return True
 
     def _bootstrap_config_specs(self):
         if self._options.bootstrap_values is None:
@@ -147,7 +154,11 @@ class _SpecStore:
             if specs is None:
                 return
 
-            self._process_specs(specs)
+            if not _is_specs_json_valid(specs):
+                return
+
+            if self._process_specs(specs):
+                self.init_reason = EvaluationReason.bootstrap
         except ValueError:
             # JSON decoding failed, just let background thread update rulesets
             logging.getLogger('statsig.sdk').exception(
@@ -157,14 +168,15 @@ class _SpecStore:
     def _download_config_specs(self):
         specs = self._network.post_request("download_config_specs", {
             "statsigMetadata": self._statsig_metadata,
-            "sinceTime": self._last_update_time,
+            "sinceTime": self.last_update_time,
         })
 
         if not _is_specs_json_valid(specs):
             return
 
-        self._process_specs(specs)
-        self._save_to_storage_adapter(specs)
+        if self._process_specs(specs):
+            self._save_to_storage_adapter(specs)
+            self.init_reason = EvaluationReason.network
 
     def _save_to_storage_adapter(self, specs):
         if not _is_specs_json_valid(specs):
@@ -173,7 +185,7 @@ class _SpecStore:
         if self._options.data_store is None:
             return
 
-        if self._last_update_time == 0:
+        if self.last_update_time == 0:
             return
 
         self._options.data_store.set(STORAGE_ADAPTER_KEY, json.dumps(specs))
@@ -192,10 +204,11 @@ class _SpecStore:
             return
 
         adapter_time = cache.get("time", None)
-        if not isinstance(adapter_time, int) or adapter_time < self._last_update_time:
+        if not isinstance(adapter_time, int) or adapter_time < self.last_update_time:
             return
 
-        self._process_specs(cache)
+        if self._process_specs(cache):
+            self.init_reason = EvaluationReason.data_adapter
 
     def _download_id_lists(self):
         try:

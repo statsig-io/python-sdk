@@ -1,6 +1,7 @@
 import collections
 import threading
 
+from .evaluation_details import EvaluationDetails
 from .evaluator import _ConfigEvaluation
 from .statsig_event import StatsigEvent
 from .layer import Layer
@@ -9,6 +10,16 @@ from .thread_util import spawn_background_thread
 _CONFIG_EXPOSURE_EVENT = "statsig::config_exposure"
 _LAYER_EXPOSURE_EVENT = "statsig::layer_exposure"
 _GATE_EXPOSURE_EVENT = "statsig::gate_exposure"
+
+
+def _safe_add_evaluation_to_event(evaluation_details: EvaluationDetails, event: StatsigEvent):
+    if evaluation_details is None:
+        return
+
+    event.metadata["reason"] = evaluation_details.reason
+    event.metadata["configSyncTime"] = evaluation_details.config_sync_time
+    event.metadata["initTime"] = evaluation_details.init_time
+    event.metadata["serverTime"] = evaluation_details.server_time
 
 
 class _StatsigLogger:
@@ -31,7 +42,7 @@ class _StatsigLogger:
         if len(self._events) >= self._event_queue_size or not self._background_flush.is_alive:
             self._flush()
 
-    def log_gate_exposure(self, user, gate, value, rule_id, secondary_exposures):
+    def log_gate_exposure(self, user, gate, value, rule_id, secondary_exposures, evaluation_details: EvaluationDetails):
         event = StatsigEvent(user, _GATE_EXPOSURE_EVENT)
         event.metadata = {
             "gate": gate,
@@ -41,9 +52,11 @@ class _StatsigLogger:
         if secondary_exposures is None:
             secondary_exposures = []
         event._secondary_exposures = secondary_exposures
+
+        _safe_add_evaluation_to_event(evaluation_details, event)
         self.log(event)
 
-    def log_config_exposure(self, user, config, rule_id, secondary_exposures):
+    def log_config_exposure(self, user, config, rule_id, secondary_exposures, evaluation_details: EvaluationDetails):
         event = StatsigEvent(user, _CONFIG_EXPOSURE_EVENT)
         event.metadata = {
             "config": config,
@@ -53,6 +66,8 @@ class _StatsigLogger:
         if secondary_exposures is None:
             secondary_exposures = []
         event._secondary_exposures = secondary_exposures
+
+        _safe_add_evaluation_to_event(evaluation_details, event)
         self.log(event)
 
     def log_layer_exposure(self, user, layer: Layer, parameter_name: str, config_evaluation: _ConfigEvaluation):
@@ -74,6 +89,8 @@ class _StatsigLogger:
         }
 
         event._secondary_exposures = [] if exposures is None else exposures
+
+        _safe_add_evaluation_to_event(config_evaluation.evaluation_details, event)
         self.log(event)
 
     def _flush(self):

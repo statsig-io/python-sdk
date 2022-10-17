@@ -3,7 +3,7 @@ import unittest
 
 from unittest.mock import patch
 from statsig import StatsigServer, StatsigOptions, StatsigEnvironmentTier
-from .network_stub import NetworkStub
+from tests.network_stub import NetworkStub
 
 
 class TestBackgroundSync(unittest.TestCase):
