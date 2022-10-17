@@ -1,8 +1,8 @@
-from typing import List
+from typing import Optional
 
 
 class IDataStore:
-    def get(self, key: str) -> str | None:
+    def get(self, key: str) -> Optional[str]:
         return None
 
     def set(self, key: str, value: str):

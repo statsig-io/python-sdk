@@ -1,11 +1,13 @@
 import json
 import logging
 import threading
+from concurrent.futures import ThreadPoolExecutor, wait
 
 from .statsig_error_boundary import _StatsigErrorBoundary
 from .statsig_errors import StatsigValueError, StatsigNameError
 from .statsig_network import _StatsigNetwork
 from .statsig_options import StatsigOptions
+from .thread_util import spawn_background_thread
 
 RULESETS_SYNC_INTERVAL = 10
 IDLISTS_SYNC_INTERVAL = 60
@@ -29,6 +31,7 @@ class _SpecStore:
         self._statsig_metadata = statsig_metadata
         self._error_boundary = error_boundary
         self._shutdown_event = shutdown_event
+        self._executor = ThreadPoolExecutor(options.idlist_threadpool_size)
 
         self._configs = dict()
         self._gates = dict()
@@ -42,10 +45,13 @@ class _SpecStore:
             self._initialize_specs()
             self._download_id_lists()
 
-            self._background_download_configs = self._spawn_background_sync_thread(
-                (self._download_config_specs, options.rulesets_sync_interval or RULESETS_SYNC_INTERVAL))
-            self._background_download_idlists = self._spawn_background_sync_thread(
-                (self._download_id_lists, options.idlists_sync_interval or IDLISTS_SYNC_INTERVAL))
+            self._background_download_configs = spawn_background_thread(self._sync, (
+                self._download_config_specs, options.rulesets_sync_interval or RULESETS_SYNC_INTERVAL
+            ), error_boundary)
+
+            self._background_download_idlists = spawn_background_thread(self._sync, (
+                self._download_id_lists, options.idlists_sync_interval or IDLISTS_SYNC_INTERVAL
+            ), error_boundary)
 
     def is_ready_for_checks(self):
         return self._last_update_time != 0
@@ -91,7 +97,7 @@ class _SpecStore:
                     "data_store gets priority over bootstrap_values. bootstrap_values will be ignored")
 
             self._load_config_specs_from_storage_adapter()
-            if self._last_update_time is 0:
+            if self._last_update_time == 0:
                 self._download_config_specs()
 
         elif self._options.bootstrap_values is not None:
@@ -167,7 +173,7 @@ class _SpecStore:
         if self._options.data_store is None:
             return
 
-        if self._last_update_time is 0:
+        if self._last_update_time == 0:
             return
 
         self._options.data_store.set(STORAGE_ADAPTER_KEY, json.dumps(specs))
@@ -200,7 +206,7 @@ class _SpecStore:
                 return
 
             local_id_lists = self._id_lists
-            thread_pool = []
+            workers = []
 
             for list_name in server_id_lists:
                 server_list = server_id_lists.get(list_name, dict())
@@ -231,15 +237,14 @@ class _SpecStore:
                 #  only download additional ids if sizes don't match
                 if size <= read_bytes or url == "":
                     continue
-                thread = threading.Thread(
-                    target=self._download_single_id_list,
-                    args=(url, list_name, local_list, local_id_lists, read_bytes,))
-                thread.daemon = True
-                thread_pool.append(thread)
-                thread.start()
 
-            for thread in thread_pool:
-                thread.join()
+                future = self._executor.submit(
+                    self._download_single_id_list,
+                    url, list_name, local_list, local_id_lists, read_bytes
+                )
+                workers.append(future)
+
+            wait(workers, self._options.idlists_sync_interval)
 
             deleted_lists = []
             for list_name in local_id_lists:
@@ -282,12 +287,6 @@ class _SpecStore:
             all_lists[list_name] = local_list
         except Exception as e:
             self._error_boundary.log_exception(e)
-
-    def _spawn_background_sync_thread(self, args=()):
-        thread = threading.Thread(target=self._sync, args=args)
-        thread.daemon = True
-        thread.start()
-        return thread
 
     def _sync(self, sync_func, interval):
         while True:

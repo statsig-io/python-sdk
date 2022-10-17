@@ -1,3 +1,5 @@
+from typing import Optional
+
 from statsig import IDataStore
 
 has_imported_redis = False
@@ -17,7 +19,7 @@ class RedisDataStore(IDataStore):
 
         self._connection = redis.Redis(host=host, port=port, password=password)
 
-    def get(self, key: str) -> str | None:
+    def get(self, key: str) -> Optional[str]:
         return self._connection.get(key)
 
     def set(self, key: str, value: str):

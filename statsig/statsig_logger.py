@@ -4,6 +4,7 @@ import threading
 from .evaluator import _ConfigEvaluation
 from .statsig_event import StatsigEvent
 from .layer import Layer
+from .thread_util import spawn_background_thread
 
 _CONFIG_EXPOSURE_EVENT = "statsig::config_exposure"
 _LAYER_EXPOSURE_EVENT = "statsig::layer_exposure"
@@ -20,15 +21,8 @@ class _StatsigLogger:
         self._event_queue_size = event_queue_size
         self._error_boundary = error_boundary
 
-        self._background_flush = threading.Thread(
-            target=self._periodic_flush, args=(shutdown_event,))
-        self._background_flush.daemon = True
-        self._background_flush.start()
-
-        self._background_retry = threading.Thread(
-            target=self._periodic_retry, args=(shutdown_event,))
-        self._background_retry.daemon = True
-        self._background_retry.start()
+        self._background_flush = spawn_background_thread(self._periodic_flush, (shutdown_event,), error_boundary)
+        self._background_retry = spawn_background_thread(self._periodic_retry, (shutdown_event,), error_boundary)
 
     def log(self, event):
         if self._local_mode:
@@ -123,4 +117,3 @@ class _StatsigLogger:
                 res = self._net.retryable_request("log_event", payload)
                 if res is not None:
                     self._retry_logs.append(res)
-

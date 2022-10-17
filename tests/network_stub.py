@@ -1,9 +1,10 @@
-from typing import Callable
+from typing import Callable, Union
 from urllib.parse import urlparse, ParseResult
 
 
 class NetworkStub:
     host: str
+
     class StubResponse:
         def __init__(self, status, data=None, headers=None):
             if headers is None:
@@ -25,7 +26,7 @@ class NetworkStub:
     def reset(self):
         self._stubs = {}
 
-    def stub_request_with_value(self, path, response_code: int, response_body: dict | str):
+    def stub_request_with_value(self, path, response_code: int, response_body: Union[dict, str]):
         if not isinstance(response_body, dict) and not isinstance(response_body, str):
             raise "Must provide a dictionary or string"
 

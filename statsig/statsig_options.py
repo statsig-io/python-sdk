@@ -19,7 +19,8 @@ class StatsigOptions:
             bootstrap_values: Optional[str] = None,
             rules_updated_callback: Optional[Callable] = None,
             event_queue_size: Optional[int] = 500,
-            data_store: Optional[IDataStore] = None
+            data_store: Optional[IDataStore] = None,
+            idlists_thread_limit: int = 3
     ):
         self.data_store = data_store
         self._environment = None
@@ -37,6 +38,7 @@ class StatsigOptions:
         self.timeout = timeout
         self.rulesets_sync_interval = rulesets_sync_interval
         self.idlists_sync_interval = idlists_sync_interval
+        self.idlist_threadpool_size = idlists_thread_limit
         self.local_mode = local_mode
         self.bootstrap_values = bootstrap_values
         self.rules_updated_callback = rules_updated_callback

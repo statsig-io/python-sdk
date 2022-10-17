@@ -1,5 +1,4 @@
 import dataclasses
-import json
 import threading
 from typing import Optional
 from statsig.layer import Layer
@@ -22,9 +21,19 @@ IDLISTS_SYNC_INTERVAL = 60
 
 class StatsigServer:
     _errorBoundary: _StatsigErrorBoundary
+    _initialized: bool
+
+    _options: Optional[StatsigOptions]
+    __shutdown_event: Optional[threading.Event]
+    __statsig_metadata: Optional[dict]
+    _network: Optional[_StatsigNetwork]
+    _logger: Optional[_StatsigLogger]
+    _spec_store: Optional[_SpecStore]
+    _evaluator: Optional[_Evaluator]
 
     def __init__(self) -> None:
         self._errorBoundary = _StatsigErrorBoundary()
+        self._initialized = False
 
     def initialize(self, sdkKey: str, options=None):
         if sdkKey is None or not sdkKey.startswith("secret-"):
@@ -238,4 +247,3 @@ class StatsigServer:
                 sync_func()
             except Exception as e:
                 self._errorBoundary.log_exception(e)
-

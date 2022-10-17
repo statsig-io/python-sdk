@@ -45,54 +45,53 @@ class TestBackgroundSync(unittest.TestCase):
         def get_id_lists_callback(url: str, data: dict):
             self.idlist_sync_count = self.idlist_sync_count + 1
 
-            match self.idlist_sync_count:
-                case 1:
-                    return {
-                        "list_1": {
-                            "name": "list_1",
-                            "size": 3,
-                            "url": self._api_override + "/list_1",
-                            "creationTime": 1,
-                            "fileID": "file_id_1",
-                        },
-                        "list_2": {
-                            "name": "list_2",
-                            "size": 3,
-                            "url": self._api_override + "/list_2",
-                            "creationTime": 1,
-                            "fileID": "file_id_2",
-                        },
-                    }
-                case 2:
-                    return {
-                        "list_1": {
-                            "name": "list_1",
-                            "size": 9,
-                            "url": self._api_override + "/list_1",
-                            "creationTime": 1,
-                            "fileID": "file_id_1",
-                        },
-                    }
-                case 3:
-                    return {
-                        "list_1": {
-                            "name": "list_1",
-                            "size": 3,
-                            "url": self._api_override + "/list_1",
-                            "creationTime": 3,
-                            "fileID": "file_id_1_a",
-                        },
-                    }
-                case 4:
-                    return {
-                        "list_1": {
-                            "name": "list_1",
-                            "size": 9,
-                            "url": self._api_override + "/list_1",
-                            "creationTime": 1,
-                            "fileID": "file_id_1",
-                        },
-                    }
+            if self.idlist_sync_count == 1:
+                return {
+                    "list_1": {
+                        "name": "list_1",
+                        "size": 3,
+                        "url": self._api_override + "/list_1",
+                        "creationTime": 1,
+                        "fileID": "file_id_1",
+                    },
+                    "list_2": {
+                        "name": "list_2",
+                        "size": 3,
+                        "url": self._api_override + "/list_2",
+                        "creationTime": 1,
+                        "fileID": "file_id_2",
+                    },
+                }
+            if self.idlist_sync_count == 2:
+                return {
+                    "list_1": {
+                        "name": "list_1",
+                        "size": 9,
+                        "url": self._api_override + "/list_1",
+                        "creationTime": 1,
+                        "fileID": "file_id_1",
+                    },
+                }
+            if self.idlist_sync_count == 3:
+                return {
+                    "list_1": {
+                        "name": "list_1",
+                        "size": 3,
+                        "url": self._api_override + "/list_1",
+                        "creationTime": 3,
+                        "fileID": "file_id_1_a",
+                    },
+                }
+            if self.idlist_sync_count == 4:
+                return {
+                    "list_1": {
+                        "name": "list_1",
+                        "size": 9,
+                        "url": self._api_override + "/list_1",
+                        "creationTime": 1,
+                        "fileID": "file_id_1",
+                    },
+                }
 
             return {
                 "list_1": {
@@ -116,20 +115,19 @@ class TestBackgroundSync(unittest.TestCase):
         def id_list_1_callback(url: str, data: dict):
             self.idlist_1_download_count = self.idlist_1_download_count + 1
 
-            match self.idlist_sync_count:
-                case 1:
-                    return "+1\r"
-                case 2:
-                    return "+1\r-1\r+2\r"
-                case 3:
-                    # list_1 reset to new file
-                    return "+3\r"
-                case 4:
-                    # list_1 returned old file for some reason
-                    return "+1\r-1\r+2\r"
-                case 5:
-                    # corrupted response
-                    return "3"
+            if self.idlist_sync_count == 1:
+                return "+1\r"
+            if self.idlist_sync_count == 2:
+                return "+1\r-1\r+2\r"
+            if self.idlist_sync_count == 3:
+                # list_1 reset to new file
+                return "+3\r"
+            if self.idlist_sync_count == 4:
+                # list_1 returned old file for some reason
+                return "+1\r-1\r+2\r"
+            if self.idlist_sync_count == 5:
+                # corrupted response
+                return "3"
 
             return "+3\r+4\r+5\r+4\r-4\r+6\r"
 
