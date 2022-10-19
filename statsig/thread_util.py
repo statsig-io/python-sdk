@@ -3,6 +3,8 @@ from typing import Callable, Optional
 
 from statsig.statsig_error_boundary import _StatsigErrorBoundary
 
+THREAD_JOIN_TIMEOUT = 10.0
+
 
 def spawn_background_thread(task: Callable[[], None],
                             args: tuple,

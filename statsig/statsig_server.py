@@ -116,6 +116,8 @@ class StatsigServer:
                 raise StatsigRuntimeError(
                     'Must call initialize before checking gates/configs/experiments or logging events')
 
+            self._verify_bg_threads_running()
+
             event.user = self.__normalize_user(event.user)
             self._logger.log(event)
 
@@ -190,7 +192,13 @@ class StatsigServer:
         if not variable_name:
             return False
 
+        self._verify_bg_threads_running()
+
         return True
+
+    def _verify_bg_threads_running(self):
+        self._logger.spawn_bg_threads_if_needed()
+        self._spec_store.spawn_bg_threads_if_needed()
 
     def __check_gate_server_fallback(self, user: StatsigUser, gate_name: str, log_exposure=True):
         user = self.__normalize_user(user)

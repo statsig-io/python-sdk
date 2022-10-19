@@ -29,9 +29,15 @@ class TestStatsigErrorBoundaryUsage(unittest.TestCase):
         self._instance.initialize("secret-key")
         self._user = StatsigUser("dloomb")
 
-        self._instance._evaluator = "_BAD_EVALUATOR_"  # type: ignore - intentional
-        self._instance._spec_store = "_BAD_SPEC_STORE_"  # type: ignore - intentional
-        self._instance._logger = "_BAD_LOGGER_"  # type: ignore - intentional
+        class FakeWithSpawnMethod:
+            def spawn_bg_threads_if_needed(self):
+                pass
+
+        # Setup to cause crashes
+        self._instance._spec_store = FakeWithSpawnMethod()
+        self._instance._logger = FakeWithSpawnMethod()
+        self._instance._evaluator = "_BAD_EVALUATOR_"
+
         TestStatsigErrorBoundaryUsage.requests = []
 
     def test_errors_with_initialize(self, mock_post):

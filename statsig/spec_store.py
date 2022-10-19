@@ -1,14 +1,16 @@
 import json
 import logging
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor, wait
+from typing import Optional
 
 from .evaluation_details import EvaluationReason
 from .statsig_error_boundary import _StatsigErrorBoundary
 from .statsig_errors import StatsigValueError, StatsigNameError
 from .statsig_network import _StatsigNetwork
 from .statsig_options import StatsigOptions
-from .thread_util import spawn_background_thread
+from .thread_util import spawn_background_thread, THREAD_JOIN_TIMEOUT
 
 RULESETS_SYNC_INTERVAL = 10
 IDLISTS_SYNC_INTERVAL = 60
@@ -25,6 +27,9 @@ def _is_specs_json_valid(specs_json):
 
 
 class _SpecStore:
+    _background_download_configs: Optional[threading.Thread]
+    _background_download_id_lists: Optional[threading.Thread]
+
     def __init__(self, network: _StatsigNetwork, options: StatsigOptions, statsig_metadata: dict,
                  error_boundary: _StatsigErrorBoundary, shutdown_event: threading.Event):
         self.last_update_time = 0
@@ -37,6 +42,8 @@ class _SpecStore:
         self._error_boundary = error_boundary
         self._shutdown_event = shutdown_event
         self._executor = ThreadPoolExecutor(options.idlist_threadpool_size)
+        self._background_download_configs = None
+        self._background_download_id_lists = None
 
         self._configs = dict()
         self._gates = dict()
@@ -50,23 +57,27 @@ class _SpecStore:
             self.initial_update_time = -1 if self.last_update_time == 0 else self.last_update_time
             self._download_id_lists()
 
-            self._background_download_configs = spawn_background_thread(self._sync, (
-                self._download_config_specs, options.rulesets_sync_interval or RULESETS_SYNC_INTERVAL
-            ), error_boundary)
-
-            self._background_download_idlists = spawn_background_thread(self._sync, (
-                self._download_id_lists, options.idlists_sync_interval or IDLISTS_SYNC_INTERVAL
-            ), error_boundary)
+            self.spawn_bg_threads_if_needed()
 
     def is_ready_for_checks(self):
         return self.last_update_time != 0
+
+    def spawn_bg_threads_if_needed(self):
+        if self._options.local_mode:
+            return
+
+        if self._background_download_configs is None or not self._background_download_configs.is_alive():
+            self._spawn_bg_download_config_specs()
+
+        if self._background_download_id_lists is None or not self._background_download_id_lists.is_alive():
+            self._spawn_bg_download_id_lists()
 
     def shutdown(self):
         if self._options.local_mode:
             return
 
-        self._background_download_configs.join()
-        self._background_download_idlists.join()
+        self._background_download_configs.join(THREAD_JOIN_TIMEOUT)
+        self._background_download_id_lists.join(THREAD_JOIN_TIMEOUT)
 
     def get_gate(self, name: str):
         return self._gates.get(name)
@@ -165,6 +176,11 @@ class _SpecStore:
                 'Failed to parse bootstrap_values')
             return
 
+    def _spawn_bg_download_config_specs(self):
+        self._background_download_configs = spawn_background_thread(self._sync, (
+            self._download_config_specs, self._options.rulesets_sync_interval or RULESETS_SYNC_INTERVAL
+        ), self._error_boundary)
+
     def _download_config_specs(self):
         specs = self._network.post_request("download_config_specs", {
             "statsigMetadata": self._statsig_metadata,
@@ -209,6 +225,11 @@ class _SpecStore:
 
         if self._process_specs(cache):
             self.init_reason = EvaluationReason.data_adapter
+
+    def _spawn_bg_download_id_lists(self):
+        self._background_download_id_lists = spawn_background_thread(self._sync, (
+            self._download_id_lists, self._options.idlists_sync_interval or IDLISTS_SYNC_INTERVAL
+        ), self._error_boundary)
 
     def _download_id_lists(self):
         try:

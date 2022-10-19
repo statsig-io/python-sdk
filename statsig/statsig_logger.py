@@ -1,11 +1,12 @@
 import collections
 import threading
+from typing import Optional
 
 from .evaluation_details import EvaluationDetails
 from .evaluator import _ConfigEvaluation
 from .statsig_event import StatsigEvent
 from .layer import Layer
-from .thread_util import spawn_background_thread
+from .thread_util import spawn_background_thread, THREAD_JOIN_TIMEOUT
 
 _CONFIG_EXPOSURE_EVENT = "statsig::config_exposure"
 _LAYER_EXPOSURE_EVENT = "statsig::layer_exposure"
@@ -23,6 +24,9 @@ def _safe_add_evaluation_to_event(evaluation_details: EvaluationDetails, event: 
 
 
 class _StatsigLogger:
+    _background_flush: Optional[threading.Thread]
+    _background_retry: Optional[threading.Thread]
+
     def __init__(self, net, shutdown_event, statsig_metadata, error_boundary, local_mode, event_queue_size):
         self._events = list()
         self._retry_logs = collections.deque(maxlen=10)
@@ -31,9 +35,22 @@ class _StatsigLogger:
         self._local_mode = local_mode
         self._event_queue_size = event_queue_size
         self._error_boundary = error_boundary
+        self._shutdown_event = shutdown_event
+        self._background_flush = None
+        self._background_retry = None
+        self.spawn_bg_threads_if_needed()
 
-        self._background_flush = spawn_background_thread(self._periodic_flush, (shutdown_event,), error_boundary)
-        self._background_retry = spawn_background_thread(self._periodic_retry, (shutdown_event,), error_boundary)
+    def spawn_bg_threads_if_needed(self):
+        if self._local_mode:
+            return
+
+        if self._background_flush is None or not self._background_flush.is_alive():
+            self._background_flush = spawn_background_thread(
+                self._periodic_flush, (self._shutdown_event,), self._error_boundary)
+
+        if self._background_retry is None or not self._background_retry.is_alive():
+            self._background_retry = spawn_background_thread(
+                self._periodic_retry, (self._shutdown_event,), self._error_boundary)
 
     def log(self, event):
         if self._local_mode:
@@ -107,8 +124,8 @@ class _StatsigLogger:
 
     def shutdown(self):
         self._flush()
-        self._background_flush.join()
-        self._background_retry.join()
+        self._background_flush.join(THREAD_JOIN_TIMEOUT)
+        self._background_retry.join(THREAD_JOIN_TIMEOUT)
 
     def _periodic_flush(self, shutdown_event):
         while True:
