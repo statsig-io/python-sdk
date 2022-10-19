@@ -21,7 +21,6 @@ class _ConfigEvaluation:
                  json_value={},
                  rule_id="",
                  secondary_exposures=[],
-                 undelegated_secondary_exposures=[],
                  allocated_experiment=None,
                  explicit_parameters=[],
                  is_experiment_group=False,
@@ -41,9 +40,7 @@ class _ConfigEvaluation:
         if secondary_exposures is None:
             secondary_exposures = []
         self.secondary_exposures = secondary_exposures
-        if undelegated_secondary_exposures is None:
-            undelegated_secondary_exposures = []
-        self.undelegated_secondary_exposures = undelegated_secondary_exposures
+        self.undelegated_secondary_exposures = self.secondary_exposures
         self.allocated_experiment = allocated_experiment
         self.explicit_parameters = explicit_parameters
         self.is_experiment_group = is_experiment_group is True

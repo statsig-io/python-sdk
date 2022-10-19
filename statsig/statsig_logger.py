@@ -39,7 +39,7 @@ class _StatsigLogger:
         if self._local_mode:
             return
         self._events.append(event.to_dict())
-        if len(self._events) >= self._event_queue_size or not self._background_flush.is_alive:
+        if len(self._events) >= self._event_queue_size:
             self._flush()
 
     def log_gate_exposure(self, user, gate, value, rule_id, secondary_exposures, evaluation_details: EvaluationDetails):
