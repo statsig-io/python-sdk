@@ -143,6 +143,22 @@ class StatsigServer:
         self._errorBoundary.swallow(
             lambda: self._evaluator.override_config(experiment, value, user_id))
 
+    def remove_gate_override(self, gate: str, user_id: Optional[str] = None):
+        self._errorBoundary.swallow(
+            lambda: self._evaluator.remove_gate_override(gate, user_id))
+
+    def remove_config_override(self, config: str, user_id: Optional[str] = None):
+        self._errorBoundary.swallow(
+            lambda: self._evaluator.remove_config_override(config, user_id))
+
+    def remove_experiment_override(self, experiment: str, user_id: Optional[str] = None):
+        self._errorBoundary.swallow(
+            lambda: self._evaluator.remove_config_override(experiment, user_id))
+
+    def remove_all_overrides(self):
+        self._errorBoundary.swallow(
+            lambda: self._evaluator.remove_all_overrides())
+
     def get_client_initialize_response(self, user: StatsigUser):
         def task():
             return self._evaluator.get_client_initialize_response(self.__normalize_user(user))

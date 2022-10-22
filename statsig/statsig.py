@@ -42,6 +42,22 @@ def override_experiment(experiment: str, value: object, user_id: Optional[str] =
     __instance.override_experiment(experiment, value, user_id)
 
 
+def remove_gate_override(gate: str, user_id: Optional[str] = None):
+    __instance.remove_gate_override(gate, user_id)
+
+
+def remove_config_override(config: str, user_id: Optional[str] = None):
+    __instance.remove_config_override(config, user_id)
+
+
+def remove_experiment_override(experiment: str, user_id: Optional[str] = None):
+    __instance.remove_experiment_override(experiment, user_id)
+
+
+def remove_all_overrides():
+    __instance.remove_all_overrides()
+
+
 def get_client_initialize_response(user: StatsigUser):
     return __instance.get_client_initialize_response(user)
 
