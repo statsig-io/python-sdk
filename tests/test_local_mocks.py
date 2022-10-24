@@ -80,6 +80,32 @@ class TestLocalMocks(unittest.TestCase):
             True
         )
 
+        # remove user override first
+        server.remove_gate_override("any_gate", "123")
+        # user one should now use global override
+        self.assertEqual(
+            server.check_gate(user_one, "any_gate"),
+            True
+        )
+
+        # remove global override
+        server.remove_gate_override("any_gate")
+        # user one should now have no override
+        self.assertEqual(
+            server.check_gate(user_one, "any_gate"),
+            False
+        )
+
+        # remove all overrides
+        server.remove_all_overrides()
+        self.assertEqual(
+            server.check_gate(user_two, "any_gate"),
+            False
+        )
+
+        # try removing one that doesn't exist
+        server.remove_gate_override("fake_gate_non_existent")
+
     def test_override_all(self):
         options = StatsigOptions(local_mode=True)
         server = StatsigServer()
@@ -183,3 +209,29 @@ class TestLocalMocks(unittest.TestCase):
             server.get_config(StatsigUser("anyuser"), "config").get_value(),
             new_override_2
         )
+
+        # remove user override first
+        server.remove_config_override("config", "123")
+        # user one should now use global override
+        self.assertEqual(
+            server.get_config(user_one, "config").get_value(),
+            new_override_2,
+        )
+
+        # remove global override
+        server.remove_config_override("config")
+        # user one should now have no override
+        self.assertEqual(
+            server.get_config(user_one, "config").get_value(),
+            {}
+        )
+
+        # remove all overrides
+        server.remove_all_overrides()
+        self.assertEqual(
+            server.get_config(user_two, "config").get_value(),
+            {}
+        )
+
+        # try removing one that doesn't exist
+        server.remove_config_override("fake_config_non_existent")

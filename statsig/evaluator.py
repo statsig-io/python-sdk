@@ -70,6 +70,26 @@ class _Evaluator:
         config_overrides[user_id] = value
         self._config_overrides[config] = config_overrides
 
+    def remove_gate_override(self, gate, user_id=None):
+        gate_overrides = self._gate_overrides.get(gate)
+        if gate_overrides is None:
+            return
+        if user_id in gate_overrides:
+            del gate_overrides[user_id]
+        self._gate_overrides[gate] = gate_overrides
+
+    def remove_config_override(self, config, user_id=None):
+        config_overrides = self._config_overrides.get(config)
+        if config_overrides is None:
+            return
+        if user_id in config_overrides:
+            del config_overrides[user_id]
+        self._config_overrides[config] = config_overrides
+
+    def remove_all_overrides(self):
+        self._gate_overrides = dict()
+        self._config_overrides = dict()
+
     def get_client_initialize_response(self, user: StatsigUser):
         if not self._spec_store.is_ready_for_checks():
             return None
@@ -88,7 +108,8 @@ class _Evaluator:
         if gate_overrides is None:
             return None
 
-        eval_details = self._create_evaluation_details(EvaluationReason.local_override)
+        eval_details = self._create_evaluation_details(
+            EvaluationReason.local_override)
         override = gate_overrides.get(user.user_id)
         if override is not None:
             return _ConfigEvaluation(boolean_value=override, rule_id="override", evaluation_details=eval_details)
@@ -104,7 +125,8 @@ class _Evaluator:
         if config_overrides is None:
             return None
 
-        eval_details = self._create_evaluation_details(EvaluationReason.local_override)
+        eval_details = self._create_evaluation_details(
+            EvaluationReason.local_override)
         override = config_overrides.get(user.user_id)
         if override is not None:
             return _ConfigEvaluation(json_value=override, rule_id="override", evaluation_details=eval_details)
@@ -162,7 +184,8 @@ class _Evaluator:
         exposures = []
         enabled = config.get("enabled", False)
         default_value = config.get("defaultValue", {})
-        evaluation_details = self._create_evaluation_details(self._spec_store.init_reason)
+        evaluation_details = self._create_evaluation_details(
+            self._spec_store.init_reason)
         if not enabled:
             return _ConfigEvaluation(False, False, default_value, "disabled", exposures,
                                      evaluation_details=evaluation_details)
@@ -223,7 +246,8 @@ class _Evaluator:
         delegated_result.explicit_parameters = config.get(
             "explicitParameters", [])
         delegated_result.allocated_experiment = config_delegate
-        delegated_result.secondary_exposures = exposures + delegated_result.secondary_exposures
+        delegated_result.secondary_exposures = exposures + \
+            delegated_result.secondary_exposures
         delegated_result.undelegated_secondary_exposures = exposures
         return delegated_result
 
@@ -329,10 +353,10 @@ class _Evaluator:
             return _ConfigEvaluation(False, res)
         elif op == "any":
             return _ConfigEvaluation(False, self.__match_string_in_array(value, target, lambda a,
-                                                                                               b: a.upper().lower() == b.upper().lower()))
+                                                                         b: a.upper().lower() == b.upper().lower()))
         elif op == "none":
             return _ConfigEvaluation(False, not self.__match_string_in_array(value, target, lambda a,
-                                                                                                   b: a.upper().lower() == b.upper().lower()))
+                                                                             b: a.upper().lower() == b.upper().lower()))
         elif op == "any_case_sensitive":
             return _ConfigEvaluation(False, self.__match_string_in_array(value, target, lambda a, b: a == b))
         elif op == "none_case_sensitive":
@@ -347,10 +371,10 @@ class _Evaluator:
                                                                              b.upper().lower())))
         elif op == "str_contains_any":
             return _ConfigEvaluation(False, self.__match_string_in_array(value, target, lambda a,
-                                                                                               b: b.upper().lower() in a.upper().lower()))
+                                                                         b: b.upper().lower() in a.upper().lower()))
         elif op == "str_contains_none":
             return _ConfigEvaluation(False, not self.__match_string_in_array(value, target, lambda a,
-                                                                                                   b: b.upper().lower() in a.upper().lower()))
+                                                                             b: b.upper().lower() in a.upper().lower()))
         elif op == "str_matches":
             str_value = self.__get_value_as_string(value)
             str_target = self.__get_value_as_string(target)
