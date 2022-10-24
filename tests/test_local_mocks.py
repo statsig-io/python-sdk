@@ -103,6 +103,9 @@ class TestLocalMocks(unittest.TestCase):
             False
         )
 
+        # try removing one that doesn't exist
+        server.remove_gate_override("fake_gate_non_existent")
+
     def test_override_all(self):
         options = StatsigOptions(local_mode=True)
         server = StatsigServer()
@@ -229,3 +232,6 @@ class TestLocalMocks(unittest.TestCase):
             server.get_config(user_two, "config").get_value(),
             {}
         )
+
+        # try removing one that doesn't exist
+        server.remove_config_override("fake_config_non_existent")
