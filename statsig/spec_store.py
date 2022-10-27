@@ -55,9 +55,10 @@ class _SpecStore:
         if not options.local_mode:
             self._initialize_specs()
             self.initial_update_time = -1 if self.last_update_time == 0 else self.last_update_time
-            self._download_id_lists()
 
             self.spawn_bg_threads_if_needed()
+
+            self._download_id_lists()
 
     def is_ready_for_checks(self):
         return self.last_update_time != 0
@@ -76,6 +77,7 @@ class _SpecStore:
         if self._options.local_mode:
             return
 
+        self._executor.shutdown(wait=False)
         self._background_download_configs.join(THREAD_JOIN_TIMEOUT)
         self._background_download_id_lists.join(THREAD_JOIN_TIMEOUT)
 
@@ -271,6 +273,10 @@ class _SpecStore:
                 #  only download additional ids if sizes don't match
                 if size <= read_bytes or url == "":
                     continue
+
+                # if the main id sync is killed, we should too
+                if not self._background_download_id_lists or not self._background_download_id_lists.is_alive():
+                    return
 
                 future = self._executor.submit(
                     self._download_single_id_list,
