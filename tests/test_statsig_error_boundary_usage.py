@@ -46,6 +46,9 @@ class TestStatsigErrorBoundaryUsage(unittest.TestCase):
 
         TestStatsigErrorBoundaryUsage.requests = []
 
+    def tearDown(self) -> None:
+        self._instance.shutdown()
+
     def test_errors_with_initialize(self, mock_post):
         statsig = StatsigServer()
         TestStatsigErrorBoundaryUsage.requests = []
