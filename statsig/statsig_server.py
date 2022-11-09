@@ -47,7 +47,7 @@ class StatsigServer:
             self._options = options
             self.__shutdown_event = threading.Event()
             self.__statsig_metadata = _StatsigMetadata.get()
-            self._network = _StatsigNetwork(sdkKey, options)
+            self._network = _StatsigNetwork(sdkKey, options, self._errorBoundary)
             self._logger = _StatsigLogger(
                 self._network, self.__shutdown_event, self.__statsig_metadata, self._errorBoundary, options.local_mode,
                 options.event_queue_size)
