@@ -25,7 +25,8 @@ class TestBackgroundThreadSpawning(unittest.TestCase):
 
         _network_stub.reset()
         _network_stub.stub_request_with_value("log_event", 202, "")
-        _network_stub.stub_request_with_value("download_config_specs", 500, "{}")
+        _network_stub.stub_request_with_value(
+            "download_config_specs", 500, "{}")
 
         server.initialize("secret-key", options)
         self._server = server
@@ -97,8 +98,10 @@ class TestBackgroundThreadSpawning(unittest.TestCase):
 
             action()
 
-            self.assertIsNotNone(self._server._spec_store._background_download_configs)
-            self.assertIsNotNone(self._server._spec_store._background_download_id_lists)
+            self.assertIsNotNone(
+                self._server._spec_store._background_download_configs)
+            self.assertIsNotNone(
+                self._server._spec_store._background_download_id_lists)
 
     def _spec_store_local_mode_restart_test(self, actions: List[Callable]):
         for action in actions:
@@ -108,8 +111,10 @@ class TestBackgroundThreadSpawning(unittest.TestCase):
 
             action()
 
-            self.assertIsNone(self._server._spec_store._background_download_configs)
-            self.assertIsNone(self._server._spec_store._background_download_id_lists)
+            self.assertIsNone(
+                self._server._spec_store._background_download_configs)
+            self.assertIsNone(
+                self._server._spec_store._background_download_id_lists)
 
     def _spec_store_dead_restart_test(self, actions: List[Callable]):
         def always_false():
@@ -121,8 +126,10 @@ class TestBackgroundThreadSpawning(unittest.TestCase):
 
             action()
 
-            self.assertTrue(self._server._spec_store._background_download_configs.is_alive())
-            self.assertTrue(self._server._spec_store._background_download_id_lists.is_alive())
+            self.assertTrue(
+                self._server._spec_store._background_download_configs.is_alive())
+            self.assertTrue(
+                self._server._spec_store._background_download_id_lists.is_alive())
 
 
 if __name__ == '__main__':

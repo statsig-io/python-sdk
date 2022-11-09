@@ -40,7 +40,8 @@ class TestBackgroundSync(unittest.TestCase):
                 "time": 1,
             }
 
-        self._network_stub.stub_request_with_function("download_config_specs", 200, download_config_specs_callback)
+        self._network_stub.stub_request_with_function(
+            "download_config_specs", 200, download_config_specs_callback)
 
         def get_id_lists_callback(url: str, data: dict):
             self.idlist_sync_count = self.idlist_sync_count + 1
@@ -110,7 +111,8 @@ class TestBackgroundSync(unittest.TestCase):
                 },
             }
 
-        self._network_stub.stub_request_with_function("get_id_lists", 200, get_id_lists_callback)
+        self._network_stub.stub_request_with_function(
+            "get_id_lists", 200, get_id_lists_callback)
 
         def id_list_1_callback(url: str, data: dict):
             self.idlist_1_download_count = self.idlist_1_download_count + 1
@@ -131,19 +133,22 @@ class TestBackgroundSync(unittest.TestCase):
 
             return "+3\r+4\r+5\r+4\r-4\r+6\r"
 
-        self._network_stub.stub_request_with_function("list_1", 200, id_list_1_callback)
+        self._network_stub.stub_request_with_function(
+            "list_1", 200, id_list_1_callback)
 
         def id_list_2_callback(url: str, data: dict):
             self.idlist_2_download_count = self.idlist_2_download_count + 1
             return "+a\r"
 
-        self._network_stub.stub_request_with_function("list_2", 200, id_list_2_callback)
+        self._network_stub.stub_request_with_function(
+            "list_2", 200, id_list_2_callback)
 
         def id_list_3_callback(url: str, data: dict):
             self.idlist_3_download_count = self.idlist_3_download_count + 1
             return "+0\r"
 
-        self._network_stub.stub_request_with_function("list_3", 200, id_list_3_callback)
+        self._network_stub.stub_request_with_function(
+            "list_3", 200, id_list_3_callback)
 
         options = StatsigOptions(
             api=self._api_override,
@@ -228,7 +233,8 @@ class TestBackgroundSync(unittest.TestCase):
         self.assertEqual(self.idlist_1_download_count, 3)
         self.assertEqual(self.idlist_2_download_count, 1)
         self.assertEqual(self.idlist_3_download_count, 0)
-        # endpoint returned old fileID for list_1, nothing should be read/changed
+        # endpoint returned old fileID for list_1, nothing should be
+        # read/changed
         self.assertEqual(
             id_lists,
             dict(
@@ -248,7 +254,8 @@ class TestBackgroundSync(unittest.TestCase):
         self.assertEqual(self.idlist_1_download_count, 4)
         self.assertEqual(self.idlist_2_download_count, 1)
         self.assertEqual(self.idlist_3_download_count, 1)
-        # endpoint returned corrupted response for list_1; should keep previous list_1 in memory, and list_3
+        # endpoint returned corrupted response for list_1; should keep previous
+        # list_1 in memory, and list_3
         self.assertEqual(
             id_lists,
             dict(
@@ -323,12 +330,14 @@ class TestBackgroundSync(unittest.TestCase):
                 "time": 1,
             }
 
-        self._network_stub.stub_request_with_function("download_config_specs", 200, download_config_specs_callback)
+        self._network_stub.stub_request_with_function(
+            "download_config_specs", 200, download_config_specs_callback)
 
         def get_id_lists_callback(url: str, data: dict):
             self.idlist_sync_count = self.idlist_sync_count + 1
 
-        self._network_stub.stub_request_with_function("get_id_lists", 200, get_id_lists_callback)
+        self._network_stub.stub_request_with_function(
+            "get_id_lists", 200, get_id_lists_callback)
 
         options = StatsigOptions(
             api=self._api_override,

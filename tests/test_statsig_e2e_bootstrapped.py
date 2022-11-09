@@ -19,12 +19,14 @@ class TestStatsigE2EBootstrapped(unittest.TestCase):
     @classmethod
     @patch('requests.post', side_effect=_network_stub.mock)
     def setUpClass(cls, mock_post):
-        _network_stub.stub_request_with_value("download_config_specs", 200, json.loads(CONFIG_SPECS_RESPONSE))
+        _network_stub.stub_request_with_value(
+            "download_config_specs", 200, json.loads(CONFIG_SPECS_RESPONSE))
 
         def log_event_callback(url: str, data: dict):
             cls._logs = data["json"]
 
-        _network_stub.stub_request_with_function("log_event", 202, log_event_callback)
+        _network_stub.stub_request_with_function(
+            "log_event", 202, log_event_callback)
 
         cls._failure = False
         cls.statsig_user = StatsigUser(

@@ -27,7 +27,8 @@ class TestStatsigConcurrency(unittest.TestCase):
         cls._download_id_list_count = 0
         cls._event_count = 0
 
-        cls._network_stub.stub_request_with_value("download_config_specs", 200, json.loads(CONFIG_SPECS_RESPONSE))
+        cls._network_stub.stub_request_with_value(
+            "download_config_specs", 200, json.loads(CONFIG_SPECS_RESPONSE))
 
         def id_lists_callback(url: str, data: dict):
             size = 10 + 3 * cls._idlist_sync_count
@@ -42,7 +43,8 @@ class TestStatsigConcurrency(unittest.TestCase):
                 },
             }
 
-        cls._network_stub.stub_request_with_function("get_id_lists", 200, id_lists_callback)
+        cls._network_stub.stub_request_with_function(
+            "get_id_lists", 200, id_lists_callback)
 
         def id_list_download_callback(url: str, data: dict):
             cls._download_id_list_count += 1
@@ -50,12 +52,14 @@ class TestStatsigConcurrency(unittest.TestCase):
                 return "+7/rrkvF6\n"
             return f'+{cls._download_id_list_count}\n-{cls._download_id_list_count}\n'
 
-        cls._network_stub.stub_request_with_function("list_1", 202, id_list_download_callback)
+        cls._network_stub.stub_request_with_function(
+            "list_1", 202, id_list_download_callback)
 
         def log_event_callback(url: str, data: dict):
             cls._event_count += len(data["json"]["events"])
 
-        cls._network_stub.stub_request_with_function("log_event", 202, log_event_callback)
+        cls._network_stub.stub_request_with_function(
+            "log_event", 202, log_event_callback)
 
         cls.statsig_user = StatsigUser(
             "123", email="testuser@statsig.com", private_attributes={"test": 123})

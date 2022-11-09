@@ -15,7 +15,8 @@ class RedisDataStore(IDataStore):
 
     def __init__(self, host: str, port: int, password: str):
         if not has_imported_redis:
-            raise ImportError("Failed to import redis, have you installed the redis dependency?")
+            raise ImportError(
+                "Failed to import redis, have you installed the redis dependency?")
 
         self._connection = redis.Redis(host=host, port=port, password=password)
 

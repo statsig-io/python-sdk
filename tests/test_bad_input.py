@@ -27,7 +27,7 @@ class TestBadInput(unittest.TestCase):
         self.assertTrue('user_id' in str(context.exception))
 
         with self.assertRaises(ValueError) as context:
-            StatsigUser(None, custom_ids=dict())
+            StatsigUser(None, custom_ids={})
         self.assertTrue('user_id' in str(context.exception))
 
         user = StatsigUser(None, custom_ids=dict(stableID='123'))
@@ -54,7 +54,7 @@ class TestBadInput(unittest.TestCase):
             'StatsigEvent.event_name must be a valid str' in str(context.exception))
 
         with self.assertRaises(ValueError) as context:
-            StatsigEvent(StatsigUser("test"), "test_event", value=dict())
+            StatsigEvent(StatsigUser("test"), "test_event", value={})
 
         self.assertTrue(
             'StatsigEvent.value must be a str, float, or int' in str(context.exception))

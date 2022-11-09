@@ -1,7 +1,6 @@
 import json
 import logging
 import threading
-import time
 from concurrent.futures import ThreadPoolExecutor, wait
 from typing import Optional
 
@@ -45,12 +44,12 @@ class _SpecStore:
         self._background_download_configs = None
         self._background_download_id_lists = None
 
-        self._configs = dict()
-        self._gates = dict()
-        self._layers = dict()
-        self._experiment_to_layer = dict()
+        self._configs = {}
+        self._gates = {}
+        self._layers = {}
+        self._experiment_to_layer = {}
 
-        self._id_lists = dict()
+        self._id_lists = {}
 
         if not options.local_mode:
             self._initialize_specs()
@@ -129,7 +128,7 @@ class _SpecStore:
             return False
 
         def get_parsed_specs(key: str):
-            parsed = dict()
+            parsed = {}
             for spec in specs_json.get(key, []):
                 spec_name = spec.get("name")
                 if spec_name is not None:
@@ -140,7 +139,7 @@ class _SpecStore:
         new_configs = get_parsed_specs("dynamic_configs")
         new_layers = get_parsed_specs("layer_configs")
 
-        new_experiment_to_layer = dict()
+        new_experiment_to_layer = {}
         layers_dict = specs_json.get("layers", {})
         for layer_name in layers_dict:
             experiments = layers_dict[layer_name]
@@ -179,9 +178,11 @@ class _SpecStore:
             return
 
     def _spawn_bg_download_config_specs(self):
-        self._background_download_configs = spawn_background_thread(self._sync, (
-            self._download_config_specs, self._options.rulesets_sync_interval or RULESETS_SYNC_INTERVAL
-        ), self._error_boundary)
+        self._background_download_configs = spawn_background_thread(
+            self._sync,
+            (self._download_config_specs, self._options.
+             rulesets_sync_interval or RULESETS_SYNC_INTERVAL),
+            self._error_boundary)
 
     def _download_config_specs(self):
         specs = self._network.post_request("download_config_specs", {
@@ -218,11 +219,13 @@ class _SpecStore:
 
         cache = json.loads(cache_string)
         if not isinstance(cache, dict):
-            logging.getLogger('statsig.sdk').warning("Invalid type returned from StatsigOptions.data_store")
+            logging.getLogger('statsig.sdk').warning(
+                "Invalid type returned from StatsigOptions.data_store")
             return
 
         adapter_time = cache.get("time", None)
-        if not isinstance(adapter_time, int) or adapter_time < self.last_update_time:
+        if not isinstance(adapter_time,
+                          int) or adapter_time < self.last_update_time:
             return
 
         if self._process_specs(cache):
@@ -245,10 +248,10 @@ class _SpecStore:
             workers = []
 
             for list_name in server_id_lists:
-                server_list = server_id_lists.get(list_name, dict())
+                server_list = server_id_lists.get(list_name, {})
                 url = server_list.get("url", None)
                 size = server_list.get("size", 0)
-                local_list = local_id_lists.get(list_name, dict())
+                local_list = local_id_lists.get(list_name, {})
 
                 new_creation_time = server_list.get("creationTime", 0)
                 old_creation_time = local_list.get("creationTime", 0)
@@ -297,7 +300,8 @@ class _SpecStore:
         except Exception as e:
             self._error_boundary.log_exception(e)
 
-    def _download_single_id_list(self, url, list_name, local_list, all_lists, start_index):
+    def _download_single_id_list(
+            self, url, list_name, local_list, all_lists, start_index):
         resp = self._network.get_request(
             url, headers={"Range": "bytes=%s-" % start_index})
         if resp is None:
@@ -311,7 +315,7 @@ class _SpecStore:
             if content is None:
                 return
             first_char = content[0]
-            if first_char != "+" and first_char != "-":
+            if first_char not in ('+', '-'):
                 raise StatsigNameError("Seek range invalid.")
             lines = content.splitlines()
             for line in lines:

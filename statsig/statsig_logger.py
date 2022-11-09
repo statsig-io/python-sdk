@@ -13,7 +13,8 @@ _LAYER_EXPOSURE_EVENT = "statsig::layer_exposure"
 _GATE_EXPOSURE_EVENT = "statsig::gate_exposure"
 
 
-def _safe_add_evaluation_to_event(evaluation_details: EvaluationDetails, event: StatsigEvent):
+def _safe_add_evaluation_to_event(
+        evaluation_details: EvaluationDetails, event: StatsigEvent):
     if evaluation_details is None:
         return
 
@@ -27,8 +28,9 @@ class _StatsigLogger:
     _background_flush: Optional[threading.Thread]
     _background_retry: Optional[threading.Thread]
 
-    def __init__(self, net, shutdown_event, statsig_metadata, error_boundary, local_mode, event_queue_size):
-        self._events = list()
+    def __init__(self, net, shutdown_event, statsig_metadata,
+                 error_boundary, local_mode, event_queue_size):
+        self._events = []
         self._retry_logs = collections.deque(maxlen=10)
         self._net = net
         self._statsig_metadata = statsig_metadata
@@ -59,7 +61,8 @@ class _StatsigLogger:
         if len(self._events) >= self._event_queue_size:
             self._flush()
 
-    def log_gate_exposure(self, user, gate, value, rule_id, secondary_exposures, evaluation_details: EvaluationDetails):
+    def log_gate_exposure(self, user, gate, value, rule_id,
+                          secondary_exposures, evaluation_details: EvaluationDetails):
         event = StatsigEvent(user, _GATE_EXPOSURE_EVENT)
         event.metadata = {
             "gate": gate,
@@ -73,7 +76,8 @@ class _StatsigLogger:
         _safe_add_evaluation_to_event(evaluation_details, event)
         self.log(event)
 
-    def log_config_exposure(self, user, config, rule_id, secondary_exposures, evaluation_details: EvaluationDetails):
+    def log_config_exposure(self, user, config, rule_id,
+                            secondary_exposures, evaluation_details: EvaluationDetails):
         event = StatsigEvent(user, _CONFIG_EXPOSURE_EVENT)
         event.metadata = {
             "config": config,
@@ -87,7 +91,8 @@ class _StatsigLogger:
         _safe_add_evaluation_to_event(evaluation_details, event)
         self.log(event)
 
-    def log_layer_exposure(self, user, layer: Layer, parameter_name: str, config_evaluation: _ConfigEvaluation):
+    def log_layer_exposure(self, user, layer: Layer,
+                           parameter_name: str, config_evaluation: _ConfigEvaluation):
         event = StatsigEvent(user, _LAYER_EXPOSURE_EVENT)
 
         allocated_experiment = ""
@@ -107,14 +112,15 @@ class _StatsigLogger:
 
         event._secondary_exposures = [] if exposures is None else exposures
 
-        _safe_add_evaluation_to_event(config_evaluation.evaluation_details, event)
+        _safe_add_evaluation_to_event(
+            config_evaluation.evaluation_details, event)
         self.log(event)
 
     def _flush(self):
         if len(self._events) == 0:
             return
         events_copy = self._events.copy()
-        self._events = list()
+        self._events = []
         res = self._net.retryable_request("log_event", {
             "events": events_copy,
             "statsigMetadata": self._statsig_metadata,

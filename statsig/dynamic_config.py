@@ -24,7 +24,7 @@ class DynamicConfig:
         res = self.value.get(key, default)
         if default is None:
             return res
-        if type(default) != type(res):
+        if not isinstance(default, type(res)):
             return default
         return res
 

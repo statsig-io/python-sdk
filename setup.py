@@ -2,7 +2,7 @@ import os
 from setuptools import setup
 
 with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), 'statsig', 'version.py')) as f:
-    exec(f.read())  
+    exec(f.read())
 
 with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), 'README.md')) as r:
     README = r.read()
@@ -18,7 +18,7 @@ extras = {
 
 setup(
     name='statsig',
-    version=__version__, # type: ignore
+    version=__version__,  # type: ignore
     description='Statsig Python Server SDK',
     long_description=README,
     long_description_content_type="text/markdown",

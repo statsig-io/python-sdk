@@ -54,5 +54,5 @@ class _StatsigErrorBoundary:
                 'STATSIG-SDK-TYPE': meta["sdkType"],
                 'STATSIG-SDK-VERSION': meta["sdkVersion"]
             })
-        except:
+        except BaseException:
             pass

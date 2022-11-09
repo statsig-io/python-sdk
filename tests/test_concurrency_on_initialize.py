@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from statsig import StatsigOptions, StatsigServer, StatsigUser, IDataStore
+from statsig import StatsigOptions, StatsigServer, StatsigUser
 from tests.network_stub import NetworkStub
 
 _api_override = "http://concurrency-on-init-test"
@@ -22,7 +22,8 @@ class TestConcurrencyOnInit(unittest.TestCase):
         self._server = StatsigServer()
 
     @patch('threading.Thread.start', side_effect=_mock_thread_start)
-    def test_initialize_works_when_threads_throw(self, _mock_post, _mock_start):
+    def test_initialize_works_when_threads_throw(
+            self, _mock_post, _mock_start):
         self._server.initialize("secret-key", StatsigOptions(
             api=_api_override,
         ))

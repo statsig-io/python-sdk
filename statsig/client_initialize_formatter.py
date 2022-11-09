@@ -24,7 +24,8 @@ def clean_exposures(exposures):
 class ClientInitializeResponseFormatter:
 
     @staticmethod
-    def get_formatted_response(eval_func, user: StatsigUser, spec_store: _SpecStore):
+    def get_formatted_response(
+            eval_func, user: StatsigUser, spec_store: _SpecStore):
         def config_to_response(config_name, config_spec):
             eval_result = eval_func(user, config_spec)
             if eval_result is None:
@@ -42,7 +43,7 @@ class ClientInitializeResponseFormatter:
             entity_type = config_spec["entity"]
 
             if category == "feature_gate":
-                if entity_type == "segment" or entity_type == "holdout":
+                if entity_type in ("segment", "holdout"):
                     return None
 
                 result["value"] = eval_result.boolean_value
@@ -50,10 +51,12 @@ class ClientInitializeResponseFormatter:
                 id_type = config_spec["idType"]
                 result["value"] = eval_result.json_value
                 result["group"] = eval_result.rule_id
-                result["is_device_based"] = id_type.lower() == "stableid" if isinstance(id_type, str) else False
+                result["is_device_based"] = id_type.lower(
+                ) == "stableid" if isinstance(id_type, str) else False
 
                 if entity_type == "experiment":
-                    populate_experiment_fields(config_name, config_spec, eval_result, result)
+                    populate_experiment_fields(
+                        config_name, config_spec, eval_result, result)
                 elif entity_type == "layer":
                     populate_layer_fields(config_spec, eval_result, result)
 
@@ -62,15 +65,18 @@ class ClientInitializeResponseFormatter:
 
             return hashed_name, result
 
-        def populate_experiment_fields(config_name: str, config_spec, eval_result, result: dict):
+        def populate_experiment_fields(
+                config_name: str, config_spec, eval_result, result: dict):
             result["is_user_in_experiment"] = eval_result.is_experiment_group
-            result["is_experiment_active"] = config_spec.get('isActive', False) is True
+            result["is_experiment_active"] = config_spec.get(
+                'isActive', False) is True
 
             if not config_spec.get('hasSharedParams', False):
                 return
 
             result["is_in_layer"] = True
-            result["explicit_parameters"] = config_spec.get("explicitParameters", [])
+            result["explicit_parameters"] = config_spec.get(
+                "explicitParameters", [])
 
             layer_name = spec_store.get_layer_name_for_experiment(config_name)
             if layer_name is None or spec_store.get_layer(layer_name) is None:
@@ -86,7 +92,8 @@ class ClientInitializeResponseFormatter:
 
         def populate_layer_fields(config_spec, eval_result, result):
             delegate = eval_result.allocated_experiment
-            result["explicit_parameters"] = config_spec.get("explicitParameters", [])
+            result["explicit_parameters"] = config_spec.get(
+                "explicitParameters", [])
 
             if delegate is not None and delegate != "":
                 delegate_spec = spec_store.get_config(delegate)
@@ -95,8 +102,10 @@ class ClientInitializeResponseFormatter:
                 if delegate_spec is not None:
                     result["allocated_experiment_name"] = hash_name(delegate)
                     result["is_user_in_experiment"] = delegate_result.is_experiment_group
-                    result["is_experiment_active"] = delegate_spec.get("isActive", False) is True
-                    result["explicit_parameters"] = delegate_spec.get("explicitParameters", [])
+                    result["is_experiment_active"] = delegate_spec.get(
+                        "isActive", False) is True
+                    result["explicit_parameters"] = delegate_spec.get(
+                        "explicitParameters", [])
 
             result["undelegated_secondary_exposures"] = clean_exposures(
                 eval_result.undelegated_secondary_exposures or [])

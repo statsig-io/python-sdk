@@ -31,26 +31,30 @@ class TestClientInitializeResponse(unittest.TestCase):
         try:
             cls.client_key = os.environ["test_client_key"]
             cls.secret_key = os.environ["test_api_key"]
-        except Exception:
+        except Exception as e:
             print("THIS TEST IS EXPECTED TO FAIL FOR NON-STATSIG EMPLOYEES! If this is the only test failing, "
                   "please proceed to submit a pull request. If you are a Statsig employee, chat with jkw.")
-            raise Exception("Failed to read sdk keys")
+            raise Exception("Failed to read sdk keys") from e
 
     def test_prod(self):
-        server_res, sdk_res = self.get_initialize_responses('https://statsigapi.net/v1')
+        server_res, sdk_res = self.get_initialize_responses(
+            'https://statsigapi.net/v1')
         self.validate_consistency(server_res, sdk_res)
 
     def test_prod_with_dev(self):
-        server_res, sdk_res = self.get_initialize_responses('https://statsigapi.net/v1', 'development')
+        server_res, sdk_res = self.get_initialize_responses(
+            'https://statsigapi.net/v1', 'development')
         self.validate_consistency(server_res, sdk_res)
 
     def test_none_result(self):
-        statsig.initialize('secret-no-valid-key', StatsigOptions(local_mode=True))
+        statsig.initialize('secret-no-valid-key',
+                           StatsigOptions(local_mode=True))
         result = statsig.get_client_initialize_response(user_for_sdk)
         self.assertIsNone(result)
 
     def test_fetch_from_server(self):
-        server_res, sdk_res = self.get_initialize_responses('https://statsigapi.net/v1', None, True)
+        server_res, sdk_res = self.get_initialize_responses(
+            'https://statsigapi.net/v1', None, True)
         for key in server_res:
             if isinstance(server_res[key], dict):
                 for subkey in server_res[key]:
@@ -62,7 +66,8 @@ class TestClientInitializeResponse(unittest.TestCase):
                         if not sdk_value.get("is_in_layer", False):
                             self.assertEqual({}, sdk_value["value"])
 
-    def get_initialize_responses(self, api: str, environment=None, force_fetch_from_server=False):
+    def get_initialize_responses(
+            self, api: str, environment=None, force_fetch_from_server=False):
         server_user = user.copy()
         options = StatsigOptions(api=api)
 
@@ -84,7 +89,8 @@ class TestClientInitializeResponse(unittest.TestCase):
         statsig.initialize(self.secret_key, options)
 
         if force_fetch_from_server:
-            statsig.get_instance()._evaluator._Evaluator__eval_config = MagicMock(return_value=_ConfigEvaluation(True))
+            statsig.get_instance()._evaluator._Evaluator__eval_config = MagicMock(
+                return_value=_ConfigEvaluation(True))
 
         sdk_res = statsig.get_client_initialize_response(user_for_sdk)
 
@@ -105,14 +111,17 @@ class TestClientInitializeResponse(unittest.TestCase):
                 return exposure
 
             value["secondary_exposures"] = list(map(overwrite_name, se))
-            value["undelegated_secondary_exposures"] = list(map(overwrite_name, use))
+            value["undelegated_secondary_exposures"] = list(
+                map(overwrite_name, use))
             return value
 
         for key in server_data:
             if isinstance(server_data[key], dict):
                 for sub_key in server_data[key]:
-                    server_val = rm_secondary_exposure_hashes(server_data[key][sub_key])
-                    sdk_val = rm_secondary_exposure_hashes(sdk_data[key][sub_key])
+                    server_val = rm_secondary_exposure_hashes(
+                        server_data[key][sub_key])
+                    sdk_val = rm_secondary_exposure_hashes(
+                        sdk_data[key][sub_key])
                     self.assertEqual(server_val, sdk_val)
             elif key not in ["generator", "time"]:
                 self.assertEqual(sdk_data[key], server_data[key])

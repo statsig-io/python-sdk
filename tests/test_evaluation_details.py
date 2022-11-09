@@ -36,19 +36,22 @@ class TestEvaluationDetails(unittest.TestCase):
 
         _network_stub.stub_request_with_function("log_event", 202, on_log)
 
-        _network_stub.stub_request_with_value("download_config_specs", 200, json.loads(CONFIG_SPECS_RESPONSE))
+        _network_stub.stub_request_with_value(
+            "download_config_specs", 200, json.loads(CONFIG_SPECS_RESPONSE))
 
         server.initialize("secret-key", options)
         self._server = server
         self._evaluator = server._evaluator
 
-        def assert_event_equal(event: dict, values: dict, skip_sync_times: bool = False):
+        def assert_event_equal(event: dict, values: dict,
+                               skip_sync_times: bool = False):
             self.assertEqual(event["eventName"], values["eventName"])
             self.assertEqual(event["metadata"]["reason"], values["reason"])
             self.assertEqual(event["metadata"]["serverTime"], 123 * 1000)
 
             if not skip_sync_times:
-                self.assertEqual(event["metadata"]["configSyncTime"], 1631638014811)
+                self.assertEqual(event["metadata"]
+                                 ["configSyncTime"], 1631638014811)
                 self.assertEqual(event["metadata"]["initTime"], 1631638014811)
             else:
                 self.assertEqual(event["metadata"]["configSyncTime"], 0)
@@ -143,7 +146,8 @@ class TestEvaluationDetails(unittest.TestCase):
         })
 
     def test_bootstrap(self, mock_post, mock_time):
-        opts = StatsigOptions(bootstrap_values=CONFIG_SPECS_RESPONSE, api=_api_override)
+        opts = StatsigOptions(
+            bootstrap_values=CONFIG_SPECS_RESPONSE, api=_api_override)
         bootstrap_server = StatsigServer()
         bootstrap_server.initialize('secret-key', opts)
 
