@@ -10,7 +10,7 @@ class _StatsigNetwork:
 
     __RETRY_CODES = [408, 500, 502, 503, 504, 522, 524, 599]
 
-    def __init__(self, sdkKey, options):
+    def __init__(self, sdkKey, options, error_boundary):
         self.__sdk_key = sdkKey
         api = options.api
         if not options.api.endswith("/"):
@@ -18,10 +18,11 @@ class _StatsigNetwork:
         self.__api = api
         self.__timeout = options.timeout or REQUEST_TIMEOUT
         self.__local_mode = options.local_mode
+        self.__error_boundary = error_boundary
         self.__log = logging.getLogger('statsig.sdk')
         self.__session = str(uuid4())
 
-    def post_request(self, endpoint, payload):
+    def post_request(self, endpoint, payload, log_on_exception = False):
         if self.__local_mode:
             self.__log.debug('Using local mode. Dropping network request')
             return None
@@ -41,12 +42,13 @@ class _StatsigNetwork:
                     return data
                 return None
             return None
-        except Exception:
-            self.__log.warning(
-                'Network exception caught when making request to %s failed', endpoint)
-            return None
+        except Exception as e:
+            if log_on_exception:
+                self.__error_boundary.log_exception(e)
+                self.__log.warning(
+                    'Network exception caught when making request to %s failed', endpoint)
 
-    def retryable_request(self, endpoint, payload):
+    def retryable_request(self, endpoint, payload, log_on_exception = False):
         if self.__local_mode:
             return None
 
@@ -65,12 +67,14 @@ class _StatsigNetwork:
                 self.__log.warning(
                     "Request to %s failed with code %d", endpoint, response.status_code)
             return None
-        except Exception:
-            self.__log.warning(
-                "Network exception caught when making request to %s failed", endpoint)
+        except Exception as e:
+            if log_on_exception:
+                self.__error_boundary.log_exception(e)
+                self.__log.warning(
+                    "Network exception caught when making request to %s failed", endpoint)
             return None
 
-    def get_request(self, url, headers):
+    def get_request(self, url, headers, log_on_exception = False):
         if self.__local_mode:
             return None
         try:
@@ -80,7 +84,9 @@ class _StatsigNetwork:
             if response.ok:
                 return response
             return None
-        except Exception:
-            self.__log.warning(
-                'Network exception caught when making request to %s failed', url)
+        except Exception as e:
+            if log_on_exception:
+                self.__error_boundary.log_exception(e)
+                self.__log.warning(
+                    'Network exception caught when making request to %s failed', url)
             return None
