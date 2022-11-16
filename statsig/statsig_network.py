@@ -41,6 +41,7 @@ class _StatsigNetwork:
                 if data:
                     return data
                 return None
+            return None
         except Exception as e:
             if log_on_exception:
                 self.__error_boundary.log_exception(e)

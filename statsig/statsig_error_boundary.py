@@ -4,6 +4,8 @@ from statsig.statsig_errors import StatsigNameError, StatsigRuntimeError, Statsi
 
 from statsig.statsig_metadata import _StatsigMetadata
 
+REQUEST_TIMEOUT = 20
+
 
 class _StatsigErrorBoundary:
     endpoint = "https://statsigapi.net/v1/sdk_exception"
@@ -53,6 +55,6 @@ class _StatsigErrorBoundary:
                 'STATSIG-API-KEY': self._api_key,
                 'STATSIG-SDK-TYPE': meta["sdkType"],
                 'STATSIG-SDK-VERSION': meta["sdkVersion"]
-            })
+            }, timeout=REQUEST_TIMEOUT)
         except BaseException:
             pass

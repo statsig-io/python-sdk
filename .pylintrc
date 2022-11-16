@@ -429,7 +429,11 @@ disable=raw-checker-failed,
         line-too-long,
         broad-except,
         too-few-public-methods,
-        attribute-defined-outside-init
+        attribute-defined-outside-init,
+        protected-access,
+        consider-using-dict-comprehension,
+        exec-used,
+        unnecessary-lambda
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option
@@ -508,7 +512,7 @@ ignore-imports=yes
 ignore-signatures=yes
 
 # Minimum lines number of a similarity.
-min-similarity-lines=4
+min-similarity-lines=12
 
 
 [SPELLING]
