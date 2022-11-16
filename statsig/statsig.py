@@ -38,7 +38,8 @@ def override_config(config: str, value: object, user_id: Optional[str] = None):
     __instance.override_config(config, value, user_id)
 
 
-def override_experiment(experiment: str, value: object, user_id: Optional[str] = None):
+def override_experiment(experiment: str, value: object,
+                        user_id: Optional[str] = None):
     __instance.override_experiment(experiment, value, user_id)
 
 

@@ -53,20 +53,20 @@ class _Evaluator:
         self._spec_store = spec_store
 
         self._country_lookup = CountryLookup()
-        self._gate_overrides = dict()
-        self._config_overrides = dict()
+        self._gate_overrides = {}
+        self._config_overrides = {}
 
     def override_gate(self, gate, value, user_id=None):
         gate_overrides = self._gate_overrides.get(gate)
         if gate_overrides is None:
-            gate_overrides = dict()
+            gate_overrides = {}
         gate_overrides[user_id] = value
         self._gate_overrides[gate] = gate_overrides
 
     def override_config(self, config, value, user_id=None):
         config_overrides = self._config_overrides.get(config)
         if config_overrides is None:
-            config_overrides = dict()
+            config_overrides = {}
         config_overrides[user_id] = value
         self._config_overrides[config] = config_overrides
 
@@ -87,8 +87,8 @@ class _Evaluator:
         self._config_overrides[config] = config_overrides
 
     def remove_all_overrides(self):
-        self._gate_overrides = dict()
-        self._config_overrides = dict()
+        self._gate_overrides = {}
+        self._config_overrides = {}
 
     def get_client_initialize_response(self, user: StatsigUser):
         if not self._spec_store.is_ready_for_checks():
@@ -101,7 +101,8 @@ class _Evaluator:
         if reason == EvaluationReason.uninitialized:
             return EvaluationDetails(0, 0, reason)
 
-        return EvaluationDetails(self._spec_store.last_update_time, self._spec_store.initial_update_time, reason)
+        return EvaluationDetails(
+            self._spec_store.last_update_time, self._spec_store.initial_update_time, reason)
 
     def __lookup_gate_override(self, user, gate):
         gate_overrides = self._gate_overrides.get(gate)
@@ -112,11 +113,13 @@ class _Evaluator:
             EvaluationReason.local_override)
         override = gate_overrides.get(user.user_id)
         if override is not None:
-            return _ConfigEvaluation(boolean_value=override, rule_id="override", evaluation_details=eval_details)
+            return _ConfigEvaluation(boolean_value=override, rule_id="override",
+                                     evaluation_details=eval_details)
 
         all_override = gate_overrides.get(None)
         if all_override is not None:
-            return _ConfigEvaluation(boolean_value=all_override, rule_id="override", evaluation_details=eval_details)
+            return _ConfigEvaluation(
+                boolean_value=all_override, rule_id="override", evaluation_details=eval_details)
 
         return None
 
@@ -129,11 +132,13 @@ class _Evaluator:
             EvaluationReason.local_override)
         override = config_overrides.get(user.user_id)
         if override is not None:
-            return _ConfigEvaluation(json_value=override, rule_id="override", evaluation_details=eval_details)
+            return _ConfigEvaluation(json_value=override, rule_id="override",
+                                     evaluation_details=eval_details)
 
         all_override = config_overrides.get(None)
         if all_override is not None:
-            return _ConfigEvaluation(json_value=all_override, rule_id="override", evaluation_details=eval_details)
+            return _ConfigEvaluation(
+                json_value=all_override, rule_id="override", evaluation_details=eval_details)
         return None
 
     def check_gate(self, user, gate):
@@ -142,7 +147,9 @@ class _Evaluator:
             return override
 
         if self._spec_store.init_reason == EvaluationReason.uninitialized:
-            return _ConfigEvaluation(evaluation_details=self._create_evaluation_details(EvaluationReason.uninitialized))
+            return _ConfigEvaluation(
+                evaluation_details=self._create_evaluation_details(
+                    EvaluationReason.uninitialized))
 
         eval_gate = self._spec_store.get_gate(gate)
         return self.__eval_config(user, eval_gate)
@@ -153,21 +160,26 @@ class _Evaluator:
             return override
 
         if self._spec_store.init_reason == EvaluationReason.uninitialized:
-            return _ConfigEvaluation(evaluation_details=self._create_evaluation_details(EvaluationReason.uninitialized))
+            return _ConfigEvaluation(
+                evaluation_details=self._create_evaluation_details(
+                    EvaluationReason.uninitialized))
 
         eval_config = self._spec_store.get_config(config)
         return self.__eval_config(user, eval_config)
 
     def get_layer(self, user, layer):
         if self._spec_store.init_reason == EvaluationReason.uninitialized:
-            return _ConfigEvaluation(evaluation_details=self._create_evaluation_details(EvaluationReason.uninitialized))
+            return _ConfigEvaluation(
+                evaluation_details=self._create_evaluation_details(
+                    EvaluationReason.uninitialized))
 
         eval_layer = self._spec_store.get_layer(layer)
         return self.__eval_config(user, eval_layer)
 
     def __eval_config(self, user, config):
         if config is None:
-            return _ConfigEvaluation(evaluation_details=self._create_evaluation_details(EvaluationReason.unrecognized))
+            return _ConfigEvaluation(evaluation_details=self._create_evaluation_details(
+                EvaluationReason.unrecognized))
 
         return self.__evaluate(user, config)
 
@@ -194,7 +206,8 @@ class _Evaluator:
             result = self.__evaluate_rule(user, rule)
             if result.fetch_from_server:
                 return result
-            if result.secondary_exposures is not None and len(result.secondary_exposures) > 0:
+            if result.secondary_exposures is not None and len(
+                    result.secondary_exposures) > 0:
                 exposures = exposures + result.secondary_exposures
             if result.boolean_value:
                 delegated_result = self.__evaluate_delegate(
@@ -223,7 +236,8 @@ class _Evaluator:
             result = self.__evaluate_condition(user, condition)
             if result.fetch_from_server:
                 return result
-            if result.secondary_exposures is not None and len(result.secondary_exposures) > 0:
+            if result.secondary_exposures is not None and len(
+                    result.secondary_exposures) > 0:
                 exposures = exposures + result.secondary_exposures
             if not result.boolean_value:
                 eval_result = False
@@ -260,9 +274,9 @@ class _Evaluator:
         id_Type = condition.get("idType", "userID")
         if type == "PUBLIC":
             return _ConfigEvaluation(False, True)
-        elif type == "FAIL_GATE" or type == "PASS_GATE":
+        if type in ("FAIL_GATE", "PASS_GATE"):
             other_result = self.check_gate(user, target)
-            if (other_result.fetch_from_server):
+            if other_result.fetch_from_server:
                 return _ConfigEvaluation(True)
             new_exposure = {
                 "gate": target,
@@ -270,11 +284,13 @@ class _Evaluator:
                 "ruleID": other_result.rule_id
             }
             exposures = [new_exposure]
-            if other_result.secondary_exposures is not None and len(other_result.secondary_exposures) > 0:
+            if other_result.secondary_exposures is not None and len(
+                    other_result.secondary_exposures) > 0:
                 exposures = other_result.secondary_exposures + exposures
             pass_gate = other_result.boolean_value if type == "PASS_GATE" else not other_result.boolean_value
-            return _ConfigEvaluation(other_result.fetch_from_server, pass_gate, {}, "", exposures)
-        elif type == "IP_BASED":
+            return _ConfigEvaluation(
+                other_result.fetch_from_server, pass_gate, {}, "", exposures)
+        if type == "IP_BASED":
             value = self.__get_from_user(user, field)
             if value is None:
                 ip = self.__get_from_user(user, "ip")
@@ -309,119 +325,128 @@ class _Evaluator:
             if val is None or target is None:
                 return _ConfigEvaluation(False, False)
             return _ConfigEvaluation(False, val > target)
-        elif op == "gte":
+        if op == "gte":
             val = self.__get_value_as_float(value)
             target = self.__get_value_as_float(target)
             if val is None or target is None:
                 return _ConfigEvaluation(False, False)
             return _ConfigEvaluation(False, val >= target)
-        elif op == "lt":
+        if op == "lt":
             val = self.__get_value_as_float(value)
             target = self.__get_value_as_float(target)
             if val is None or target is None:
                 return _ConfigEvaluation(False, False)
             return _ConfigEvaluation(False, val < target)
-        elif op == "lte":
+        if op == "lte":
             val = self.__get_value_as_float(value)
             target = self.__get_value_as_float(target)
             if val is None or target is None:
                 return _ConfigEvaluation(False, False)
             return _ConfigEvaluation(False, val <= target)
-        elif op == "version_gt":
+        if op == "version_gt":
             res = self.__version_compare_helper(
                 value, target, lambda a, b: self.__version_compare(a, b) > 0)
             return _ConfigEvaluation(False, res)
-        elif op == "version_gte":
+        if op == "version_gte":
             res = self.__version_compare_helper(
                 value, target, lambda a, b: self.__version_compare(a, b) >= 0)
             return _ConfigEvaluation(False, res)
-        elif op == "version_lt":
+        if op == "version_lt":
             res = self.__version_compare_helper(
                 value, target, lambda a, b: self.__version_compare(a, b) < 0)
             return _ConfigEvaluation(False, res)
-        elif op == "version_lte":
+        if op == "version_lte":
             res = self.__version_compare_helper(
                 value, target, lambda a, b: self.__version_compare(a, b) <= 0)
             return _ConfigEvaluation(False, res)
-        elif op == "version_eq":
+        if op == "version_eq":
             res = self.__version_compare_helper(
                 value, target, lambda a, b: self.__version_compare(a, b) == 0)
             return _ConfigEvaluation(False, res)
-        elif op == "version_neq":
+        if op == "version_neq":
             res = self.__version_compare_helper(
                 value, target, lambda a, b: self.__version_compare(a, b) != 0)
             return _ConfigEvaluation(False, res)
-        elif op == "any":
-            return _ConfigEvaluation(False, self.__match_string_in_array(value, target, lambda a,
-                                                                         b: a.upper().lower() == b.upper().lower()))
-        elif op == "none":
-            return _ConfigEvaluation(False, not self.__match_string_in_array(value, target, lambda a,
-                                                                             b: a.upper().lower() == b.upper().lower()))
-        elif op == "any_case_sensitive":
-            return _ConfigEvaluation(False, self.__match_string_in_array(value, target, lambda a, b: a == b))
-        elif op == "none_case_sensitive":
-            return _ConfigEvaluation(False, not self.__match_string_in_array(value, target, lambda a, b: a == b))
-        elif op == "str_starts_with_any":
-            return _ConfigEvaluation(False, self.__match_string_in_array(value, target,
-                                                                         lambda a, b: a.upper().lower().startswith(
-                                                                             b.upper().lower())))
-        elif op == "str_ends_with_any":
-            return _ConfigEvaluation(False, self.__match_string_in_array(value, target,
-                                                                         lambda a, b: a.upper().lower().endswith(
-                                                                             b.upper().lower())))
-        elif op == "str_contains_any":
-            return _ConfigEvaluation(False, self.__match_string_in_array(value, target, lambda a,
-                                                                         b: b.upper().lower() in a.upper().lower()))
-        elif op == "str_contains_none":
-            return _ConfigEvaluation(False, not self.__match_string_in_array(value, target, lambda a,
-                                                                             b: b.upper().lower() in a.upper().lower()))
-        elif op == "str_matches":
+        if op == "any":
+            return _ConfigEvaluation(
+                False, self.__match_string_in_array(
+                    value, target, lambda a, b: a.upper().lower() == b.upper().lower()))
+        if op == "none":
+            return _ConfigEvaluation(
+                False, not self.__match_string_in_array(
+                    value, target, lambda a, b: a.upper().lower() == b.upper().lower()))
+        if op == "any_case_sensitive":
+            return _ConfigEvaluation(False, self.__match_string_in_array(
+                value, target, lambda a, b: a == b))
+        if op == "none_case_sensitive":
+            return _ConfigEvaluation(False, not self.__match_string_in_array(
+                value, target, lambda a, b: a == b))
+        if op == "str_starts_with_any":
+            return _ConfigEvaluation(False, self.__match_string_in_array(
+                value, target, lambda a, b: a.upper().lower().startswith(
+                    b.upper().lower())))
+        if op == "str_ends_with_any":
+            return _ConfigEvaluation(False, self.__match_string_in_array(
+                value, target, lambda a, b: a.upper().lower().endswith(
+                    b.upper().lower())))
+        if op == "str_contains_any":
+            return _ConfigEvaluation(
+                False, self.__match_string_in_array(
+                    value, target, lambda a, b: b.upper().lower() in a.upper().lower()))
+        if op == "str_contains_none":
+            return _ConfigEvaluation(
+                False, not self.__match_string_in_array(
+                    value, target, lambda a, b: b.upper().lower() in a.upper().lower()))
+        if op == "str_matches":
             str_value = self.__get_value_as_string(value)
             str_target = self.__get_value_as_string(target)
-            if str_value == None or str_target == None:
+            if str_value is None or str_target is None:
                 return _ConfigEvaluation(False, False)
-            return _ConfigEvaluation(False, bool(re.search(str_target, str_value)))
-        elif op == "eq":
+            return _ConfigEvaluation(False, bool(
+                re.search(str_target, str_value)))
+        if op == "eq":
             return _ConfigEvaluation(False, value == target)
-        elif op == "neq":
+        if op == "neq":
             return _ConfigEvaluation(False, value != target)
-        elif op == "before":
+        if op == "before":
             return self.__compare_dates(value, target, lambda a, b: a < b)
-        elif op == "after":
+        if op == "after":
             return self.__compare_dates(value, target, lambda a, b: a > b)
-        elif op == "on":
-            return self.__compare_dates(value, target, lambda a, b: a.date() == b.date())
-        elif op == "in_segment_list" or op == "not_in_segment_list":
+        if op == "on":
+            return self.__compare_dates(
+                value, target, lambda a, b: a.date() == b.date())
+        if op in ("in_segment_list", "not_in_segment_list"):
             in_list = self.__check_id_in_list(value, target)
-            return _ConfigEvaluation(False, in_list if op == "in_segment_list" else not in_list)
+            return _ConfigEvaluation(
+                False, in_list if op == "in_segment_list" else not in_list)
 
         return _ConfigEvaluation(True)
 
     def __get_from_user(self, user, field):
         value = None
         lower_field = field.lower()
-        if lower_field == "userid" or lower_field == "user_id":
+        if lower_field in ("userid", "user_id"):
             value = user.user_id
         elif lower_field == "email":
             value = user.email
-        elif lower_field == "ip" or lower_field == "ipaddress" or lower_field == "ip_address":
+        elif lower_field in ("ip", "ipaddress", "ip_address"):
             value = user.ip
-        elif lower_field == "useragent" or lower_field == "user_agent":
+        elif lower_field in ("useragent", "user_agent"):
             value = user.user_agent
         elif lower_field == "country":
             value = user.country
         elif lower_field == "locale":
             value = user.locale
-        elif lower_field == "appversion" or lower_field == "app_version":
+        elif lower_field in ("appversion", "app_version"):
             value = user.app_version
 
-        if (value == None or value == "") and user.custom is not None:
+        if (value is None or value == "") and user.custom is not None:
             if field in user.custom:
                 value = user.custom[field]
             elif field.upper().lower() in user.custom:
                 value = user.custom[field.upper().lower()]
 
-        if (value == None or value == "") and user.private_attributes is not None:
+        if (value is None or value == "") and user.private_attributes is not None:
             if field in user.private_attributes:
                 value = user.private_attributes[field]
             elif field.lower() in user.private_attributes:
@@ -434,7 +459,7 @@ class _Evaluator:
             return None
         if field in user._statsig_environment:
             return user._statsig_environment[field]
-        elif field.lower() in user._statsig_environment:
+        if field.lower() in user._statsig_environment:
             return user._statsig_environment[field]
         return None
 
@@ -455,7 +480,8 @@ class _Evaluator:
         if id_type is not None and id_type.lower() != "userid":
             if user.custom_ids is None:
                 return None
-            return user.custom_ids.get(id_type, None) or user.custom_ids.get(id_type.lower(), None)
+            return user.custom_ids.get(
+                id_type, None) or user.custom_ids.get(id_type.lower(), None)
         return user.user_id
 
     def __match_string_in_array(self, value, target, compare):
@@ -484,7 +510,7 @@ class _Evaluator:
                 c2 = int(float(p2[i]))
             if c1 < c2:
                 return -1
-            elif c1 > c2:
+            if c1 > c2:
                 return 1
             i += 1
 
@@ -523,13 +549,13 @@ class _Evaluator:
             return None
         parsed = user_agent_parser.Parse(ua)
         field = field.lower()
-        if field == "osname" or field == "os_name":
+        if field in ("osname", "os_name"):
             return parsed.get("os", {"family": None}).get("family")
-        elif field == "os_version" or field == "osversion":
+        if field in ("os_version", "osversion"):
             return self.__get_version_string(parsed.get("os"))
-        elif (field == "browser_name" or field == "browsername"):
+        if field in ("browser_name", "browsername"):
             return parsed.get("user_agent", {"family": None}).get("family")
-        elif (field == "browser_version" or field == "browserversion"):
+        if field in ("browser_version", "browserversion"):
             return self.__get_version_string(parsed.get("user_agent"))
         return None
 

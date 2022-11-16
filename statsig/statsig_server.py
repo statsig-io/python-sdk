@@ -77,15 +77,18 @@ class StatsigServer:
                 return DynamicConfig({}, config_name, "")
 
             result = self.__get_config_server_fallback(user, config_name)
-            return DynamicConfig(result.json_value, config_name, result.rule_id)
+            return DynamicConfig(
+                result.json_value, config_name, result.rule_id)
 
-        return self._errorBoundary.capture(task, lambda: DynamicConfig({}, config_name, ""))
+        return self._errorBoundary.capture(
+            task, lambda: DynamicConfig({}, config_name, ""))
 
     def get_experiment(self, user: StatsigUser, experiment_name: str):
         def task():
             return self.get_config(user, experiment_name)
 
-        return self._errorBoundary.capture(task, lambda: DynamicConfig({}, experiment_name, ""))
+        return self._errorBoundary.capture(
+            task, lambda: DynamicConfig({}, experiment_name, ""))
 
     def get_layer(self, user: StatsigUser, layer_name: str) -> Layer:
         def task():
@@ -108,7 +111,8 @@ class StatsigServer:
                 log_func
             )
 
-        return self._errorBoundary.capture(task, lambda: Layer._create(layer_name, {}, ""))
+        return self._errorBoundary.capture(
+            task, lambda: Layer._create(layer_name, {}, ""))
 
     def log_event(self, event: StatsigEvent):
         def task():
@@ -131,15 +135,18 @@ class StatsigServer:
 
         self._errorBoundary.swallow(task)
 
-    def override_gate(self, gate: str, value: bool, user_id: Optional[str] = None):
+    def override_gate(self, gate: str, value: bool,
+                      user_id: Optional[str] = None):
         self._errorBoundary.swallow(
             lambda: self._evaluator.override_gate(gate, value, user_id))
 
-    def override_config(self, config: str, value: object, user_id: Optional[str] = None):
+    def override_config(self, config: str, value: object,
+                        user_id: Optional[str] = None):
         self._errorBoundary.swallow(
             lambda: self._evaluator.override_config(config, value, user_id))
 
-    def override_experiment(self, experiment: str, value: object, user_id: Optional[str] = None):
+    def override_experiment(self, experiment: str,
+                            value: object, user_id: Optional[str] = None):
         self._errorBoundary.swallow(
             lambda: self._evaluator.override_config(experiment, value, user_id))
 
@@ -147,11 +154,13 @@ class StatsigServer:
         self._errorBoundary.swallow(
             lambda: self._evaluator.remove_gate_override(gate, user_id))
 
-    def remove_config_override(self, config: str, user_id: Optional[str] = None):
+    def remove_config_override(self, config: str,
+                               user_id: Optional[str] = None):
         self._errorBoundary.swallow(
             lambda: self._evaluator.remove_config_override(config, user_id))
 
-    def remove_experiment_override(self, experiment: str, user_id: Optional[str] = None):
+    def remove_experiment_override(
+            self, experiment: str, user_id: Optional[str] = None):
         self._errorBoundary.swallow(
             lambda: self._evaluator.remove_config_override(experiment, user_id))
 
@@ -161,7 +170,8 @@ class StatsigServer:
 
     def get_client_initialize_response(self, user: StatsigUser):
         def task():
-            return self._evaluator.get_client_initialize_response(self.__normalize_user(user))
+            return self._evaluator.get_client_initialize_response(
+                self.__normalize_user(user))
 
         def recover():
             return None
@@ -170,7 +180,7 @@ class StatsigServer:
 
     def evaluate_all(self, user: StatsigUser):
         def task():
-            all_gates = dict()
+            all_gates = {}
             for gate in self._spec_store.get_all_gates():
                 result = self.__check_gate_server_fallback(user, gate, False)
                 all_gates[gate] = {
@@ -178,7 +188,7 @@ class StatsigServer:
                     "rule_id": result.rule_id
                 }
 
-            all_configs = dict()
+            all_configs = {}
             for config in self._spec_store.get_all_configs():
                 result = self.__get_config_server_fallback(user, config, False)
                 all_configs[config] = {
@@ -192,8 +202,8 @@ class StatsigServer:
 
         def recover():
             return dict({
-                "feature_gates": dict(),
-                "dynamic_configs": dict()
+                "feature_gates": {},
+                "dynamic_configs": {}
             })
 
         return self._errorBoundary.capture(task, recover)
@@ -216,7 +226,8 @@ class StatsigServer:
         self._logger.spawn_bg_threads_if_needed()
         self._spec_store.spawn_bg_threads_if_needed()
 
-    def __check_gate_server_fallback(self, user: StatsigUser, gate_name: str, log_exposure=True):
+    def __check_gate_server_fallback(
+            self, user: StatsigUser, gate_name: str, log_exposure=True):
         user = self.__normalize_user(user)
         result = self._evaluator.check_gate(user, gate_name)
         if result.fetch_from_server:
@@ -227,20 +238,24 @@ class StatsigServer:
             })
             if network_gate is None:
                 return _ConfigEvaluation()
-            return _ConfigEvaluation(boolean_value=network_gate.get("value"), rule_id=network_gate.get("rule_id"))
-        elif log_exposure:
+            return _ConfigEvaluation(boolean_value=network_gate.get(
+                "value"), rule_id=network_gate.get("rule_id"))
+        if log_exposure:
             self._logger.log_gate_exposure(
                 user, gate_name, result.boolean_value, result.rule_id, result.secondary_exposures,
                 result.evaluation_details)
         return result
 
-    def __get_config_server_fallback(self, user: StatsigUser, config_name: str, log_exposure=True):
+    def __get_config_server_fallback(
+            self, user: StatsigUser, config_name: str, log_exposure=True):
         user = self.__normalize_user(user)
 
         result = self._evaluator.get_config(user, config_name)
-        return self.__resolve_eval_result(user, config_name, result, log_exposure, False)
+        return self.__resolve_eval_result(
+            user, config_name, result, log_exposure, False)
 
-    def __resolve_eval_result(self, user, config_name: str, result: _ConfigEvaluation, log_exposure, is_layer):
+    def __resolve_eval_result(self, user, config_name: str,
+                              result: _ConfigEvaluation, log_exposure, is_layer):
         if result.fetch_from_server:
             network_config = self._network.post_request("get_config", {
                 "configName": config_name,
@@ -252,7 +267,7 @@ class StatsigServer:
 
             return _ConfigEvaluation(json_value=network_config.get("value", {}),
                                      rule_id=network_config.get("ruleID", ""))
-        elif log_exposure:
+        if log_exposure:
             if not is_layer:
                 self._logger.log_config_exposure(
                     user, config_name, result.rule_id, result.secondary_exposures, result.evaluation_details)

@@ -18,4 +18,4 @@ jobs:
         with:
           python-version: '3.8'
       - run: pip install pylint
-      - run: pylint --recursive=y .
+      - run: pylint --recursive=y . --rcfile .pylintrc

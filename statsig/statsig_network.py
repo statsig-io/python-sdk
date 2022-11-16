@@ -40,14 +40,12 @@ class _StatsigNetwork:
                 data = response.json()
                 if data:
                     return data
-                else:
-                    return None
+                return None
         except Exception as e:
             if log_on_exception:
                 self.__error_boundary.log_exception(e)
                 self.__log.warning(
                     'Network exception caught when making request to %s failed', endpoint)
-            
             return None
 
     def retryable_request(self, endpoint, payload, log_on_exception = False):
@@ -65,10 +63,9 @@ class _StatsigNetwork:
                 self.__api + endpoint, json=payload, headers=headers, timeout=self.__timeout)
             if response.status_code in self.__RETRY_CODES:
                 return payload
-            elif response.status_code >= 300:
-                if log_on_exception:
-                    self.__log.warning(
-                        "Request to %s failed with code %d", endpoint, response.status_code)
+            if response.status_code >= 300:
+                self.__log.warning(
+                    "Request to %s failed with code %d", endpoint, response.status_code)
             return None
         except Exception as e:
             if log_on_exception:
@@ -86,8 +83,7 @@ class _StatsigNetwork:
                 url, headers=headers, timeout=self.__timeout)
             if response.ok:
                 return response
-            else:
-                return None
+            return None
         except Exception as e:
             if log_on_exception:
                 self.__error_boundary.log_exception(e)

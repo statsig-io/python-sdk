@@ -16,9 +16,9 @@ class ServerSDKConsistencyTest(unittest.TestCase):
     def setUpClass(cls):
         try:
             cls.SDK_KEY = os.environ["test_api_key"]
-        except Exception:
+        except Exception as e:
             print("THIS TEST IS EXPECTED TO FAIL FOR NON-STATSIG EMPLOYEES! If this is the only test failing, please proceed to submit a pull request. If you are a Statsig employee, chat with jkw.")
-            raise Exception("Failed to read sdk key")
+            raise Exception("Failed to read sdk key") from e
 
     def test_all_regions(self):
         for api in TEST_URLS:
@@ -169,7 +169,8 @@ class ServerSDKConsistencyTest(unittest.TestCase):
             self.assertEqual(eval_result.secondary_exposures,
                              server_result.get("secondary_exposures"))
 
-            if eval_result.undelegated_secondary_exposures != server_result["undelegated_secondary_exposures"]:
+            if eval_result.undelegated_secondary_exposures != server_result[
+                    "undelegated_secondary_exposures"]:
                 print(
                     f'\nDifferent undelegated_secondary_exposures for layer {name} user: {statsig_user.to_dict(True)}')
                 print(

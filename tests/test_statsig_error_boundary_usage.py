@@ -56,7 +56,8 @@ class TestStatsigErrorBoundaryUsage(unittest.TestCase):
 
         self.assertEqual(len(_get_requests()), 1)
         trace = _get_requests()[0]['body']['info']
-        self.assertIn("AttributeError: 'str' object has no attribute 'api'", trace)
+        self.assertIn(
+            "AttributeError: 'str' object has no attribute 'api'", trace)
         self.assertTrue(statsig._initialized)
 
     def test_errors_with_check_gate(self, mock_post):

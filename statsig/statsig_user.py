@@ -30,7 +30,8 @@ class StatsigUser:
     _statsig_environment: Optional[dict] = None
 
     def __post_init__(self):
-        # ensure there is a user id or at least a custom ID, empty dict evaluates to false in python so we can use "not" operator to check
+        # ensure there is a user id or at least a custom ID, empty dict
+        # evaluates to false in python so we can use "not" operator to check
         if not self.user_id and not self.custom_ids:
             raise StatsigValueError(
                 'user_id or at least a custom ID is required: learn more https://docs.statsig.com/messages/serverRequiredUserID')
@@ -55,7 +56,8 @@ class StatsigUser:
         return {k: v for k, v in user_nullable.items() if v is not None}
 
     def _get_environment(self):
-        if self._statsig_environment is None or not isinstance(self._statsig_environment, dict) or self._statsig_environment['tier'] is None:
+        if self._statsig_environment is None or not isinstance(
+                self._statsig_environment, dict) or self._statsig_environment['tier'] is None:
             return None
 
         tier = self._statsig_environment['tier']

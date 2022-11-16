@@ -26,8 +26,10 @@ class NetworkStub:
     def reset(self):
         self._stubs = {}
 
-    def stub_request_with_value(self, path, response_code: int, response_body: Union[dict, str]):
-        if not isinstance(response_body, dict) and not isinstance(response_body, str):
+    def stub_request_with_value(
+            self, path, response_code: int, response_body: Union[dict, str]):
+        if not isinstance(response_body, dict) and not isinstance(
+                response_body, str):
             raise "Must provide a dictionary or string"
 
         self._stubs[path] = {
@@ -65,6 +67,7 @@ class NetworkStub:
                 if isinstance(response_body, str):
                     headers["content-length"] = len(response_body)
 
-                return NetworkStub.StubResponse(stub_data["response_code"], response_body, headers)
+                return NetworkStub.StubResponse(
+                    stub_data["response_code"], response_body, headers)
 
         return NetworkStub.StubResponse(404)

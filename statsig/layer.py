@@ -5,8 +5,9 @@ class Layer:
     def _create(cls, name: str, value: dict, rule: str, param_log_func=None):
         return Layer(cls.__create_key, name, value, rule, param_log_func)
 
-    def __init__(self, create_key, name: str, value: dict, rule: str, param_log_func):
-        assert(create_key == Layer.__create_key), \
+    def __init__(self, create_key, name: str,
+                 value: dict, rule: str, param_log_func):
+        assert (create_key == Layer.__create_key), \
             "Layers should only be created internally by Statsig"
 
         self.__log_func = param_log_func
@@ -37,7 +38,7 @@ class Layer:
         Otherwise, returns the default value
         """
         res = self.__value.get(key, None)
-        if default is not None and type(default) != type(res):
+        if default is not None and not isinstance(default, type(res)):
             return default
 
         if res is not None:

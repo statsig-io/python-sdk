@@ -64,13 +64,15 @@ class TestStorageAdapter(unittest.TestCase):
         self._network_stub.reset()
         self._did_download_specs = False
         self._data_adapter = _TestAdapter()
-        self._options = StatsigOptions(data_store=self._data_adapter, api=self._api_override)
+        self._options = StatsigOptions(
+            data_store=self._data_adapter, api=self._api_override)
 
         def download_config_specs_callback(url: str, data: dict):
             self._did_download_specs = True
             return CONFIG_SPECS_RESPONSE
 
-        self._network_stub.stub_request_with_function("download_config_specs", 200, download_config_specs_callback)
+        self._network_stub.stub_request_with_function(
+            "download_config_specs", 200, download_config_specs_callback)
 
     def tearDown(self) -> None:
         statsig.shutdown()

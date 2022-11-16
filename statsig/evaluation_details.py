@@ -17,7 +17,8 @@ class EvaluationDetails:
     init_time: int
     server_time: int
 
-    def __init__(self, config_sync_time: int, init_time: int, reason: EvaluationReason):
+    def __init__(self, config_sync_time: int, init_time: int,
+                 reason: EvaluationReason):
         self.config_sync_time = config_sync_time
         self.init_time = init_time
         self.reason = reason

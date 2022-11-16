@@ -26,7 +26,8 @@ class StatsigEvent:
         if self.event_name is None or self.event_name == "":
             raise StatsigValueError(
                 'StatsigEvent.event_name must be a valid str')
-        if self.value is not None and not isinstance(self.value, str) and not isinstance(self.value, float) and not isinstance(self.value, int):
+        if self.value is not None and not isinstance(self.value, str) and not isinstance(
+                self.value, float) and not isinstance(self.value, int):
             raise StatsigValueError(
                 'StatsigEvent.value must be a str, float, or int')
 

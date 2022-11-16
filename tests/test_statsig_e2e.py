@@ -22,7 +22,8 @@ class TestStatsigE2E(unittest.TestCase):
     @patch('requests.post', side_effect=_network_stub.mock)
     @patch('requests.get', side_effect=_network_stub.mock)
     def setUpClass(cls, mock_post, mock_get):
-        _network_stub.stub_request_with_value("download_config_specs", 200, json.loads(CONFIG_SPECS_RESPONSE))
+        _network_stub.stub_request_with_value(
+            "download_config_specs", 200, json.loads(CONFIG_SPECS_RESPONSE))
         _network_stub.stub_request_with_value("list_1", 200, "+7/rrkvF6\n")
         _network_stub.stub_request_with_value("get_id_lists", 200, {"list_1": {
             "name": "list_1",
@@ -35,7 +36,8 @@ class TestStatsigE2E(unittest.TestCase):
         def log_event_callback(url: str, data: dict):
             cls._logs = data["json"]
 
-        _network_stub.stub_request_with_function("log_event", 202, log_event_callback)
+        _network_stub.stub_request_with_function(
+            "log_event", 202, log_event_callback)
 
         cls.statsig_user = StatsigUser(
             "regular_user_id", email="testuser@statsig.com", private_attributes={"test": 123})
@@ -146,8 +148,8 @@ class TestStatsigE2E(unittest.TestCase):
                                      "rule_id": "2RamGujUou6h2bVNQWhtNZ"
                                  }
                              }
-                         }
-                         )
+        }
+        )
 
     # test_z ensures this runs last
     def test_z_logs(self, mock_post, mock_get):
