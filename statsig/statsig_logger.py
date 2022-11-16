@@ -148,7 +148,7 @@ class _StatsigLogger:
                 break
 
             length = len(self._retry_logs)
-            for i in range(length):
+            for _i in range(length):
                 try:
                     payload = self._retry_logs.pop()
                 except IndexError:

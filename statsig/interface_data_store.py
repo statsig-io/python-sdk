@@ -1,6 +1,6 @@
 from typing import Optional
 
-
+# pylint: disable=unused-argument
 class IDataStore:
     def get(self, key: str) -> Optional[str]:
         return None

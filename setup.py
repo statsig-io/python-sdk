@@ -1,10 +1,10 @@
 import os
 from setuptools import setup
 
-with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), 'statsig', 'version.py')) as f:
+with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), 'statsig', 'version.py'), encoding='utf-8') as f:
     exec(f.read())
 
-with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), 'README.md')) as r:
+with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), 'README.md'), encoding='utf-8') as r:
     README = r.read()
 
 test_deps = [
@@ -18,6 +18,7 @@ extras = {
 
 setup(
     name='statsig',
+    # pylint: disable=undefined-variable
     version=__version__,  # type: ignore
     description='Statsig Python Server SDK',
     long_description=README,

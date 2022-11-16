@@ -7,7 +7,7 @@ from struct import unpack
 from ua_parser import user_agent_parser
 from ip3country import CountryLookup
 
-from statsig import StatsigUser
+from .statsig_user import StatsigUser
 from .client_initialize_formatter import ClientInitializeResponseFormatter
 from .evaluation_details import EvaluationDetails, EvaluationReason
 from .spec_store import _SpecStore
@@ -18,11 +18,11 @@ class _ConfigEvaluation:
     def __init__(self,
                  fetch_from_server=False,
                  boolean_value=False,
-                 json_value={},
+                 json_value=None,
                  rule_id="",
-                 secondary_exposures=[],
+                 secondary_exposures=None,
                  allocated_experiment=None,
-                 explicit_parameters=[],
+                 explicit_parameters=None,
                  is_experiment_group=False,
                  evaluation_details=None):
         if fetch_from_server is None:
@@ -39,6 +39,8 @@ class _ConfigEvaluation:
         self.rule_id = rule_id
         if secondary_exposures is None:
             secondary_exposures = []
+        if explicit_parameters is None:
+            explicit_parameters = []
         self.secondary_exposures = secondary_exposures
         self.undelegated_secondary_exposures = self.secondary_exposures
         self.allocated_experiment = allocated_experiment

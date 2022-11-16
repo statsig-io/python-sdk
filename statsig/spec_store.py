@@ -303,7 +303,7 @@ class _SpecStore:
     def _download_single_id_list(
             self, url, list_name, local_list, all_lists, start_index):
         resp = self._network.get_request(
-            url, headers={"Range": "bytes=%s-" % start_index})
+            url, headers={"Range": f"bytes={start_index}-"})
         if resp is None:
             return
         try:

@@ -40,6 +40,7 @@ class _StatsigNetwork:
                 if data:
                     return data
                 return None
+            return None
         except Exception:
             self.__log.warning(
                 'Network exception caught when making request to %s failed', endpoint)

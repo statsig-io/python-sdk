@@ -24,8 +24,7 @@ class StatsigOptions:
         self.data_store = data_store
         self._environment = None
         if tier is not None:
-            if isinstance(tier, str) or isinstance(
-                    tier, StatsigEnvironmentTier):
+            if isinstance(tier, (str, StatsigEnvironmentTier)):
                 tier_str = tier.value if isinstance(
                     tier, StatsigEnvironmentTier) else tier
                 self.set_environment_parameter("tier", tier_str)
