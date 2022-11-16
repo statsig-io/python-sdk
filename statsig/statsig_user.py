@@ -3,7 +3,7 @@ from typing import Optional
 
 from statsig import statsig_environment_tier
 from statsig.statsig_errors import StatsigValueError
-from utils import str_or_none, to_raw_dict_or_none
+from statsig.utils import str_or_none, to_raw_dict_or_none
 
 
 @dataclass
