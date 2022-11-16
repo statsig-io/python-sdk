@@ -16,6 +16,7 @@ IDLISTS_SYNC_INTERVAL = 60
 STORAGE_ADAPTER_KEY = "statsig.cache"
 SYNC_OUTDATED_MAX_S = 120
 
+
 def _is_specs_json_valid(specs_json):
     if specs_json is None or specs_json.get("time") is None:
         return False
@@ -59,9 +60,8 @@ class _SpecStore:
             self.spawn_bg_threads_if_needed()
 
             self._download_id_lists()
-        
-        self._initialized = True
 
+        self._initialized = True
 
     def is_ready_for_checks(self):
         return self.last_update_time != 0

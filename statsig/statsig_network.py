@@ -47,6 +47,7 @@ class _StatsigNetwork:
                 self.__error_boundary.log_exception(e)
                 self.__log.warning(
                     'Network exception caught when making request to %s failed', endpoint)
+            return None
 
     def retryable_request(self, endpoint, payload, log_on_exception = False):
         if self.__local_mode:
