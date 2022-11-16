@@ -14,7 +14,7 @@ from .thread_util import spawn_background_thread, THREAD_JOIN_TIMEOUT
 RULESETS_SYNC_INTERVAL = 10
 IDLISTS_SYNC_INTERVAL = 60
 STORAGE_ADAPTER_KEY = "statsig.cache"
-
+SYNC_OUTDATED_MAX_S = 120
 
 def _is_specs_json_valid(specs_json):
     if specs_json is None or specs_json.get("time") is None:
@@ -34,7 +34,7 @@ class _SpecStore:
         self.last_update_time = 0
         self.initial_update_time = 0
         self.init_reason = EvaluationReason.uninitialized
-
+        self._initialized = False
         self._network = network
         self._options = options
         self._statsig_metadata = statsig_metadata
@@ -43,6 +43,7 @@ class _SpecStore:
         self._executor = ThreadPoolExecutor(options.idlist_threadpool_size)
         self._background_download_configs = None
         self._background_download_id_lists = None
+        self._sync_failure_count = 0
 
         self._configs = {}
         self._gates = {}
@@ -58,6 +59,9 @@ class _SpecStore:
             self.spawn_bg_threads_if_needed()
 
             self._download_id_lists()
+        
+        self._initialized = True
+
 
     def is_ready_for_checks(self):
         return self.last_update_time != 0
@@ -185,10 +189,19 @@ class _SpecStore:
             self._error_boundary)
 
     def _download_config_specs(self):
+        log_on_exception = self._initialized
+        if self._sync_failure_count * self._options.rulesets_sync_interval > 120:
+            log_on_exception = True
+            self._sync_failure_count = 0
+
         specs = self._network.post_request("download_config_specs", {
             "statsigMetadata": self._statsig_metadata,
             "sinceTime": self.last_update_time,
-        })
+        }, log_on_exception)
+
+        if specs is None:
+            self._sync_failure_count += 1
+            return
 
         if not _is_specs_json_valid(specs):
             return
