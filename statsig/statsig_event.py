@@ -4,6 +4,7 @@ from typing import Union, Optional
 from dataclasses import dataclass, field
 from statsig.statsig_errors import StatsigValueError
 from statsig.statsig_user import StatsigUser
+from statsig.utils import to_raw_dict_or_none
 
 
 @dataclass
@@ -36,7 +37,7 @@ class StatsigEvent:
             'user': None if self.user is None else self.user.to_dict(False),
             'eventName': self.event_name,
             'value': self.value,
-            'metadata': self.metadata,
+            'metadata': to_raw_dict_or_none(self.metadata),
             'secondaryExposures': self._secondary_exposures,
             'time': self._time
         }

@@ -3,10 +3,7 @@ from typing import Optional
 
 from statsig import statsig_environment_tier
 from statsig.statsig_errors import StatsigValueError
-
-
-def _str_or_none(field):
-    return str(field) if field is not None else None
+from statsig.utils import str_or_none, to_raw_dict_or_none
 
 
 @dataclass
@@ -38,20 +35,20 @@ class StatsigUser:
 
     def to_dict(self, forEvaluation=False):
         user_nullable = {
-            'userID': _str_or_none(self.user_id),
-            'email': _str_or_none(self.email),
-            'ip': _str_or_none(self.ip),
-            'userAgent': _str_or_none(self.user_agent),
-            'country': _str_or_none(self.country),
-            'locale': _str_or_none(self.locale),
-            'appVersion': _str_or_none(self.app_version),
-            'custom': self.custom,
+            'userID': str_or_none(self.user_id),
+            'email': str_or_none(self.email),
+            'ip': str_or_none(self.ip),
+            'userAgent': str_or_none(self.user_agent),
+            'country': str_or_none(self.country),
+            'locale': str_or_none(self.locale),
+            'appVersion': str_or_none(self.app_version),
+            'custom': to_raw_dict_or_none(self.custom),
             'statsigEnvironment': self._get_environment(),
-            'customIDs': self.custom_ids,
+            'customIDs': to_raw_dict_or_none(self.custom_ids),
         }
 
         if forEvaluation and self.private_attributes is not None:
-            user_nullable["privateAttributes"] = self.private_attributes
+            user_nullable["privateAttributes"] = to_raw_dict_or_none(self.private_attributes)
 
         return {k: v for k, v in user_nullable.items() if v is not None}
 
