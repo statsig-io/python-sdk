@@ -28,16 +28,15 @@ class _StatsigLogger:
     _background_flush: Optional[threading.Thread]
     _background_retry: Optional[threading.Thread]
 
-    def __init__(self, net, shutdown_event, statsig_metadata, error_boundary, local_mode,
-                 event_queue_size, logging_interval):
+    def __init__(self, net, shutdown_event, statsig_metadata, error_boundary, options):
         self._events = []
         self._retry_logs = collections.deque(maxlen=10)
         self._net = net
         self._statsig_metadata = statsig_metadata
-        self._local_mode = local_mode
-        self._logging_interval = logging_interval
-        self._retry_interval = logging_interval
-        self._event_queue_size = event_queue_size
+        self._local_mode = options.local_mode
+        self._logging_interval = options.logging_interval
+        self._retry_interval = options.logging_interval
+        self._event_queue_size = options.event_queue_size
         self._error_boundary = error_boundary
         self._shutdown_event = shutdown_event
         self._background_flush = None
