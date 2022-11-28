@@ -50,7 +50,7 @@ class StatsigServer:
             self._network = _StatsigNetwork(sdkKey, options, self._errorBoundary)
             self._logger = _StatsigLogger(
                 self._network, self.__shutdown_event, self.__statsig_metadata, self._errorBoundary, options.local_mode,
-                options.event_queue_size)
+                options.event_queue_size, options.logging_interval)
             self._spec_store = _SpecStore(self._network, self._options, self.__statsig_metadata, self._errorBoundary,
                                           self.__shutdown_event)
             self._evaluator = _Evaluator(self._spec_store)
