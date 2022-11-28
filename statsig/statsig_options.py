@@ -19,7 +19,8 @@ class StatsigOptions:
             rules_updated_callback: Optional[Callable] = None,
             event_queue_size: Optional[int] = 500,
             data_store: Optional[IDataStore] = None,
-            idlists_thread_limit: int = 3
+            idlists_thread_limit: int = 3,
+            logging_interval: int = 60
     ):
         self.data_store = data_store
         self._environment = None
@@ -45,6 +46,7 @@ class StatsigOptions:
             self.event_queue_size = 500
         else:
             self.event_queue_size = event_queue_size
+        self.logging_interval = logging_interval
 
     def set_environment_parameter(self, key: str, value: str):
         if self._environment is None:
