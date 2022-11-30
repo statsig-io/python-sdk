@@ -35,6 +35,14 @@ class StatsigServer:
         self._errorBoundary = _StatsigErrorBoundary()
         self._initialized = False
 
+    def initialize_with_timeout(self, sdkKey: str, options=None):
+        thread = threading.Thread(target=self.initialize, args=(sdkKey, options))
+        thread.start()
+        thread.join(timeout=options.init_timeout)
+        if thread.is_alive():
+            self._initialized = True
+            return
+
     def initialize(self, sdkKey: str, options=None):
         if sdkKey is None or not sdkKey.startswith("secret-"):
             raise StatsigValueError(

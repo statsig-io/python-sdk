@@ -11,6 +11,7 @@ class StatsigOptions:
             self,
             api: str = "https://statsigapi.net/v1/",
             tier: Union[str, StatsigEnvironmentTier, None] = None,
+            init_timeout: Optional[int] = None,
             timeout: Optional[int] = None,
             rulesets_sync_interval: int = 10,
             idlists_sync_interval: int = 60,
@@ -36,6 +37,7 @@ class StatsigOptions:
             api = "https://statsigapi.net/v1/"
         self.api = api
         self.timeout = timeout
+        self.init_timeout = init_timeout
         self.rulesets_sync_interval = rulesets_sync_interval
         self.idlists_sync_interval = idlists_sync_interval
         self.idlist_threadpool_size = idlists_thread_limit
