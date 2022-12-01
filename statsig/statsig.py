@@ -7,7 +7,10 @@ __instance = StatsigServer()
 
 
 def initialize(secret_key: str, options=None):
-    __instance.initialize(secret_key, options)
+    if options.init_timeout is not None:
+        __instance.initialize_with_timeout(secret_key, options)
+    else:
+        __instance.initialize(secret_key, options)
 
 
 def check_gate(user: StatsigUser, gate: str):
