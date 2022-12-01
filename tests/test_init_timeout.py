@@ -57,7 +57,3 @@ class TestInitTimeout(unittest.TestCase):
         statsig.initialize("secret-key", options)
         end = time.time()
         self.assertLess(end - start, MINIMUM_INIT_TIME_S)
-
-
-if __name__ == '__main__':
-    unittest.main()
