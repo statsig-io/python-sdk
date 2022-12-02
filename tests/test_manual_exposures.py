@@ -2,6 +2,7 @@ import os
 import json
 from unittest.mock import patch
 
+from typing import Optional
 from tests.network_stub import NetworkStub
 from statsig import statsig, StatsigUser, StatsigOptions, StatsigEnvironmentTier, Layer
 from tests.test_case_with_extras import TestCaseWithExtras
@@ -34,8 +35,11 @@ class TestManualExposures(TestCaseWithExtras):
             api=_network_stub.host,
             tier=StatsigEnvironmentTier.development)
 
+    def setUp(self):
+        TestManualExposures._logs = {'events': []}
+        statsig.initialize("secret-key", self.options)
+
     def test_api_with_exposure_logging_disabled(self, mock_post):
-        self._start()
         statsig.check_gate_with_exposure_logging_disabled(self._user, 'always_on_gate')
         statsig.get_config_with_exposure_logging_disabled(self._user, 'test_config')
         statsig.get_experiment_with_exposure_logging_disabled(self._user, 'sample_experiment')
@@ -47,7 +51,6 @@ class TestManualExposures(TestCaseWithExtras):
         self.assertEqual(len(events), 0)
 
     def test_manual_exposure_logging(self, mock_post):
-        self._start()
         statsig.manually_log_gate_exposure(self._user, 'always_on_gate')
         statsig.manually_log_config_exposure(self._user, 'test_config')
         statsig.manually_log_experiment_exposure(self._user, 'sample_experiment')
@@ -58,22 +61,35 @@ class TestManualExposures(TestCaseWithExtras):
         self.assertEqual(len(events), 4)
 
         gate_exposure = events[0]
-        self.assertEqual(gate_exposure.get('eventName', ''), 'statsig::gate_exposure')
-        self.assertEqual(gate_exposure.get('metadata', {}).get('gate', ''), 'always_on_gate')
-        self.assertEqual(gate_exposure.get('metadata', {}).get('isManualExposure', ''), 'true')
+        self._assert_exposure_event_name(gate_exposure, 'statsig::gate_exposure')
+        self._assert_exposure_metadata(
+            gate_exposure, gate='always_on_gate', is_manual_exposure='true')
         config_exposure = events[1]
-        self.assertEqual(config_exposure.get('eventName', ''), 'statsig::config_exposure')
-        self.assertEqual(config_exposure.get('metadata', {}).get('config', ''), 'test_config')
-        self.assertEqual(config_exposure.get('metadata', {}).get('isManualExposure', ''), 'true')
+        self._assert_exposure_event_name(config_exposure, 'statsig::config_exposure')
+        self._assert_exposure_metadata(
+            config_exposure, config='test_config', is_manual_exposure='true')
         experiment_exposure = events[2]
-        self.assertEqual(experiment_exposure.get('eventName', ''), 'statsig::config_exposure')
-        self.assertEqual(experiment_exposure.get('metadata', {}).get('config', ''), 'sample_experiment')
-        self.assertEqual(experiment_exposure.get('metadata', {}).get('isManualExposure', ''), 'true')
+        self._assert_exposure_event_name(experiment_exposure, 'statsig::config_exposure')
+        self._assert_exposure_metadata(
+            experiment_exposure, config='sample_experiment', is_manual_exposure='true')
         layer_exposure = events[3]
-        self.assertEqual(layer_exposure.get('eventName', ''), 'statsig::layer_exposure')
-        self.assertEqual(layer_exposure.get('metadata', {}).get('config', ''), 'a_layer')
-        self.assertEqual(layer_exposure.get('metadata', {}).get('isManualExposure', ''), 'true')
+        self._assert_exposure_event_name(layer_exposure, 'statsig::layer_exposure')
+        self._assert_exposure_metadata(layer_exposure, config='a_layer', is_manual_exposure='true')
 
-    def _start(self):
-        TestManualExposures._logs = {'events': []}
-        statsig.initialize("secret-key", self.options)
+    def _assert_exposure_event_name(self, exposure: object, event_name: str):
+        self.assertEqual(exposure.get('eventName', ''), event_name)
+
+    def _assert_exposure_metadata(
+        self,
+        exposure: object,
+        gate: Optional[str] = None,
+        config: Optional[str] = None,
+        is_manual_exposure: Optional[str] = None,
+    ):
+        if gate is not None:
+            self.assertEqual(exposure.get('metadata', {}).get('gate'), gate)
+        if config is not None:
+            self.assertEqual(exposure.get('metadata', {}).get('config'), config)
+        if is_manual_exposure is not None:
+            self.assertEqual(exposure.get('metadata', {}).get(
+                'isManualExposure'), is_manual_exposure)
