@@ -71,7 +71,7 @@ class _StatsigLogger:
             "ruleID": rule_id,
         }
         if is_manual_exposure:
-            event.metadata["isManualExposure"] = is_manual_exposure
+            event.metadata["isManualExposure"] = "true"
 
         if secondary_exposures is None:
             secondary_exposures = []
@@ -88,7 +88,7 @@ class _StatsigLogger:
             "ruleID": rule_id,
         }
         if is_manual_exposure:
-            event.metadata["isManualExposure"] = is_manual_exposure
+            event.metadata["isManualExposure"] = "true"
 
         if secondary_exposures is None:
             secondary_exposures = []
@@ -116,7 +116,7 @@ class _StatsigLogger:
             "isExplicitParameter": "true" if is_explicit else "false"
         }
         if is_manual_exposure:
-            event.metadata["isManualExposure"] = is_manual_exposure
+            event.metadata["isManualExposure"] = "true"
 
         event._secondary_exposures = [] if exposures is None else exposures
 

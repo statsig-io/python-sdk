@@ -57,6 +57,23 @@ class TestManualExposures(TestCaseWithExtras):
         events = TestManualExposures._logs["events"]
         self.assertEqual(len(events), 4)
 
+        gate_exposure = events[0]
+        self.assertEqual(gate_exposure.get('eventName', ''), 'statsig::gate_exposure')
+        self.assertEqual(gate_exposure.get('metadata', {}).get('gate', ''), 'always_on_gate')
+        self.assertEqual(gate_exposure.get('metadata', {}).get('isManualExposure', ''), 'true')
+        config_exposure = events[1]
+        self.assertEqual(config_exposure.get('eventName', ''), 'statsig::config_exposure')
+        self.assertEqual(config_exposure.get('metadata', {}).get('config', ''), 'test_config')
+        self.assertEqual(config_exposure.get('metadata', {}).get('isManualExposure', ''), 'true')
+        experiment_exposure = events[2]
+        self.assertEqual(experiment_exposure.get('eventName', ''), 'statsig::config_exposure')
+        self.assertEqual(experiment_exposure.get('metadata', {}).get('config', ''), 'sample_experiment')
+        self.assertEqual(experiment_exposure.get('metadata', {}).get('isManualExposure', ''), 'true')
+        layer_exposure = events[3]
+        self.assertEqual(layer_exposure.get('eventName', ''), 'statsig::layer_exposure')
+        self.assertEqual(layer_exposure.get('metadata', {}).get('config', ''), 'a_layer')
+        self.assertEqual(layer_exposure.get('metadata', {}).get('isManualExposure', ''), 'true')
+
     def _start(self):
         TestManualExposures._logs = {'events': []}
         statsig.initialize("secret-key", self.options)

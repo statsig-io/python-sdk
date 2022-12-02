@@ -150,7 +150,7 @@ class StatsigServer:
         result = self._evaluator.get_layer(user, layer_name)
         layer = Layer._create(layer_name, result.json_value, result.rule_id)
         self._logger.log_layer_exposure(
-            user, layer, parameter_name, result)
+            user, layer, parameter_name, result, is_manual_exposure=True)
 
     def log_event(self, event: StatsigEvent):
         def task():
