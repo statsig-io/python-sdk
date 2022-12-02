@@ -62,14 +62,17 @@ class _StatsigLogger:
         if len(self._events) >= self._event_queue_size:
             self._flush()
 
-    def log_gate_exposure(self, user, gate, value, rule_id,
-                          secondary_exposures, evaluation_details: EvaluationDetails):
+    def log_gate_exposure(self, user, gate, value, rule_id, secondary_exposures,
+                          evaluation_details: EvaluationDetails, is_manual_exposure=False):
         event = StatsigEvent(user, _GATE_EXPOSURE_EVENT)
         event.metadata = {
             "gate": gate,
             "gateValue": "true" if value else "false",
             "ruleID": rule_id,
         }
+        if is_manual_exposure:
+            event.metadata["isManualExposure"] = "true"
+
         if secondary_exposures is None:
             secondary_exposures = []
         event._secondary_exposures = secondary_exposures
@@ -77,13 +80,15 @@ class _StatsigLogger:
         _safe_add_evaluation_to_event(evaluation_details, event)
         self.log(event)
 
-    def log_config_exposure(self, user, config, rule_id,
-                            secondary_exposures, evaluation_details: EvaluationDetails):
+    def log_config_exposure(self, user, config, rule_id, secondary_exposures,
+                            evaluation_details: EvaluationDetails, is_manual_exposure=False):
         event = StatsigEvent(user, _CONFIG_EXPOSURE_EVENT)
         event.metadata = {
             "config": config,
             "ruleID": rule_id,
         }
+        if is_manual_exposure:
+            event.metadata["isManualExposure"] = "true"
 
         if secondary_exposures is None:
             secondary_exposures = []
@@ -92,8 +97,8 @@ class _StatsigLogger:
         _safe_add_evaluation_to_event(evaluation_details, event)
         self.log(event)
 
-    def log_layer_exposure(self, user, layer: Layer,
-                           parameter_name: str, config_evaluation: _ConfigEvaluation):
+    def log_layer_exposure(self, user, layer: Layer, parameter_name: str,
+                           config_evaluation: _ConfigEvaluation, is_manual_exposure=False):
         event = StatsigEvent(user, _LAYER_EXPOSURE_EVENT)
 
         allocated_experiment = ""
@@ -110,6 +115,8 @@ class _StatsigLogger:
             "parameterName": parameter_name,
             "isExplicitParameter": "true" if is_explicit else "false"
         }
+        if is_manual_exposure:
+            event.metadata["isManualExposure"] = "true"
 
         event._secondary_exposures = [] if exposures is None else exposures
 
