@@ -17,16 +17,48 @@ def check_gate(user: StatsigUser, gate: str):
     return __instance.check_gate(user, gate)
 
 
+def check_gate_with_exposure_logging_disabled(user: StatsigUser, gate: str):
+    return __instance.check_gate(user, gate, log_exposure=False)
+
+
+def manually_log_gate_exposure(user: StatsigUser, gate: str):
+    __instance.manually_log_gate_exposure(user, gate)
+
+
 def get_config(user: StatsigUser, config: str):
     return __instance.get_config(user, config)
+
+
+def get_config_with_exposure_logging_disabled(user: StatsigUser, config: str):
+    return __instance.get_config(user, config, log_exposure=False)
+
+
+def manually_log_config_exposure(user: StatsigUser, config: str):
+    __instance.manually_log_config_exposure(user, config)
 
 
 def get_experiment(user: StatsigUser, experiment: str):
     return get_config(user, experiment)
 
 
+def get_experiment_with_exposure_logging_disabled(user: StatsigUser, experiment: str):
+    return get_config_with_exposure_logging_disabled(user, experiment)
+
+
+def manually_log_experiment_exposure(user: StatsigUser, experiment: str):
+    __instance.manually_log_experiment_exposure(user, experiment)
+
+
 def get_layer(user: StatsigUser, layer: str):
     return __instance.get_layer(user, layer)
+
+
+def get_layer_with_exposure_logging_disabled(user: StatsigUser, layer: str):
+    return __instance.get_layer(user, layer, log_exposure=False)
+
+
+def manually_log_layer_parameter_exposure(user: StatsigUser, layer: str, parameter: str):
+    __instance.manually_log_layer_parameter_exposure(user, layer, parameter)
 
 
 def log_event(event: StatsigEvent):
