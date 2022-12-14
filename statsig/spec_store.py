@@ -1,6 +1,4 @@
-from datetime import datetime
 import json
-import logging
 import threading
 from concurrent.futures import ThreadPoolExecutor, wait
 from typing import Optional

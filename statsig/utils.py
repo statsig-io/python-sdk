@@ -1,5 +1,3 @@
-from collections import defaultdict
-from datetime import datetime
 from enum import Enum
 from logging import Logger
 
@@ -20,11 +18,11 @@ def to_raw_dict_or_none(field: dict):
 
 class _OutputLogger(Logger):
     def __init__(self, name='statsig.sdk', level='INFO'):
-        self.__init__(name=name, level=level)
+        super().__init__(name=name, level=level)
 
     def log_process(self, process: str, msg: str, progress=None):
-        progress = f"({progress})" if progress is not None else ""
-        self.info(f"[{datetime.now().isoformat(' ')}] {process} {progress}: {msg}")
+        progress = f" ({progress})" if progress is not None else ""
+        self.info("[{datetime.now().isoformat(' ')}] %s%s: %s", process, progress, msg)
 
 
 logger = _OutputLogger('statsig.sdk')
