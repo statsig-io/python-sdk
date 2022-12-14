@@ -2,15 +2,21 @@ from typing import Optional
 from statsig.statsig_event import StatsigEvent
 from statsig.statsig_user import StatsigUser
 from .statsig_server import StatsigServer
+from .utils import logger
 
 __instance = StatsigServer()
 
 
 def initialize(secret_key: str, options=None):
+    logger.log_process("Initialize", "Starting...")
     if options.init_timeout is not None:
         __instance.initialize_with_timeout(secret_key, options)
     else:
         __instance.initialize(secret_key, options)
+    if __instance._initialized:
+        logger.log_process("Initialize", "Done", "3/3")
+    else:
+        logger.log_process("Initialize", "Failed")
 
 
 def check_gate(user: StatsigUser, gate: str):
