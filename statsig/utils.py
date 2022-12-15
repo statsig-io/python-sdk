@@ -1,5 +1,9 @@
+from collections import defaultdict
+from datetime import datetime
 from enum import Enum
 from logging import Logger
+import logging
+import sys
 
 
 def str_or_none(field):
@@ -17,12 +21,34 @@ def to_raw_dict_or_none(field: dict):
 
 
 class _OutputLogger(Logger):
-    def __init__(self, name='statsig.sdk', level='INFO'):
-        super().__init__(name=name, level=level)
+    _logs = defaultdict(list)
+    def __init__(self, name='statsig.sdk', level=logging.NOTSET):
+        super(_OutputLogger, self).__init__(name=name, level=level)
+        self.root.setLevel(level)
 
     def log_process(self, process: str, msg: str, progress=None):
         progress = f" ({progress})" if progress is not None else ""
-        self.info("[{datetime.now().isoformat(' ')}] %s%s: %s", process, progress, msg)
+        message = f"[{datetime.now().isoformat(' ')}] {process}{progress}: {msg}"
+        super().info(message)
+        self._logs[process].append(message)
+
+    def debug(self, msg, *args, **kwargs):
+        self._logs["debug"].append(msg % args)
+        super().debug(msg, *args, **kwargs)
+
+    def info(self, msg, *args, **kwargs):
+        self._logs["info"].append(msg % args)
+        super().info(msg, *args, **kwargs)
+
+    def warning(self, msg, *args, **kwargs):
+        self._logs["warning"].append(msg % args)
+        super().warning(msg, *args, **kwargs)
+
+    def clear_log_history(self):
+        self._logs = defaultdict(list)
 
 
-logger = _OutputLogger('statsig.sdk')
+logging.setLoggerClass(_OutputLogger)
+logging.basicConfig()
+logger = logging.getLogger('statsig.sdk')
+logger.disabled = 'unittest' in sys.modules.keys()

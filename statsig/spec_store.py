@@ -194,7 +194,7 @@ class _SpecStore:
 
     def _download_config_specs(self):
         self._log_process("Loading specs from network...")
-        log_on_exception = self._initialized
+        log_on_exception = not self._initialized
         if self._sync_failure_count * self._options.rulesets_sync_interval > 120:
             log_on_exception = True
             self._sync_failure_count = 0

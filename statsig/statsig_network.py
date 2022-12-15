@@ -2,6 +2,7 @@ import logging
 import time
 from uuid import uuid4
 import requests
+from .utils import logger
 
 REQUEST_TIMEOUT = 20
 
@@ -19,7 +20,7 @@ class _StatsigNetwork:
         self.__timeout = options.timeout or REQUEST_TIMEOUT
         self.__local_mode = options.local_mode
         self.__error_boundary = error_boundary
-        self.__log = logging.getLogger('statsig.sdk')
+        self.__log = logger
         self.__session = str(uuid4())
 
     def post_request(self, endpoint, payload, log_on_exception = False):
