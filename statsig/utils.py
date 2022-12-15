@@ -23,7 +23,7 @@ def to_raw_dict_or_none(field: dict):
 class _OutputLogger(Logger):
     _logs = defaultdict(list)
     def __init__(self, name='statsig.sdk', level=logging.NOTSET):
-        super(_OutputLogger, self).__init__(name=name, level=level)
+        super().__init__(name=name, level=level)
         self.root.setLevel(level)
 
     def log_process(self, process: str, msg: str, progress=None):
@@ -51,4 +51,4 @@ class _OutputLogger(Logger):
 logging.setLoggerClass(_OutputLogger)
 logging.basicConfig()
 logger = logging.getLogger('statsig.sdk')
-logger.disabled = 'unittest' in sys.modules.keys()
+logger.disabled = 'unittest' in sys.modules

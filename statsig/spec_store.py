@@ -3,7 +3,6 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, wait
 from typing import Optional
 
-
 from .evaluation_details import EvaluationReason
 from .statsig_error_boundary import _StatsigErrorBoundary
 from .statsig_errors import StatsigValueError, StatsigNameError
