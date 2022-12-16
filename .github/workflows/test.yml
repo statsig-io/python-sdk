@@ -18,9 +18,18 @@ jobs:
       - uses: actions/setup-python@v2
         with:
           python-version: '3.8'
-      - run: pip install -r requirements.txt
-      - run: pip install .[test]
-      - run: python3 -m unittest discover --verbose
+
+      - name: Install Deps
+        run: |
+          pip install pylint
+          pip install -r requirements.txt
+          pip install .[test]
+
+      - name: Run Linter
+        run: pylint ./statsig --rcfile .pylintrc
+
+      - name: Run Tests
+        run: python -m unittest discover -s ./tests --verbose
         env:
           test_api_key: ${{ secrets.SDK_CONSISTENCY_TEST_COMPANY_API_KEY }}
           test_client_key: ${{ secrets.KONG_CLIENT_SDK_KEY }}
