@@ -17,7 +17,7 @@ class TestOutputLogger(unittest.TestCase):
         _network_stub.reset()
 
         def dcs_callback(url: str, data: dict):
-            time.sleep(1.5)
+            time.sleep(0.2)
             raise Exception("Network request failed")
 
         _network_stub.stub_request_with_function(
@@ -29,7 +29,7 @@ class TestOutputLogger(unittest.TestCase):
 
     @patch('requests.post', side_effect=_network_stub.mock)
     def test_initialize_timeout(self, mock_post):
-        options = StatsigOptions(api=_network_stub.host, init_timeout=1)
+        options = StatsigOptions(api=_network_stub.host, init_timeout=0.1)
         statsig.initialize("secret-key", options)
         self.assertGreater(len(logger._logs.get("Initialize")), 3)
 
