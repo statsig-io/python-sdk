@@ -10,6 +10,23 @@ TEST_URLS = [
 ]
 
 
+def _construct_statsig_user(user_values) -> StatsigUser:
+    statsig_user = StatsigUser(user_values.get("userID"))
+    statsig_user.app_version = user_values.get("appVersion")
+    statsig_user.user_agent = user_values.get("userAgent")
+    statsig_user.ip = user_values.get("ip")
+    statsig_user.locale = user_values.get("locale")
+    statsig_user.email = user_values.get("email")
+    statsig_user._statsig_environment = user_values.get(
+        "statsigEnvironment")
+    statsig_user.custom = user_values.get("custom")
+    statsig_user.private_attributes = user_values.get(
+        "privateAttributes")
+    statsig_user.custom_ids = user_values.get("customIDs")
+
+    return statsig_user
+
+
 class ServerSDKConsistencyTest(unittest.TestCase):
 
     @classmethod
@@ -17,7 +34,8 @@ class ServerSDKConsistencyTest(unittest.TestCase):
         try:
             cls.SDK_KEY = os.environ["test_api_key"]
         except Exception as e:
-            print("THIS TEST IS EXPECTED TO FAIL FOR NON-STATSIG EMPLOYEES! If this is the only test failing, please proceed to submit a pull request. If you are a Statsig employee, chat with jkw.")
+            print(
+                "THIS TEST IS EXPECTED TO FAIL FOR NON-STATSIG EMPLOYEES! If this is the only test failing, please proceed to submit a pull request. If you are a Statsig employee, chat with jkw.")
             raise Exception("Failed to read sdk key") from e
 
     def test_all_regions(self):
@@ -39,33 +57,13 @@ class ServerSDKConsistencyTest(unittest.TestCase):
     def _test_consistency(self):
         for entry in self.data:
             for val in self.data[entry]:
-                statsig_user = self._construct_statsig_user(val["user"])
+                statsig_user = _construct_statsig_user(val["user"])
 
                 self._test_gate_results(statsig_user, val["feature_gates_v2"])
                 self._test_config_results(statsig_user, val["dynamic_configs"])
                 self._test_layer_results(statsig_user, val["layer_configs"])
 
         print("[end]")
-
-    def _construct_statsig_user(self, user_values) -> StatsigUser:
-        statsig_user = StatsigUser(user_values.get("userID"))
-        statsig_user.app_version = user_values.get("appVersion")
-        statsig_user.user_agent = user_values.get("userAgent")
-        statsig_user.ip = user_values.get("ip")
-        if "email" in user_values:
-            statsig_user.email = user_values.get("email")
-        if "statsigEnvironment" in user_values:
-            statsig_user._statsig_environment = user_values.get(
-                "statsigEnvironment")
-        if "custom" in user_values:
-            statsig_user.custom = user_values.get("custom")
-        if "privateAttributes" in user_values:
-            statsig_user.private_attributes = user_values.get(
-                "privateAttributes")
-        if "customIDs" in user_values:
-            statsig_user.custom_ids = user_values.get("customIDs")
-
-        return statsig_user
 
     def _test_gate_results(self, statsig_user: StatsigUser, gates):
         for name in gates:
@@ -170,7 +168,7 @@ class ServerSDKConsistencyTest(unittest.TestCase):
                              server_result.get("secondary_exposures"))
 
             if eval_result.undelegated_secondary_exposures != server_result[
-                    "undelegated_secondary_exposures"]:
+                "undelegated_secondary_exposures"]:
                 print(
                     f'\nDifferent undelegated_secondary_exposures for layer {name} user: {statsig_user.to_dict(True)}')
                 print(
