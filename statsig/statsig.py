@@ -14,7 +14,7 @@ def initialize(secret_key: str, options=None):
     else:
         __instance.initialize(secret_key, options)
     if __instance._initialized:
-        logger.log_process("Initialize", "Done", "3/3")
+        logger.log_process("Initialize", "Done")
     else:
         logger.log_process("Initialize", "Failed")
 

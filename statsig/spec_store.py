@@ -161,7 +161,7 @@ class _SpecStore:
         if callable(self._options.rules_updated_callback):
             self._options.rules_updated_callback(json.dumps(specs_json))
 
-        self._log_process("Done processing specs", progress="2/3")
+        self._log_process("Done processing specs")
         return True
 
     def _bootstrap_config_specs(self):
@@ -210,7 +210,7 @@ class _SpecStore:
         if not _is_specs_json_valid(specs):
             return
 
-        self._log_process("Done loading specs", progress="1/3")
+        self._log_process("Done loading specs")
         if self._process_specs(specs):
             self._save_to_storage_adapter(specs)
             self.init_reason = EvaluationReason.network
@@ -247,7 +247,7 @@ class _SpecStore:
                           int) or adapter_time < self.last_update_time:
             return
 
-        self._log_process("Done loading specs", progress="1/3")
+        self._log_process("Done loading specs")
         if self._process_specs(cache):
             self.init_reason = EvaluationReason.data_adapter
 
@@ -361,7 +361,7 @@ class _SpecStore:
             except Exception as e:
                 self._error_boundary.log_exception(e)
 
-    def _log_process(self, msg, process=None, progress=None):
+    def _log_process(self, msg, process=None):
         if process is None:
             process = "Initialize" if not self._initialized else "Sync"
-        logger.log_process(process, msg, progress=progress)
+        logger.log_process(process, msg)

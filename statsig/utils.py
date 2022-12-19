@@ -26,9 +26,8 @@ class _OutputLogger(Logger):
         super().__init__(name=name, level=level)
         self.root.setLevel(level)
 
-    def log_process(self, process: str, msg: str, progress=None):
-        progress = f" ({progress})" if progress is not None else ""
-        message = f"[{datetime.now().isoformat(' ')}] {process}{progress}: {msg}"
+    def log_process(self, process: str, msg: str):
+        message = f"[{datetime.now().isoformat(' ')}] {process}: {msg}"
         super().info(message)
         self._logs[process].append(message)
 
