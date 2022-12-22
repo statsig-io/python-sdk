@@ -1,3 +1,4 @@
+from platform import python_version
 from .version import __version__
 
 
@@ -6,5 +7,6 @@ class _StatsigMetadata:
     def get():
         return {
             "sdkVersion": __version__,
-            "sdkType": "py-server"
+            "sdkType": "py-server",
+            "languageVersion": python_version()
         }

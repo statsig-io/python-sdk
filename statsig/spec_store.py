@@ -1,5 +1,4 @@
 import json
-import logging
 import threading
 from concurrent.futures import ThreadPoolExecutor, wait
 from typing import Optional
@@ -10,12 +9,12 @@ from .statsig_errors import StatsigValueError, StatsigNameError
 from .statsig_network import _StatsigNetwork
 from .statsig_options import StatsigOptions
 from .thread_util import spawn_background_thread, THREAD_JOIN_TIMEOUT
+from .utils import logger
 
 RULESETS_SYNC_INTERVAL = 10
 IDLISTS_SYNC_INTERVAL = 60
 STORAGE_ADAPTER_KEY = "statsig.cache"
 SYNC_OUTDATED_MAX_S = 120
-
 
 def _is_specs_json_valid(specs_json):
     if specs_json is None or specs_json.get("time") is None:
@@ -114,11 +113,12 @@ class _SpecStore:
     def _initialize_specs(self):
         if self._options.data_store is not None:
             if self._options.bootstrap_values is not None:
-                logging.getLogger('statsig.sdk').warning(
+                logger.warning(
                     "data_store gets priority over bootstrap_values. bootstrap_values will be ignored")
 
             self._load_config_specs_from_storage_adapter()
             if self.last_update_time == 0:
+                self._log_process("Retrying with network...")
                 self._download_config_specs()
 
         elif self._options.bootstrap_values is not None:
@@ -128,7 +128,9 @@ class _SpecStore:
             self._download_config_specs()
 
     def _process_specs(self, specs_json) -> bool:
+        self._log_process("Processing specs...")
         if not _is_specs_json_valid(specs_json):
+            self._log_process("Failed to process specs")
             return False
 
         def get_parsed_specs(key: str):
@@ -159,6 +161,7 @@ class _SpecStore:
         if callable(self._options.rules_updated_callback):
             self._options.rules_updated_callback(json.dumps(specs_json))
 
+        self._log_process("Done processing specs")
         return True
 
     def _bootstrap_config_specs(self):
@@ -177,7 +180,7 @@ class _SpecStore:
                 self.init_reason = EvaluationReason.bootstrap
         except ValueError:
             # JSON decoding failed, just let background thread update rulesets
-            logging.getLogger('statsig.sdk').exception(
+            logger.exception(
                 'Failed to parse bootstrap_values')
             return
 
@@ -189,7 +192,8 @@ class _SpecStore:
             self._error_boundary)
 
     def _download_config_specs(self):
-        log_on_exception = self._initialized
+        self._log_process("Loading specs from network...")
+        log_on_exception = not self._initialized
         if self._sync_failure_count * self._options.rulesets_sync_interval > 120:
             log_on_exception = True
             self._sync_failure_count = 0
@@ -206,6 +210,7 @@ class _SpecStore:
         if not _is_specs_json_valid(specs):
             return
 
+        self._log_process("Done loading specs")
         if self._process_specs(specs):
             self._save_to_storage_adapter(specs)
             self.init_reason = EvaluationReason.network
@@ -223,6 +228,7 @@ class _SpecStore:
         self._options.data_store.set(STORAGE_ADAPTER_KEY, json.dumps(specs))
 
     def _load_config_specs_from_storage_adapter(self):
+        self._log_process("Loading specs from adapter")
         if self._options.data_store is None:
             return
 
@@ -232,7 +238,7 @@ class _SpecStore:
 
         cache = json.loads(cache_string)
         if not isinstance(cache, dict):
-            logging.getLogger('statsig.sdk').warning(
+            logger.warning(
                 "Invalid type returned from StatsigOptions.data_store")
             return
 
@@ -241,6 +247,7 @@ class _SpecStore:
                           int) or adapter_time < self.last_update_time:
             return
 
+        self._log_process("Done loading specs")
         if self._process_specs(cache):
             self.init_reason = EvaluationReason.data_adapter
 
@@ -353,3 +360,8 @@ class _SpecStore:
                 sync_func()
             except Exception as e:
                 self._error_boundary.log_exception(e)
+
+    def _log_process(self, msg, process=None):
+        if process is None:
+            process = "Initialize" if not self._initialized else "Sync"
+        logger.log_process(process, msg)
