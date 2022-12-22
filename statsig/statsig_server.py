@@ -14,6 +14,7 @@ from .statsig_network import _StatsigNetwork
 from .statsig_logger import _StatsigLogger
 from .dynamic_config import DynamicConfig
 from .statsig_options import StatsigOptions
+from .utils import logger
 
 RULESETS_SYNC_INTERVAL = 10
 IDLISTS_SYNC_INTERVAL = 60
@@ -41,6 +42,7 @@ class StatsigServer:
         thread.join(timeout=options.init_timeout)
         if thread.is_alive():
             self._initialized = True
+            logger.log_process("Initialize", "Timed out")
             return
 
     def initialize(self, sdkKey: str, options=None):

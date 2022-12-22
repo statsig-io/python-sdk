@@ -2,6 +2,7 @@ from typing import Optional
 from statsig.statsig_event import StatsigEvent
 from statsig.statsig_user import StatsigUser
 from .statsig_server import StatsigServer
+from .utils import logger
 
 __instance = StatsigServer()
 
@@ -13,10 +14,15 @@ def initialize(secret_key: str, options=None):
     :param secret_key: The server SDK key copied from console.statsig.com
     :param options: The StatsigOptions object used to configure the SDK
     """
+    logger.log_process("Initialize", "Starting...")
     if options.init_timeout is not None:
         __instance.initialize_with_timeout(secret_key, options)
     else:
         __instance.initialize(secret_key, options)
+    if __instance._initialized:
+        logger.log_process("Initialize", "Done")
+    else:
+        logger.log_process("Initialize", "Failed")
 
 
 def check_gate(user: StatsigUser, gate: str):
