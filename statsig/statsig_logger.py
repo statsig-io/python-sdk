@@ -2,10 +2,12 @@ import collections
 import threading
 from typing import Optional
 
+from .retryable_logs import RetryableLogs
 from .evaluation_details import EvaluationDetails
 from .evaluator import _ConfigEvaluation
 from .statsig_event import StatsigEvent
 from .layer import Layer
+from .utils import logger
 from .thread_util import spawn_background_thread, THREAD_JOIN_TIMEOUT
 
 _CONFIG_EXPOSURE_EVENT = "statsig::config_exposure"
@@ -34,6 +36,7 @@ class _StatsigLogger:
         self._net = net
         self._statsig_metadata = statsig_metadata
         self._local_mode = options.local_mode
+        self._console_logger = logger
         self._logging_interval = options.logging_interval
         self._retry_interval = options.logging_interval
         self._event_queue_size = options.event_queue_size
@@ -132,9 +135,9 @@ class _StatsigLogger:
         res = self._net.retryable_request("log_event", {
             "events": events_copy,
             "statsigMetadata": self._statsig_metadata,
-        })
+        }, log_on_exception = True)
         if res is not None:
-            self._retry_logs.append(res)
+            self._retry_logs.append(RetryableLogs(res, 0))
 
     def shutdown(self):
         self._flush()
@@ -158,10 +161,15 @@ class _StatsigLogger:
             length = len(self._retry_logs)
             for _i in range(length):
                 try:
-                    payload = self._retry_logs.pop()
+                    retry_logs = self._retry_logs.pop()
+                    retry_logs.retries += 1
                 except IndexError:
                     break
 
-                res = self._net.retryable_request("log_event", payload)
+                res = self._net.retryable_request("log_event", retry_logs.payload, log_on_exception = True, retry = retry_logs.retries)
                 if res is not None:
-                    self._retry_logs.append(res)
+                    if retry_logs.retries >= 10:
+                        self._console_logger.warning("Failed to post logs after 10 retries, dropping the request")
+                        return
+
+                    self._retry_logs.append(RetryableLogs(retry_logs.payload, retry_logs.retries))

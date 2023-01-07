@@ -10,8 +10,8 @@ class _StatsigNetwork:
 
     __RETRY_CODES = [408, 500, 502, 503, 504, 522, 524, 599]
 
-    def __init__(self, sdkKey, options, error_boundary):
-        self.__sdk_key = sdkKey
+    def __init__(self, sdk_key, options, error_boundary):
+        self.__sdk_key = sdk_key
         api = options.api
         if not options.api.endswith("/"):
             api = options.api + "/"
@@ -40,16 +40,15 @@ class _StatsigNetwork:
                 data = response.json()
                 if data:
                     return data
-                return None
             return None
-        except Exception as e:
+        except Exception as err:
             if log_on_exception:
-                self.__error_boundary.log_exception(e)
+                self.__error_boundary.log_exception(err)
                 self.__log.warning(
                     'Network exception caught when making request to %s failed', endpoint)
             return None
 
-    def retryable_request(self, endpoint, payload, log_on_exception = False):
+    def retryable_request(self, endpoint, payload, log_on_exception = False, retry = 0):
         if self.__local_mode:
             return None
 
@@ -58,6 +57,7 @@ class _StatsigNetwork:
             'STATSIG-API-KEY': self.__sdk_key,
             'STATSIG-CLIENT-TIME': str(round(time.time() * 1000)),
             'STATSIG-SERVER-SESSION-ID': self.__session,
+            'STATSIG-RETRY': str(retry)
         }
         try:
             response = requests.post(
@@ -68,12 +68,13 @@ class _StatsigNetwork:
                 self.__log.warning(
                     "Request to %s failed with code %d", endpoint, response.status_code)
             return None
-        except Exception as e:
+        except Exception as err:
             if log_on_exception:
-                self.__error_boundary.log_exception(e)
-                self.__log.warning(
-                    "Network exception caught when making request to %s failed", endpoint)
-            return None
+                template = "Network exception caught when making request to {0} - {1}. Arguments: {2!r}"
+                message = template.format(self.__api + endpoint, type(err).__name__, err.args)
+                self.__error_boundary.log_exception(err)
+                self.__log.warning(message)
+            return payload
 
     def get_request(self, url, headers, log_on_exception = False):
         if self.__local_mode:
@@ -85,9 +86,9 @@ class _StatsigNetwork:
             if response.ok:
                 return response
             return None
-        except Exception as e:
+        except Exception as err:
             if log_on_exception:
-                self.__error_boundary.log_exception(e)
+                self.__error_boundary.log_exception(err)
                 self.__log.warning(
                     'Network exception caught when making request to %s failed', url)
             return None
