@@ -32,21 +32,24 @@ class _OutputLogger(Logger):
         self._logs[process].append(message)
 
     def debug(self, msg, *args, **kwargs):
+        formatted = msg
         if args:
-            msg = msg % args
-        self._logs["debug"].append(msg)
+            formatted = msg % args
+        self._logs["debug"].append(formatted)
         super().debug(msg, *args, **kwargs)
 
     def info(self, msg, *args, **kwargs):
+        formatted = msg
         if args:
-            msg = msg % args
-        self._logs["info"].append(msg)
+            formatted = msg % args
+        self._logs["info"].append(formatted)
         super().info(msg, *args, **kwargs)
 
     def warning(self, msg, *args, **kwargs):
+        formatted = msg
         if args:
-            msg = msg % args
-        self._logs["warning"].append(msg)
+            formatted = msg % args
+        self._logs["warning"].append(formatted)
         super().warning(msg, *args, **kwargs)
 
     def clear_log_history(self):
