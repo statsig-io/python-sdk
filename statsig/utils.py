@@ -24,7 +24,6 @@ class _OutputLogger(Logger):
     _logs = defaultdict(list)
     def __init__(self, name='statsig.sdk', level=logging.NOTSET):
         super().__init__(name=name, level=level)
-        self.root.setLevel(level)
 
     def log_process(self, process: str, msg: str):
         message = f"[{datetime.now().isoformat(' ')}] {process}: {msg}"
@@ -57,6 +56,5 @@ class _OutputLogger(Logger):
 
 
 logging.setLoggerClass(_OutputLogger)
-logging.basicConfig()
 logger = logging.getLogger('statsig.sdk')
 logger.disabled = 'unittest' in sys.modules
