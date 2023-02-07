@@ -15,7 +15,8 @@ def initialize(secret_key: str, options=None):
     :param options: The StatsigOptions object used to configure the SDK
     """
     logger.log_process("Initialize", "Starting...")
-    if options.init_timeout is not None:
+    init_timeout = options.init_timeout if options is not None else None
+    if init_timeout is not None:
         __instance.initialize_with_timeout(secret_key, options)
     else:
         __instance.initialize(secret_key, options)
