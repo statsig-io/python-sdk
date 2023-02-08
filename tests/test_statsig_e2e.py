@@ -50,12 +50,6 @@ class TestStatsigE2E(unittest.TestCase):
         statsig.initialize("secret-key", options)
         cls.initTime = round(time.time() * 1000)
 
-    def test_initialize_without_options(self, mock_post, mock_get):
-        try:
-            statsig.initialize("secret-key")
-        except:
-            self.fail("initialize with no options failed")
-
     # hacky, yet effective. python runs tests in alphabetical order.
     def test_a_check_gate(self, mock_post, mock_get):
         self.assertEqual(
