@@ -11,7 +11,7 @@ TEST_URLS = [
 
 
 def _construct_statsig_user(user_values) -> StatsigUser:
-    statsig_user = StatsigUser(user_values.get("userID"))
+    statsig_user = StatsigUser(user_id=user_values.get("userID"), custom_ids=user_values.get("customIDs"))
     statsig_user.app_version = user_values.get("appVersion")
     statsig_user.user_agent = user_values.get("userAgent")
     statsig_user.ip = user_values.get("ip")
@@ -22,7 +22,6 @@ def _construct_statsig_user(user_values) -> StatsigUser:
     statsig_user.custom = user_values.get("custom")
     statsig_user.private_attributes = user_values.get(
         "privateAttributes")
-    statsig_user.custom_ids = user_values.get("customIDs")
 
     return statsig_user
 
