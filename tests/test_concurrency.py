@@ -75,6 +75,10 @@ class TestStatsigConcurrency(unittest.TestCase):
         statsig.initialize("secret-key", options)
         cls.initTime = round(time.time() * 1000)
 
+    @classmethod
+    def tearDownClass(cls) -> None:
+        statsig.shutdown()
+
     @patch('requests.post', side_effect=_network_stub.mock)
     @patch('requests.get', side_effect=_network_stub.mock)
     def test_checking_and_updating_concurrently(self, mock_post, mock_get):

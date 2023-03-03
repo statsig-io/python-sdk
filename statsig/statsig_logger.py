@@ -135,14 +135,18 @@ class _StatsigLogger:
         res = self._net.retryable_request("log_event", {
             "events": events_copy,
             "statsigMetadata": self._statsig_metadata,
-        }, log_on_exception = True)
+        }, log_on_exception=True)
         if res is not None:
             self._retry_logs.append(RetryableLogs(res, 0))
 
     def shutdown(self):
         self._flush()
-        self._background_flush.join(THREAD_JOIN_TIMEOUT)
-        self._background_retry.join(THREAD_JOIN_TIMEOUT)
+
+        if self._background_flush is not None:
+            self._background_flush.join(THREAD_JOIN_TIMEOUT)
+
+        if self._background_retry is not None:
+            self._background_retry.join(THREAD_JOIN_TIMEOUT)
 
     def _periodic_flush(self, shutdown_event):
         while True:
@@ -166,7 +170,8 @@ class _StatsigLogger:
                 except IndexError:
                     break
 
-                res = self._net.retryable_request("log_event", retry_logs.payload, log_on_exception = True, retry = retry_logs.retries)
+                res = self._net.retryable_request("log_event", retry_logs.payload, log_on_exception=True,
+                                                  retry=retry_logs.retries)
                 if res is not None:
                     if retry_logs.retries >= 10:
                         self._console_logger.warning("Failed to post logs after 10 retries, dropping the request")

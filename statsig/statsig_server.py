@@ -46,6 +46,11 @@ class StatsigServer:
             return
 
     def initialize(self, sdkKey: str, options=None):
+        if self._initialized:
+            logger.log_process("Initialize",
+                               "Warning: Statsig is already initialized. No further action will be taken.")
+            return
+
         if sdkKey is None or not sdkKey.startswith("secret-"):
             raise StatsigValueError(
                 'Invalid key provided.  You must use a Server Secret Key from the Statsig console.')
@@ -172,6 +177,7 @@ class StatsigServer:
             self.__shutdown_event.set()
             self._logger.shutdown()
             self._spec_store.shutdown()
+            self._initialized = False
 
         self._errorBoundary.swallow(task)
 

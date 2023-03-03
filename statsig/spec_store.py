@@ -80,8 +80,12 @@ class _SpecStore:
             return
 
         self._executor.shutdown(wait=False)
-        self._background_download_configs.join(THREAD_JOIN_TIMEOUT)
-        self._background_download_id_lists.join(THREAD_JOIN_TIMEOUT)
+
+        if self._background_download_configs is not None:
+            self._background_download_configs.join(THREAD_JOIN_TIMEOUT)
+
+        if self._background_download_id_lists is not None:
+            self._background_download_id_lists.join(THREAD_JOIN_TIMEOUT)
 
     def get_gate(self, name: str):
         return self._gates.get(name)

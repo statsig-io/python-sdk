@@ -50,6 +50,10 @@ class TestStatsigE2E(unittest.TestCase):
         statsig.initialize("secret-key", options)
         cls.initTime = round(time.time() * 1000)
 
+    @classmethod
+    def tearDownClass(cls) -> None:
+        statsig.shutdown()
+
     # hacky, yet effective. python runs tests in alphabetical order.
     def test_a_check_gate(self, mock_post, mock_get):
         self.assertEqual(

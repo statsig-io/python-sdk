@@ -37,6 +37,9 @@ class TestLayerExposures(TestCaseWithExtras):
             api=_network_stub.host,
             tier=StatsigEnvironmentTier.development)
 
+    def tearDown(self) -> None:
+        statsig.shutdown()
+
     def test_does_not_log_on_get_layer(self, mock_post):
         self._start()
         statsig.get_layer(self._user, 'unallocated_layer')

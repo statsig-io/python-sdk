@@ -13,3 +13,5 @@ class TestStatsig(unittest.TestCase):
             statsig.initialize("secret-key")
         except:
             self.fail("initialize with no options failed")
+
+        statsig.shutdown()

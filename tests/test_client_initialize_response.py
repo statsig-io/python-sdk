@@ -4,7 +4,7 @@ import time
 
 import requests
 
-from statsig import StatsigOptions, statsig, StatsigUser
+from statsig import StatsigOptions, statsig, StatsigUser, StatsigServer
 from statsig.evaluator import _ConfigEvaluation
 from unittest.mock import MagicMock
 
@@ -35,6 +35,9 @@ class TestClientInitializeResponse(unittest.TestCase):
             print("THIS TEST IS EXPECTED TO FAIL FOR NON-STATSIG EMPLOYEES! If this is the only test failing, "
                   "please proceed to submit a pull request. If you are a Statsig employee, chat with jkw.")
             raise Exception("Failed to read sdk keys") from e
+
+    def tearDown(self) -> None:
+        statsig.shutdown()
 
     def test_prod(self):
         server_res, sdk_res = self.get_initialize_responses(

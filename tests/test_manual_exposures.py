@@ -39,6 +39,9 @@ class TestManualExposures(TestCaseWithExtras):
         TestManualExposures._logs = {'events': []}
         statsig.initialize("secret-key", self.options)
 
+    def tearDown(self) -> None:
+        statsig.shutdown()
+
     def test_api_with_exposure_logging_disabled(self, mock_post):
         statsig.check_gate_with_exposure_logging_disabled(self._user, 'always_on_gate')
         statsig.get_config_with_exposure_logging_disabled(self._user, 'test_config')
@@ -80,11 +83,11 @@ class TestManualExposures(TestCaseWithExtras):
         self.assertEqual(exposure.get('eventName', ''), event_name)
 
     def _assert_exposure_metadata(
-        self,
-        exposure: object,
-        gate: Optional[str] = None,
-        config: Optional[str] = None,
-        is_manual_exposure: Optional[str] = None,
+            self,
+            exposure: object,
+            gate: Optional[str] = None,
+            config: Optional[str] = None,
+            is_manual_exposure: Optional[str] = None,
     ):
         if gate is not None:
             self.assertEqual(exposure.get('metadata', {}).get('gate'), gate)
