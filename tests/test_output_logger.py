@@ -23,6 +23,12 @@ class TestOutputLogger(unittest.TestCase):
         _network_stub.stub_request_with_function(
             "download_config_specs", 500, dcs_callback)
 
+        logger._capture_logs = True
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        logger._capture_logs = False
+
     def tearDown(self):
         statsig.shutdown()
         logger.clear_log_history()

@@ -22,30 +22,35 @@ def to_raw_dict_or_none(field: dict):
 
 class _OutputLogger(Logger):
     _logs = defaultdict(list)
-    def __init__(self, name='statsig.sdk', level=logging.NOTSET):
+    _capture_logs = False
+
+    def __init__(self, name, level=logging.NOTSET):
         super().__init__(name=name, level=level)
+        self.disabled = 'unittest' in sys.modules
 
     def log_process(self, process: str, msg: str):
         message = f"[{datetime.now().isoformat(' ')}] {process}: {msg}"
         super().info(message)
-        self._logs[process].append(message)
+        self._append_log(process, message)
 
     def debug(self, msg, *args, **kwargs):
-        self._logs["debug"].append(msg)
+        self._append_log("debug", msg)
         super().debug(msg, *args, **kwargs)
 
     def info(self, msg, *args, **kwargs):
-        self._logs["info"].append(msg)
+        self._append_log("info", msg)
         super().info(msg, *args, **kwargs)
 
     def warning(self, msg, *args, **kwargs):
-        self._logs["warning"].append(msg)
+        self._append_log("warning", msg)
         super().warning(msg, *args, **kwargs)
 
     def clear_log_history(self):
         self._logs = defaultdict(list)
 
+    def _append_log(self, kind, msg):
+        if self._capture_logs:
+            self._logs[kind].append(msg)
 
-logging.setLoggerClass(_OutputLogger)
-logger = logging.getLogger('statsig.sdk')
-logger.disabled = 'unittest' in sys.modules
+
+logger = _OutputLogger("statsig.sdk")
