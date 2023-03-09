@@ -473,7 +473,7 @@ class _Evaluator:
         id = self.__get_unit_id(user, rule.get("idType", "userID")) or ""
         config_salt = config.get("salt", "")
         hash = self.__compute_user_hash(
-            config_salt + "." + rule_salt + "." + id
+            config_salt + "." + rule_salt + "." + str(id)
         )
         pass_percentage = rule.get("passPercentage", 0)
         return (hash % 10000) < pass_percentage * 100
