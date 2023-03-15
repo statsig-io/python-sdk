@@ -482,7 +482,7 @@ class _Evaluator:
             if user.custom_ids is None:
                 return None
             custom_id = user.custom_ids.get(
-                id_type, None) 
+                id_type, None)
             if custom_id is not None:
                 return custom_id
             return user.custom_ids.get(id_type.lower(), None)
