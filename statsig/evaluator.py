@@ -269,7 +269,6 @@ class _Evaluator:
 
     def __evaluate_condition(self, user, condition):
         value = None
-
         type = condition.get("type", "").upper()
         target = condition.get("targetValue")
         field = condition.get("field", "")
@@ -347,27 +346,27 @@ class _Evaluator:
             return _ConfigEvaluation(False, val <= target)
         if op == "version_gt":
             res = self.__version_compare_helper(
-                value, target, lambda a, b: self.__version_compare(a, b) > 0)
+                value, target, lambda result: result > 0)
             return _ConfigEvaluation(False, res)
         if op == "version_gte":
             res = self.__version_compare_helper(
-                value, target, lambda a, b: self.__version_compare(a, b) >= 0)
+                value, target, lambda result: result >= 0)
             return _ConfigEvaluation(False, res)
         if op == "version_lt":
             res = self.__version_compare_helper(
-                value, target, lambda a, b: self.__version_compare(a, b) < 0)
+                value, target, lambda result: result < 0)
             return _ConfigEvaluation(False, res)
         if op == "version_lte":
             res = self.__version_compare_helper(
-                value, target, lambda a, b: self.__version_compare(a, b) <= 0)
+                value, target, lambda result: result <= 0)
             return _ConfigEvaluation(False, res)
         if op == "version_eq":
             res = self.__version_compare_helper(
-                value, target, lambda a, b: self.__version_compare(a, b) == 0)
+                value, target, lambda result: result == 0)
             return _ConfigEvaluation(False, res)
         if op == "version_neq":
             res = self.__version_compare_helper(
-                value, target, lambda a, b: self.__version_compare(a, b) != 0)
+                value, target, lambda result: result != 0)
             return _ConfigEvaluation(False, res)
         if op == "any":
             return _ConfigEvaluation(
@@ -482,8 +481,11 @@ class _Evaluator:
         if id_type is not None and id_type.lower() != "userid":
             if user.custom_ids is None:
                 return None
-            return user.custom_ids.get(
-                id_type, None) or user.custom_ids.get(id_type.lower(), None)
+            custom_id = user.custom_ids.get(
+                id_type, None)
+            if custom_id is not None:
+                return custom_id
+            return user.custom_ids.get(id_type.lower(), None)
         return user.user_id
 
     def __match_string_in_array(self, value, target, compare):
@@ -498,25 +500,28 @@ class _Evaluator:
                 return True
         return False
 
-    def __version_compare(self, v1, v2):
+    def __version_compare(self, v1, v2, compare):
         p1 = v1.split(".")
         p2 = v2.split(".")
 
         i = 0
-        while i < max(len(p1), len(p2)):
-            c1 = 0
-            c2 = 0
-            if i < len(p1):
-                c1 = int(float(p1[i]))
-            if i < len(p2):
-                c2 = int(float(p2[i]))
-            if c1 < c2:
-                return -1
-            if c1 > c2:
-                return 1
-            i += 1
+        try:
+            while i < max(len(p1), len(p2)):
+                c1 = 0
+                c2 = 0
+                if i < len(p1):
+                    c1 = int(float(p1[i]))
+                if i < len(p2):
+                    c2 = int(float(p2[i]))
+                if c1 < c2:
+                    return compare(-1)
+                if c1 > c2:
+                    return compare(1)
+                i += 1
+        except ValueError:
+            return False
 
-        return 0
+        return compare(0)
 
     def __version_compare_helper(self, v1, v2, compare):
         v1_str = self.__get_value_as_string(v1)
@@ -533,7 +538,7 @@ class _Evaluator:
         if d2 > 0:
             v2_str = v2_str[0:d2]
 
-        return compare(v1_str, v2_str)
+        return self.__version_compare(v1_str, v2_str, compare)
 
     def __get_value_as_string(self, input):
         if input is None:
@@ -564,16 +569,27 @@ class _Evaluator:
     def __get_version_string(self, version):
         if version is None:
             return None
-        major = version.get("major", "0")
+
+        major = self.__get_numeric_subver(version, "major")
         if major is None:
-            major = "0"
-        minor = version.get("minor", "0")
+            return None
+        minor = self.__get_numeric_subver(version, "minor")
         if minor is None:
-            minor = "0"
-        patch = version.get("patch", "0")
+            return None
+        patch = self.__get_numeric_subver(version, "patch")
         if patch is None:
-            patch = "0"
-        return major + "." + minor + "." + patch
+            return None
+        return str.format("{}.{}.{}", major, minor,patch)
+
+    def __get_numeric_subver(self, version, subver):
+        ver = version.get(subver, "0")
+        if ver is None:
+            return 0
+        try:
+            numeric = int(ver)
+            return numeric
+        except ValueError:
+            return None
 
     def __compare_dates(self, first, second, compare):
         if first is None and second is None:
