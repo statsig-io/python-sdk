@@ -481,8 +481,11 @@ class _Evaluator:
         if id_type is not None and id_type.lower() != "userid":
             if user.custom_ids is None:
                 return None
-            return user.custom_ids.get(
-                id_type, None) or user.custom_ids.get(id_type.lower(), None)
+            custom_id = user.custom_ids.get(
+                id_type, None)
+            if custom_id is not None:
+                return custom_id
+            return user.custom_ids.get(id_type.lower(), None)
         return user.user_id
 
     def __match_string_in_array(self, value, target, compare):
