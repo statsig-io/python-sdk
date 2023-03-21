@@ -22,10 +22,11 @@ jobs:
         run: |
           git clone https://${{ secrets.KONG_REPO_PAT }}@github.com/statsig-io/kong.git
 
-      - name: Setup Python Server
+      - name: Build Bridge
         run: |
-          cd kong/bridges/python-server
-          BRANCH="${GITHUB_HEAD_REF:-main}"; pip install statsig git+https://${repo_pat}@github.com/$GITHUB_REPOSITORY.git@$BRANCH
+          cd kong
+          npm install
+          FORCE_COLOR=true npm run kong -- build python -v
         env:
           repo_pat: ${{ secrets.KONG_REPO_PAT }}
 
