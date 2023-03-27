@@ -1,11 +1,12 @@
 import collections
 import threading
-from typing import Optional
+from typing import Optional, Union
 
 from .retryable_logs import RetryableLogs
 from .evaluation_details import EvaluationDetails
 from .evaluator import _ConfigEvaluation
 from .statsig_event import StatsigEvent
+# from .statsig_user import StatsigUser
 from .layer import Layer
 from .utils import logger
 from .thread_util import spawn_background_thread, THREAD_JOIN_TIMEOUT
@@ -14,10 +15,11 @@ _CONFIG_EXPOSURE_EVENT = "statsig::config_exposure"
 _LAYER_EXPOSURE_EVENT = "statsig::layer_exposure"
 _GATE_EXPOSURE_EVENT = "statsig::gate_exposure"
 
+_IGNORED_METADATA_KEYS = {'serverTime', 'configSyncTime', 'initTime', 'reason'}
 
 def _safe_add_evaluation_to_event(
-        evaluation_details: EvaluationDetails, event: StatsigEvent):
-    if evaluation_details is None:
+        evaluation_details: Union[EvaluationDetails, None], event: StatsigEvent):
+    if evaluation_details is None or event is None or event.metadata is None:
         return
 
     event.metadata["reason"] = evaluation_details.reason
@@ -29,10 +31,12 @@ def _safe_add_evaluation_to_event(
 class _StatsigLogger:
     _background_flush: Optional[threading.Thread]
     _background_retry: Optional[threading.Thread]
+    _background_deduper: Optional[threading.Thread]
 
     def __init__(self, net, shutdown_event, statsig_metadata, error_boundary, options):
         self._events = []
         self._retry_logs = collections.deque(maxlen=10)
+        self._deduper = set()
         self._net = net
         self._statsig_metadata = statsig_metadata
         self._local_mode = options.local_mode
@@ -44,6 +48,7 @@ class _StatsigLogger:
         self._shutdown_event = shutdown_event
         self._background_flush = None
         self._background_retry = None
+        self._background_deduper = None
         self.spawn_bg_threads_if_needed()
 
     def spawn_bg_threads_if_needed(self):
@@ -57,6 +62,10 @@ class _StatsigLogger:
         if self._background_retry is None or not self._background_retry.is_alive():
             self._background_retry = spawn_background_thread(
                 self._periodic_retry, (self._shutdown_event,), self._error_boundary)
+
+        if self._background_deduper is None or not self._background_deduper.is_alive():
+            self._background_deduper = spawn_background_thread(
+                self._periodic_dedupe_clear, (self._shutdown_event,), self._error_boundary)
 
     def log(self, event):
         if self._local_mode:
@@ -73,6 +82,9 @@ class _StatsigLogger:
             "gateValue": "true" if value else "false",
             "ruleID": rule_id,
         }
+        if not self._is_unique_exposure(user, _GATE_EXPOSURE_EVENT, event.metadata):
+            return
+
         if is_manual_exposure:
             event.metadata["isManualExposure"] = "true"
 
@@ -90,6 +102,8 @@ class _StatsigLogger:
             "config": config,
             "ruleID": rule_id,
         }
+        if not self._is_unique_exposure(user, _CONFIG_EXPOSURE_EVENT, event.metadata):
+            return
         if is_manual_exposure:
             event.metadata["isManualExposure"] = "true"
 
@@ -111,13 +125,16 @@ class _StatsigLogger:
             exposures = config_evaluation.secondary_exposures
             allocated_experiment = config_evaluation.allocated_experiment
 
-        event.metadata = {
+        metadata = {
             "config": layer.name,
             "ruleID": layer.rule_id,
             "allocatedExperiment": allocated_experiment,
             "parameterName": parameter_name,
             "isExplicitParameter": "true" if is_explicit else "false"
         }
+        if not self._is_unique_exposure(user, _LAYER_EXPOSURE_EVENT, metadata):
+            return
+        event.metadata = metadata
         if is_manual_exposure:
             event.metadata["isManualExposure"] = "true"
 
@@ -125,6 +142,7 @@ class _StatsigLogger:
 
         _safe_add_evaluation_to_event(
             config_evaluation.evaluation_details, event)
+
         self.log(event)
 
     def flush(self):
@@ -157,11 +175,19 @@ class _StatsigLogger:
             except Exception as e:
                 self._error_boundary.log_exception(e)
 
+    def _periodic_dedupe_clear(self, shutdown_event):
+        while True:
+            try:
+                if shutdown_event.wait(self._logging_interval):
+                    break
+                self._deduper = set()
+            except Exception as e:
+                self._error_boundary.log_exception(e)
+
     def _periodic_retry(self, shutdown_event):
         while True:
             if shutdown_event.wait(self._retry_interval):
                 break
-
             length = len(self._retry_logs)
             for _i in range(length):
                 try:
@@ -178,3 +204,24 @@ class _StatsigLogger:
                         return
 
                     self._retry_logs.append(RetryableLogs(retry_logs.payload, retry_logs.retries))
+
+    def _is_unique_exposure(self, user, eventName: str, metadata: dict or None) -> bool:
+        if user is None:
+            return True
+        if len(self._deduper) > 10000:
+            self._deduper = set()
+        custom_id_key = ''
+        if user.custom_ids and isinstance(user.custom_ids, dict):
+            custom_id_key = ','.join(user.custom_ids.values())
+
+        metadata_key = ''
+        if metadata and isinstance(metadata, dict):
+            metadata_key = ','.join(str(value) for key, value in metadata.items() if key not in _IGNORED_METADATA_KEYS)
+
+        key = ','.join(str(item) for item in [user.user_id, custom_id_key, eventName, metadata_key])
+
+        if key in self._deduper:
+            return False
+
+        self._deduper.add(key)
+        return True

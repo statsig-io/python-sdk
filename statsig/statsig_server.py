@@ -37,7 +37,8 @@ class StatsigServer:
         self._initialized = False
 
     def initialize_with_timeout(self, sdkKey: str, options=None):
-        thread = threading.Thread(target=self.initialize, args=(sdkKey, options))
+        thread = threading.Thread(
+            target=self.initialize, args=(sdkKey, options))
         thread.start()
         thread.join(timeout=options.init_timeout)
         if thread.is_alive():
@@ -62,7 +63,8 @@ class StatsigServer:
             self._options = options
             self.__shutdown_event = threading.Event()
             self.__statsig_metadata = _StatsigMetadata.get()
-            self._network = _StatsigNetwork(sdkKey, options, self._errorBoundary)
+            self._network = _StatsigNetwork(
+                sdkKey, options, self._errorBoundary)
             self._logger = _StatsigLogger(
                 self._network, self.__shutdown_event, self.__statsig_metadata, self._errorBoundary,
                 options)
@@ -81,7 +83,8 @@ class StatsigServer:
             if not self._verify_inputs(user, gate_name):
                 return False
 
-            result = self.__check_gate_server_fallback(user, gate_name, log_exposure)
+            result = self.__check_gate_server_fallback(
+                user, gate_name, log_exposure)
             return result.boolean_value
 
         return self._errorBoundary.capture(task, lambda: False)
@@ -98,7 +101,8 @@ class StatsigServer:
             if not self._verify_inputs(user, config_name):
                 return DynamicConfig({}, config_name, "")
 
-            result = self.__get_config_server_fallback(user, config_name, log_exposure)
+            result = self.__get_config_server_fallback(
+                user, config_name, log_exposure)
             return DynamicConfig(
                 result.json_value, config_name, result.rule_id)
 
@@ -173,7 +177,8 @@ class StatsigServer:
         self._errorBoundary.swallow(task)
 
     def flush(self):
-        self._logger.flush()
+        if self._logger is not None:
+            self._logger.flush()
 
     def shutdown(self):
         def task():
@@ -272,8 +277,10 @@ class StatsigServer:
         return True
 
     def _verify_bg_threads_running(self):
-        self._logger.spawn_bg_threads_if_needed()
-        self._spec_store.spawn_bg_threads_if_needed()
+        if self._logger is not None:
+            self._logger.spawn_bg_threads_if_needed()
+        if self._spec_store is not None:
+            self._spec_store.spawn_bg_threads_if_needed()
 
     def __check_gate_server_fallback(
             self, user: StatsigUser, gate_name: str, log_exposure=True):
