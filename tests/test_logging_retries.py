@@ -50,5 +50,5 @@ class TestLoggingRetries(unittest.TestCase):
             statsig.check_gate(self.statsig_user, "always_on_gate"),
             True
         )
-        statsig.get_instance()._logger._flush();  # type: ignore - its set at this point
+        statsig.flush();  # type: ignore - its set at this point
         time.sleep(12)

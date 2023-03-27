@@ -49,6 +49,10 @@ class LoggerTest(unittest.TestCase):
         self._instance.check_gate(self._user, "a_gate")
         self.assertEqual(len(self._events), 6)
 
+        self._instance.check_gate(self._user, "a_gate")
+        self._instance.flush()
+        self.assertEqual(len(self._events), 7)
+
     @patch('requests.post', side_effect=_network_stub.mock)
     def test_log_content(self, mock_post):
         self._instance.check_gate(self._user, "a_gate")

@@ -63,7 +63,7 @@ class _StatsigLogger:
             return
         self._events.append(event.to_dict())
         if len(self._events) >= self._event_queue_size:
-            self._flush()
+            self.flush()
 
     def log_gate_exposure(self, user, gate, value, rule_id, secondary_exposures,
                           evaluation_details: EvaluationDetails, is_manual_exposure=False):
@@ -127,7 +127,7 @@ class _StatsigLogger:
             config_evaluation.evaluation_details, event)
         self.log(event)
 
-    def _flush(self):
+    def flush(self):
         if len(self._events) == 0:
             return
         events_copy = self._events.copy()
@@ -140,7 +140,7 @@ class _StatsigLogger:
             self._retry_logs.append(RetryableLogs(res, 0))
 
     def shutdown(self):
-        self._flush()
+        self.flush()
 
         if self._background_flush is not None:
             self._background_flush.join(THREAD_JOIN_TIMEOUT)
@@ -153,7 +153,7 @@ class _StatsigLogger:
             try:
                 if shutdown_event.wait(self._logging_interval):
                     break
-                self._flush()
+                self.flush()
             except Exception as e:
                 self._error_boundary.log_exception(e)
 

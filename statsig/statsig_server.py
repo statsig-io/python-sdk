@@ -172,6 +172,9 @@ class StatsigServer:
 
         self._errorBoundary.swallow(task)
 
+    def flush(self):
+        self._logger.flush()
+
     def shutdown(self):
         def task():
             self.__shutdown_event.set()
