@@ -9,12 +9,14 @@ from .statsig_errors import StatsigValueError, StatsigNameError
 from .statsig_network import _StatsigNetwork
 from .statsig_options import StatsigOptions
 from .thread_util import spawn_background_thread, THREAD_JOIN_TIMEOUT
+from .diagnostics import _Diagnostics
 from .utils import logger
 
 RULESETS_SYNC_INTERVAL = 10
 IDLISTS_SYNC_INTERVAL = 60
 STORAGE_ADAPTER_KEY = "statsig.cache"
 SYNC_OUTDATED_MAX_S = 120
+
 
 def _is_specs_json_valid(specs_json):
     if specs_json is None or specs_json.get("time") is None:
@@ -30,7 +32,8 @@ class _SpecStore:
     _background_download_id_lists: Optional[threading.Thread]
 
     def __init__(self, network: _StatsigNetwork, options: StatsigOptions, statsig_metadata: dict,
-                 error_boundary: _StatsigErrorBoundary, shutdown_event: threading.Event):
+                 error_boundary: _StatsigErrorBoundary, shutdown_event: threading.Event,
+                 init_diagnostics: _Diagnostics):
         self.last_update_time = 0
         self.initial_update_time = 0
         self.init_reason = EvaluationReason.uninitialized
@@ -44,6 +47,7 @@ class _SpecStore:
         self._background_download_configs = None
         self._background_download_id_lists = None
         self._sync_failure_count = 0
+        self._init_diagnostics = init_diagnostics
 
         self._configs = {}
         self._gates = {}
@@ -119,14 +123,15 @@ class _SpecStore:
             if self._options.bootstrap_values is not None:
                 logger.warning(
                     "data_store gets priority over bootstrap_values. bootstrap_values will be ignored")
-
             self._load_config_specs_from_storage_adapter()
             if self.last_update_time == 0:
                 self._log_process("Retrying with network...")
                 self._download_config_specs()
 
         elif self._options.bootstrap_values is not None:
+            self._init_diagnostics.mark("bootstrap", "start", "load")
             self._bootstrap_config_specs()
+            self._init_diagnostics.mark("bootstrap", "end", "load")
 
         else:
             self._download_config_specs()
@@ -202,22 +207,28 @@ class _SpecStore:
             log_on_exception = True
             self._sync_failure_count = 0
 
-        specs = self._network.post_request("download_config_specs", {
-            "statsigMetadata": self._statsig_metadata,
-            "sinceTime": self.last_update_time,
-        }, log_on_exception)
+        try:
+            specs = self._network.post_request("download_config_specs", {
+                "statsigMetadata": self._statsig_metadata,
+                "sinceTime": self.last_update_time,
+            }, log_on_exception, self._init_diagnostics)
+        except Exception as e:
+            raise e
 
         if specs is None:
             self._sync_failure_count += 1
             return
 
+        self._init_diagnostics.mark("download_config_specs", "start", "process")
         if not _is_specs_json_valid(specs):
+            self._init_diagnostics.mark("download_config_specs", "end", "process", False)
             return
 
         self._log_process("Done loading specs")
         if self._process_specs(specs):
             self._save_to_storage_adapter(specs)
             self.init_reason = EvaluationReason.network
+        self._init_diagnostics.mark("download_config_specs", "end", "process", self.init_reason == EvaluationReason.network)
 
     def _save_to_storage_adapter(self, specs):
         if not _is_specs_json_valid(specs):
@@ -232,6 +243,7 @@ class _SpecStore:
         self._options.data_store.set(STORAGE_ADAPTER_KEY, json.dumps(specs))
 
     def _load_config_specs_from_storage_adapter(self):
+        self._init_diagnostics.mark("bootstrap", "start", "load")
         self._log_process("Loading specs from adapter")
         if self._options.data_store is None:
             return
@@ -254,6 +266,7 @@ class _SpecStore:
         self._log_process("Done loading specs")
         if self._process_specs(cache):
             self.init_reason = EvaluationReason.data_adapter
+        self._init_diagnostics.mark("bootstrap", "end", "load")
 
     def _spawn_bg_download_id_lists(self):
         self._background_download_id_lists = spawn_background_thread(self._sync, (
@@ -264,9 +277,11 @@ class _SpecStore:
         try:
             server_id_lists = self._network.post_request("get_id_lists", {
                 "statsigMetadata": self._statsig_metadata,
-            })
+            }, False, self._init_diagnostics)
+
             if server_id_lists is None:
                 return
+            self._init_diagnostics.mark("get_id_lists", "start", "process")
 
             local_id_lists = self._id_lists
             workers = []
@@ -321,7 +336,10 @@ class _SpecStore:
             # remove any list that has been deleted
             for list_name in deleted_lists:
                 local_id_lists.pop(list_name, None)
+            self._init_diagnostics.mark("get_id_lists", "end", "process", True)
+
         except Exception as e:
+            self._init_diagnostics.mark("get_id_lists", "end", "process", False)
             self._error_boundary.log_exception(e)
 
     def _download_single_id_list(

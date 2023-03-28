@@ -10,10 +10,12 @@ from .statsig_event import StatsigEvent
 from .layer import Layer
 from .utils import logger
 from .thread_util import spawn_background_thread, THREAD_JOIN_TIMEOUT
+from .diagnostics import _Diagnostics
 
 _CONFIG_EXPOSURE_EVENT = "statsig::config_exposure"
 _LAYER_EXPOSURE_EVENT = "statsig::layer_exposure"
 _GATE_EXPOSURE_EVENT = "statsig::gate_exposure"
+_DIAGNOSTICS_EVENT = "statsig::diagnostics"
 
 _IGNORED_METADATA_KEYS = {'serverTime', 'configSyncTime', 'initTime', 'reason'}
 
@@ -204,6 +206,12 @@ class _StatsigLogger:
                         return
 
                     self._retry_logs.append(RetryableLogs(retry_logs.payload, retry_logs.retries))
+
+
+    def log_diagnostics_event(self, diagnostics: _Diagnostics):
+        event = StatsigEvent(None, _DIAGNOSTICS_EVENT)
+        event.metadata = diagnostics.serialize()
+        self.log(event)
 
     def _is_unique_exposure(self, user, eventName: str, metadata: dict or None) -> bool:
         if user is None:

@@ -33,7 +33,9 @@ class TestManualExposures(TestCaseWithExtras):
 
         cls.options = StatsigOptions(
             api=_network_stub.host,
-            tier=StatsigEnvironmentTier.development)
+            tier=StatsigEnvironmentTier.development,
+            disable_diagnostics=True
+        )
 
     def setUp(self):
         TestManualExposures._logs = {'events': []}

@@ -35,7 +35,8 @@ class TestLoggingRetries(unittest.TestCase):
         options = StatsigOptions(
             api=_network_stub.host,
             tier=StatsigEnvironmentTier.development,
-            logging_interval=1)
+            logging_interval=1,
+            disable_diagnostics=False)
 
         statsig.initialize("secret-test", options)
         cls.initTime = round(time.time() * 1000)

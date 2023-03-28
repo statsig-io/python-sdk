@@ -35,7 +35,8 @@ class TestStatsigE2EBootstrapped(unittest.TestCase):
         cls._logs = {}
         options = StatsigOptions(
             api=_network_stub.host,
-            tier="development")
+            tier="development",
+            disable_diagnostics=True)
         options.bootstrap_values = CONFIG_SPECS_RESPONSE
         options.rules_updated_callback = cls.callback
         options.rulesets_sync_interval = 1

@@ -71,7 +71,8 @@ class TestStatsigConcurrency(unittest.TestCase):
             tier=StatsigEnvironmentTier.development,
             idlists_sync_interval=0.01,
             rulesets_sync_interval=0.01,
-            event_queue_size=400)
+            event_queue_size=400,
+            disable_diagnostics=True)
 
         statsig.initialize("secret-key", options)
         cls.initTime = round(time.time() * 1000)

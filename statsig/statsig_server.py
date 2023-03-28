@@ -14,6 +14,7 @@ from .statsig_network import _StatsigNetwork
 from .statsig_logger import _StatsigLogger
 from .dynamic_config import DynamicConfig
 from .statsig_options import StatsigOptions
+from .diagnostics import _Diagnostics
 from .utils import logger
 
 RULESETS_SYNC_INTERVAL = 10
@@ -31,10 +32,12 @@ class StatsigServer:
     _logger: Optional[_StatsigLogger]
     _spec_store: Optional[_SpecStore]
     _evaluator: Optional[_Evaluator]
+    _init_diagnostics: _Diagnostics
 
     def __init__(self) -> None:
         self._errorBoundary = _StatsigErrorBoundary()
         self._initialized = False
+        self._init_diagnostics = _Diagnostics("initialize")
 
     def initialize_with_timeout(self, sdkKey: str, options=None):
         thread = threading.Thread(
@@ -51,7 +54,6 @@ class StatsigServer:
             logger.log_process("Initialize",
                                "Warning: Statsig is already initialized. No further action will be taken.")
             return
-
         if sdkKey is None or not sdkKey.startswith("secret-"):
             raise StatsigValueError(
                 'Invalid key provided.  You must use a Server Secret Key from the Statsig console.')
@@ -60,6 +62,7 @@ class StatsigServer:
         self._errorBoundary.set_api_key(sdkKey)
 
         try:
+            self._init_diagnostics.mark("overall", "start")
             self._options = options
             self.__shutdown_event = threading.Event()
             self.__statsig_metadata = _StatsigMetadata.get()
@@ -69,14 +72,21 @@ class StatsigServer:
                 self._network, self.__shutdown_event, self.__statsig_metadata, self._errorBoundary,
                 options)
             self._spec_store = _SpecStore(
-                self._network, self._options, self.__statsig_metadata, self._errorBoundary, self.__shutdown_event)
+                self._network, self._options, self.__statsig_metadata, self._errorBoundary, self.__shutdown_event, self._init_diagnostics)
             self._evaluator = _Evaluator(self._spec_store)
             self._initialized = True
+            self._init_diagnostics.mark("overall", "end")
+            self._log_diagnostics(self._init_diagnostics)
         except (StatsigValueError, StatsigNameError, StatsigRuntimeError) as e:
             raise e
         except Exception as e:
             self._errorBoundary.log_exception(e)
             self._initialized = True
+
+    def _log_diagnostics(self, diagnostics: _Diagnostics):
+        if self._options.disable_diagnostics:
+            return
+        self._logger.log_diagnostics_event(diagnostics)
 
     def check_gate(self, user: StatsigUser, gate_name: str, log_exposure=True):
         def task():

@@ -65,7 +65,7 @@ class TestStorageAdapter(unittest.TestCase):
         self._did_download_specs = False
         self._data_adapter = _TestAdapter()
         self._options = StatsigOptions(
-            data_store=self._data_adapter, api=self._api_override)
+            data_store=self._data_adapter, api=self._api_override, disable_diagnostics=True)
 
         def download_config_specs_callback(url: str, data: dict):
             self._did_download_specs = True
@@ -107,6 +107,7 @@ class TestStorageAdapter(unittest.TestCase):
         options = StatsigOptions(
             data_store=self._data_adapter,
             api=self._api_override,
+            disable_diagnostics=True,
             bootstrap_values=json.dumps({
                 "time": 1,
                 "feature_gates": [{

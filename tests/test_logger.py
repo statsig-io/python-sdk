@@ -21,6 +21,7 @@ class LoggerTest(unittest.TestCase):
         options = StatsigOptions(
             api="http://logger-test",
             event_queue_size=3,
+            disable_diagnostics=True
         )
 
         self._network_stub.reset()

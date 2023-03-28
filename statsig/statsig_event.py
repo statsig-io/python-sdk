@@ -22,8 +22,6 @@ class StatsigEvent:
     _time: int = field(default_factory=lambda: round(time.time() * 1000))
 
     def __post_init__(self):
-        if self.user is None or not isinstance(self.user, StatsigUser):
-            raise StatsigValueError('StatsigEvent.user must be set')
         if self.event_name is None or self.event_name == "":
             raise StatsigValueError(
                 'StatsigEvent.event_name must be a valid str')

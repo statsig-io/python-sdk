@@ -36,7 +36,7 @@ class TestInitTimeout(unittest.TestCase):
 
     @patch('requests.post', side_effect=_network_stub.mock)
     def test_without_timeout_option(self, mock_post):
-        options = StatsigOptions(api=_network_stub.host)
+        options = StatsigOptions(api=_network_stub.host, disable_diagnostics=True)
         start = time.time()
         statsig.initialize("secret-key", options)
         end = time.time()
@@ -44,7 +44,7 @@ class TestInitTimeout(unittest.TestCase):
 
     @patch('requests.post', side_effect=_network_stub.mock)
     def test_no_timeout_with_timeout_option(self, mock_post):
-        options = StatsigOptions(api=_network_stub.host, init_timeout=5)
+        options = StatsigOptions(api=_network_stub.host, init_timeout=5, disable_diagnostics=True)
         start = time.time()
         statsig.initialize("secret-key", options)
         end = time.time()
@@ -52,7 +52,7 @@ class TestInitTimeout(unittest.TestCase):
 
     @patch('requests.post', side_effect=_network_stub.mock)
     def test_timeout_with_timeout_option(self, mock_post):
-        options = StatsigOptions(api=_network_stub.host, init_timeout=1)
+        options = StatsigOptions(api=_network_stub.host, init_timeout=1, disable_diagnostics=True)
         start = time.time()
         statsig.initialize("secret-key", options)
         end = time.time()

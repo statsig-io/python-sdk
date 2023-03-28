@@ -36,17 +36,12 @@ class TestBadInput(unittest.TestCase):
 
     def test_invalid_tier(self):
         with self.assertRaises(ValueError) as context:
-            StatsigOptions(tier=123)
+            StatsigOptions(tier=123,
+            disable_diagnostics=True)
 
         self.assertTrue('StatsigEnvironmentTier' in str(context.exception))
 
     def test_bad_events(self):
-        with self.assertRaises(ValueError) as context:
-            StatsigEvent(None, None)
-
-        self.assertTrue(
-            'StatsigEvent.user must be set' in str(context.exception))
-
         with self.assertRaises(ValueError) as context:
             StatsigEvent(StatsigUser("test"), None)
 

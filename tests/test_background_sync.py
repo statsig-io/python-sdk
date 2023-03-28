@@ -155,6 +155,7 @@ class TestBackgroundSync(unittest.TestCase):
             tier=StatsigEnvironmentTier.development,
             rulesets_sync_interval=1,
             idlists_sync_interval=1,
+            disable_diagnostics=True
         )
         self._client = StatsigServer()
         self._client.initialize("secret-key", options)
@@ -344,6 +345,7 @@ class TestBackgroundSync(unittest.TestCase):
             tier=StatsigEnvironmentTier.development,
             rulesets_sync_interval=1,
             idlists_sync_interval=1,
+            disable_diagnostics=True
         )
         self._client = StatsigServer()
         self._client.initialize("secret-key", options)

@@ -21,7 +21,8 @@ class StatsigOptions:
             event_queue_size: Optional[int] = 500,
             data_store: Optional[IDataStore] = None,
             idlists_thread_limit: int = 3,
-            logging_interval: int = 60
+            logging_interval: int = 60,
+            disable_diagnostics: bool = False
     ):
         self.data_store = data_store
         self._environment = None
@@ -44,6 +45,7 @@ class StatsigOptions:
         self.local_mode = local_mode
         self.bootstrap_values = bootstrap_values
         self.rules_updated_callback = rules_updated_callback
+        self.disable_diagnostics = disable_diagnostics
         if event_queue_size is None:
             self.event_queue_size = 500
         else:
