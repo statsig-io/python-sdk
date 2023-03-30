@@ -28,20 +28,24 @@ class TestStatsigUser(unittest.TestCase):
             "tier": StatsigEnvironmentTier.development}
         user_string = json.dumps(user.to_dict())
         self.assertEqual(json.loads(user_string)[
-                         "statsigEnvironment"]["tier"], "development")
+                             "statsigEnvironment"]["tier"], "development")
 
     def test_environment_string(self):
         user = StatsigUser("test")
         user._statsig_environment = {"tier": "staging"}
         user_string = json.dumps(user.to_dict())
         self.assertEqual(json.loads(user_string)[
-                         "statsigEnvironment"]["tier"], "staging")
+                             "statsigEnvironment"]["tier"], "staging")
 
     def test_serialize_for_evaluation(self):
         user = StatsigUser(user_id="hi", private_attributes={"abc": 123})
         user_string = json.dumps(user.to_dict(True))
         self.assertEqual(json.loads(user_string)[
-                         "privateAttributes"]["abc"], 123)
+                             "privateAttributes"]["abc"], 123)
+
+    def test_stringify_user_id(self):
+        user = StatsigUser(123)
+        self.assertEqual(user.user_id, '123')
 
     def test_all(self):
         id = uuid4()
@@ -65,8 +69,8 @@ class TestStatsigUser(unittest.TestCase):
         self.assertEqual(json.loads(user_string)["userAgent"], str(user_agent))
         self.assertEqual(json.loads(user_string)["appVersion"], "1.22.3")
         self.assertEqual(json.loads(user_string)[
-                         "email"], "jkw+123@statsig.com")
-        self.assertEqual(json.loads(user_string)["customIDs"]["custom"], 123)
+                             "email"], "jkw+123@statsig.com")
+        self.assertEqual(json.loads(user_string)["customIDs"]["custom"], '123')
         self.assertEqual(json.loads(user_string)["country"], "MX")
         self.assertEqual(json.loads(user_string)["locale"], "en_US")
         self.assertEqual(json.loads(user_string)["custom"]["GB"], "league?")
