@@ -26,6 +26,7 @@ class TestEvaluationDetails(unittest.TestCase):
         server = StatsigServer()
         options = StatsigOptions(
             api=_api_override,
+            disable_diagnostics=True
         )
 
         _network_stub.reset()
@@ -147,7 +148,7 @@ class TestEvaluationDetails(unittest.TestCase):
 
     def test_bootstrap(self, mock_post, mock_time):
         opts = StatsigOptions(
-            bootstrap_values=CONFIG_SPECS_RESPONSE, api=_api_override)
+            bootstrap_values=CONFIG_SPECS_RESPONSE, api=_api_override, disable_diagnostics=True)
         bootstrap_server = StatsigServer()
         bootstrap_server.initialize('secret-key', opts)
 
@@ -181,7 +182,7 @@ class TestEvaluationDetails(unittest.TestCase):
             def get(self, key: str):
                 return CONFIG_SPECS_RESPONSE
 
-        opts = StatsigOptions(data_store=_TestAdapter(), api=_api_override)
+        opts = StatsigOptions(data_store=_TestAdapter(), api=_api_override, disable_diagnostics=True)
         data_store_server = StatsigServer()
         data_store_server.initialize('secret-key', opts)
 

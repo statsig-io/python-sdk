@@ -46,7 +46,7 @@ class ServerSDKConsistencyTest(unittest.TestCase):
             response = requests.post(
                 api + "/rulesets_e2e_test", headers=headers)
             self.data = response.json()
-            options = StatsigOptions(api=api)
+            options = StatsigOptions(api=api, disable_diagnostics=True)
             self.sdk = StatsigServer()
             print(api)
             self.sdk.initialize(self.SDK_KEY, options)

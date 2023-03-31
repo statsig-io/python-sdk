@@ -24,7 +24,10 @@ class _StatsigNetwork:
         self.__log = logger
         self.__session = str(uuid4())
 
-    def post_request(self, endpoint, payload, log_on_exception = False):
+    def post_request(self, endpoint, payload, log_on_exception = False, init_diagnostics=None):
+        if init_diagnostics:
+            init_diagnostics.mark(endpoint, "start", "network_request")
+
         if self.__local_mode:
             self.__log.debug('Using local mode. Dropping network request')
             return None
@@ -41,6 +44,7 @@ class _StatsigNetwork:
         if verified_payload is None:
             return None
 
+        response = None
         try:
             response = requests.post(
                 self.__api + endpoint, json=verified_payload, headers=headers, timeout=self.__timeout)
@@ -57,6 +61,9 @@ class _StatsigNetwork:
             if self._raise_on_error:
                 raise err
             return None
+        finally:
+            if init_diagnostics:
+                init_diagnostics.mark(endpoint, "end", "network_request", None if response is None else response.status_code)
 
     def retryable_request(self, endpoint, payload, log_on_exception = False, retry = 0):
         if self.__local_mode:

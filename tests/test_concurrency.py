@@ -1,3 +1,4 @@
+import random
 import threading
 import time
 import os
@@ -70,7 +71,8 @@ class TestStatsigConcurrency(unittest.TestCase):
             tier=StatsigEnvironmentTier.development,
             idlists_sync_interval=0.01,
             rulesets_sync_interval=0.01,
-            event_queue_size=400)
+            event_queue_size=400,
+            disable_diagnostics=True)
 
         statsig.initialize("secret-key", options)
         cls.initTime = round(time.time() * 1000)
@@ -92,22 +94,25 @@ class TestStatsigConcurrency(unittest.TestCase):
         for t in self.threads:
             t.join()
 
-        self.assertEqual(200, len(statsig.get_instance()._logger._events))
+        self.assertEqual(201, len(statsig.get_instance()._logger._events))
         self.assertEqual(1600, self._event_count)
         statsig.shutdown()
 
         self.assertEqual(0, len(statsig.get_instance()._logger._events))
-        self.assertEqual(1800, self._event_count)
+        self.assertEqual(1801, self._event_count)
 
     def run_checks(self, interval, times):
         for x in range(times):
+            salt = str(random.randint(1, 10000000000))
             user = StatsigUser(
-                f'user_id_{x}', email="testuser@statsig.com", private_attributes={"test": 123})
+                f'user_id_{x}', email="testuser@statsig.com", private_attributes={"test": 123}, custom_ids={'salt': salt})
             statsig.log_event(StatsigEvent(
                 user, "test_event", 1, {"key": "value"}))
             self.assertEqual(True, statsig.check_gate(
                 user, "on_for_statsig_email"))
             self.assertEqual(True, statsig.check_gate(user, "always_on_gate"))
+            self.assertFalse(statsig.check_gate(
+                StatsigUser(f'user_id_{salt}{x}'), "on_for_id_list"))
             self.assertTrue(statsig.check_gate(
                 StatsigUser("regular_user_id"), "on_for_id_list"))
 

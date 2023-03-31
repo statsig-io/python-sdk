@@ -35,13 +35,13 @@ class TestOutputLogger(unittest.TestCase):
 
     @patch('requests.post', side_effect=_network_stub.mock)
     def test_initialize_timeout(self, mock_post):
-        options = StatsigOptions(api=_network_stub.host, init_timeout=0.1)
+        options = StatsigOptions(api=_network_stub.host, init_timeout=0.1, disable_diagnostics=True)
         statsig.initialize("secret-key", options)
         self.assertGreater(len(logger._logs.get("Initialize")), 3)
 
     @patch('requests.post', side_effect=_network_stub.mock)
     def test_initialize_failed_to_load_network(self, mock_post):
-        options = StatsigOptions(api=_network_stub.host)
+        options = StatsigOptions(api=_network_stub.host, disable_diagnostics=True)
         statsig.initialize("secret-key", options)
         self.assertGreater(len(logger._logs.get("Initialize")), 2)
         self.assertGreater(len(logger._logs.get("warning")), 0)

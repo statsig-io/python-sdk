@@ -24,7 +24,8 @@ class _ConfigEvaluation:
                  allocated_experiment=None,
                  explicit_parameters=None,
                  is_experiment_group=False,
-                 evaluation_details=None):
+                 evaluation_details=None,
+                 group_name=None):
         if fetch_from_server is None:
             fetch_from_server = False
         self.fetch_from_server = fetch_from_server
@@ -46,8 +47,8 @@ class _ConfigEvaluation:
         self.allocated_experiment = allocated_experiment
         self.explicit_parameters = explicit_parameters
         self.is_experiment_group = is_experiment_group is True
-
         self.evaluation_details = evaluation_details
+        self.group_name = group_name
 
 
 class _Evaluator:
@@ -225,7 +226,8 @@ class _Evaluator:
                     result.rule_id,
                     exposures,
                     is_experiment_group=result.is_experiment_group,
-                    evaluation_details=evaluation_details
+                    evaluation_details=evaluation_details,
+                    group_name=result.group_name
                 )
 
         return _ConfigEvaluation(False, False, default_value, "default", exposures,
@@ -247,7 +249,8 @@ class _Evaluator:
         rule_id = rule.get("id", "")
 
         return _ConfigEvaluation(False, eval_result, return_value, rule_id, exposures,
-                                 is_experiment_group=rule.get("isExperimentGroup", False))
+                                 is_experiment_group=rule.get("isExperimentGroup", False),
+                                 group_name=rule.get("groupName", None))
 
     def __evaluate_delegate(self, user, rule, exposures):
         config_delegate = rule.get('configDelegate', None)

@@ -1,3 +1,4 @@
+import random
 import unittest
 from unittest.mock import patch
 
@@ -20,6 +21,7 @@ class LoggerTest(unittest.TestCase):
         options = StatsigOptions(
             api="http://logger-test",
             event_queue_size=3,
+            disable_diagnostics=True
         )
 
         self._network_stub.reset()
@@ -36,18 +38,62 @@ class LoggerTest(unittest.TestCase):
     @patch('requests.post', side_effect=_network_stub.mock)
     def test_log_size(self, mock_post):
         self._instance.check_gate(self._user, "a_gate")
+        self._instance.check_gate(self._user, "b_gate")
+
+        self.assertEqual(len(self._events), 0)
+
+        self._instance.check_gate(self._user, "c_gate")
+        self.assertEqual(len(self._events), 3)
+
+        self._instance.check_gate(self._user, "d_gate")
+        self.assertEqual(len(self._events), 3)
+        self._instance.check_gate(self._user, "e_gate")
+        self._instance.check_gate(self._user, "f_gate")
+        self.assertEqual(len(self._events), 6)
+    
+    @patch('requests.post', side_effect=_network_stub.mock)
+    def test_exposure_dedupe(self, mock_post):
+        self._instance.check_gate(self._user, "a_gate")
         self._instance.check_gate(self._user, "a_gate")
 
         self.assertEqual(len(self._events), 0)
 
         self._instance.check_gate(self._user, "a_gate")
+        # doesnt flush yet, because they are deduped
+        self.assertEqual(len(self._events), 0)
+
+        self._instance.check_gate(self._user, "b_gate")
+        self.assertEqual(len(self._events), 0)
+        self._instance.check_gate(self._user, "c_gate")
+        self.assertEqual(len(self._events), 3)
+        self._instance.check_gate(self._user, "a_gate")
+        self._instance.check_gate(self._user, "b_gate")
+        self._instance.check_gate(self._user, "c_gate")
         self.assertEqual(len(self._events), 3)
 
-        self._instance.check_gate(self._user, "a_gate")
-        self.assertEqual(len(self._events), 3)
-        self._instance.check_gate(self._user, "a_gate")
-        self._instance.check_gate(self._user, "a_gate")
+        self._instance.get_config(self._user, "a_gate")
+        self._instance.get_config(self._user, "b_gate")
+        self._instance.get_config(self._user, "b_gate")
+        self._instance.get_config(self._user, "b_gate")
+        self._instance.get_config(self._user, "a_gate")
+        self._instance.get_config(self._user, "c_gate")
         self.assertEqual(len(self._events), 6)
+
+        self._instance.check_gate(self._user, "d_gate")
+        self._instance.flush()
+        self.assertEqual(len(self._events), 7)
+
+        # get layer does not expose
+        self._instance.get_layer(self._user, "a_gate")
+        self._instance.get_layer(self._user, "b_gate")
+        self._instance.get_layer(self._user, "c_gate")
+        self.assertEqual(len(self._events), 7)
+
+        self._instance.get_experiment(StatsigUser(str(random.randint(1, 10000000000))), "a_gate")
+        self._instance.get_experiment(StatsigUser(str(random.randint(1, 10000000000))), "a_gate")
+        self._instance.get_experiment(StatsigUser(str(random.randint(1, 10000000000))), "a_gate")
+        self.assertEqual(len(self._events), 10)
+
 
     @patch('requests.post', side_effect=_network_stub.mock)
     def test_log_content(self, mock_post):

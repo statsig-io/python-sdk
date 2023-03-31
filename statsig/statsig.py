@@ -256,6 +256,14 @@ def evaluate_all(user: StatsigUser):
     """
     return __instance.evaluate_all(user)
 
+def flush():
+    """
+    Flushes any queued event logs
+    NOTE: the sdk flushes events in the background every minute or 500 events
+    For long running webservers, let the sdk manage the background flush
+    when using the sdk in a script or scenario where you need to flush logs, use this method
+    """
+    __instance.flush()
 
 def shutdown():
     """

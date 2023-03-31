@@ -33,7 +33,13 @@ class StatsigUser:
             raise StatsigValueError(
                 'user_id or at least a custom ID is required: learn more https://docs.statsig.com/messages/serverRequiredUserID')
 
-    def to_dict(self, forEvaluation=False):
+        if self.user_id is not None:
+            self.user_id = str(self.user_id)
+
+        if self.custom_ids is not None:
+            self.custom_ids = {str(key): str(value) for key, value in self.custom_ids.items()}
+
+    def to_dict(self, for_evaluation=False):
         user_nullable = {
             'userID': str_or_none(self.user_id),
             'email': str_or_none(self.email),
@@ -47,7 +53,7 @@ class StatsigUser:
             'customIDs': to_raw_dict_or_none(self.custom_ids),
         }
 
-        if forEvaluation and self.private_attributes is not None:
+        if for_evaluation and self.private_attributes is not None:
             user_nullable["privateAttributes"] = to_raw_dict_or_none(self.private_attributes)
 
         return {k: v for k, v in user_nullable.items() if v is not None}

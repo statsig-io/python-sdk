@@ -35,7 +35,8 @@ class TestLoggingRetries(unittest.TestCase):
         options = StatsigOptions(
             api=_network_stub.host,
             tier=StatsigEnvironmentTier.development,
-            logging_interval=1)
+            logging_interval=1,
+            disable_diagnostics=False)
 
         statsig.initialize("secret-test", options)
         cls.initTime = round(time.time() * 1000)
@@ -50,5 +51,5 @@ class TestLoggingRetries(unittest.TestCase):
             statsig.check_gate(self.statsig_user, "always_on_gate"),
             True
         )
-        statsig.get_instance()._logger._flush();  # type: ignore - its set at this point
+        statsig.flush();  # type: ignore - its set at this point
         time.sleep(12)

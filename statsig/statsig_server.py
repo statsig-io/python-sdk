@@ -14,6 +14,7 @@ from .statsig_network import _StatsigNetwork
 from .statsig_logger import _StatsigLogger
 from .dynamic_config import DynamicConfig
 from .statsig_options import StatsigOptions
+from .diagnostics import _Diagnostics
 from .utils import logger
 
 RULESETS_SYNC_INTERVAL = 10
@@ -31,13 +32,16 @@ class StatsigServer:
     _logger: Optional[_StatsigLogger]
     _spec_store: Optional[_SpecStore]
     _evaluator: Optional[_Evaluator]
+    _init_diagnostics: _Diagnostics
 
     def __init__(self) -> None:
         self._errorBoundary = _StatsigErrorBoundary()
         self._initialized = False
+        self._init_diagnostics = _Diagnostics("initialize")
 
     def initialize_with_timeout(self, sdkKey: str, options=None):
-        thread = threading.Thread(target=self.initialize, args=(sdkKey, options))
+        thread = threading.Thread(
+            target=self.initialize, args=(sdkKey, options))
         thread.start()
         thread.join(timeout=options.init_timeout)
         if thread.is_alive():
@@ -50,7 +54,6 @@ class StatsigServer:
             logger.log_process("Initialize",
                                "Warning: Statsig is already initialized. No further action will be taken.")
             return
-
         if sdkKey is None or not sdkKey.startswith("secret-"):
             raise StatsigValueError(
                 'Invalid key provided.  You must use a Server Secret Key from the Statsig console.')
@@ -59,29 +62,39 @@ class StatsigServer:
         self._errorBoundary.set_api_key(sdkKey)
 
         try:
+            self._init_diagnostics.mark("overall", "start")
             self._options = options
             self.__shutdown_event = threading.Event()
             self.__statsig_metadata = _StatsigMetadata.get()
-            self._network = _StatsigNetwork(sdkKey, options, self._errorBoundary)
+            self._network = _StatsigNetwork(
+                sdkKey, options, self._errorBoundary)
             self._logger = _StatsigLogger(
                 self._network, self.__shutdown_event, self.__statsig_metadata, self._errorBoundary,
                 options)
             self._spec_store = _SpecStore(
-                self._network, self._options, self.__statsig_metadata, self._errorBoundary, self.__shutdown_event)
+                self._network, self._options, self.__statsig_metadata, self._errorBoundary, self.__shutdown_event, self._init_diagnostics)
             self._evaluator = _Evaluator(self._spec_store)
             self._initialized = True
+            self._init_diagnostics.mark("overall", "end")
+            self._log_diagnostics(self._init_diagnostics)
         except (StatsigValueError, StatsigNameError, StatsigRuntimeError) as e:
             raise e
         except Exception as e:
             self._errorBoundary.log_exception(e)
             self._initialized = True
 
+    def _log_diagnostics(self, diagnostics: _Diagnostics):
+        if self._options.disable_diagnostics:
+            return
+        self._logger.log_diagnostics_event(diagnostics)
+
     def check_gate(self, user: StatsigUser, gate_name: str, log_exposure=True):
         def task():
             if not self._verify_inputs(user, gate_name):
                 return False
 
-            result = self.__check_gate_server_fallback(user, gate_name, log_exposure)
+            result = self.__check_gate_server_fallback(
+                user, gate_name, log_exposure)
             return result.boolean_value
 
         return self._errorBoundary.capture(task, lambda: False)
@@ -98,9 +111,10 @@ class StatsigServer:
             if not self._verify_inputs(user, config_name):
                 return DynamicConfig({}, config_name, "")
 
-            result = self.__get_config_server_fallback(user, config_name, log_exposure)
+            result = self.__get_config_server_fallback(
+                user, config_name, log_exposure)
             return DynamicConfig(
-                result.json_value, config_name, result.rule_id)
+                result.json_value, config_name, result.rule_id, group_name=result.group_name)
 
         return self._errorBoundary.capture(
             task, lambda: DynamicConfig({}, config_name, ""))
@@ -171,6 +185,10 @@ class StatsigServer:
             self._logger.log(event)
 
         self._errorBoundary.swallow(task)
+
+    def flush(self):
+        if self._logger is not None:
+            self._logger.flush()
 
     def shutdown(self):
         def task():
@@ -269,8 +287,10 @@ class StatsigServer:
         return True
 
     def _verify_bg_threads_running(self):
-        self._logger.spawn_bg_threads_if_needed()
-        self._spec_store.spawn_bg_threads_if_needed()
+        if self._logger is not None:
+            self._logger.spawn_bg_threads_if_needed()
+        if self._spec_store is not None:
+            self._spec_store.spawn_bg_threads_if_needed()
 
     def __check_gate_server_fallback(
             self, user: StatsigUser, gate_name: str, log_exposure=True):

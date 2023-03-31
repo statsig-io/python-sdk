@@ -6,7 +6,7 @@ from statsig import StatsigServer, StatsigUser, StatsigOptions
 class TestLocalMocks(unittest.TestCase):
 
     def test_local_mode_defaults(self):
-        options = StatsigOptions(local_mode=True)
+        options = StatsigOptions(local_mode=True, disable_diagnostics=True)
         server = StatsigServer()
         server.initialize("secret-key", options)
 
@@ -28,7 +28,7 @@ class TestLocalMocks(unittest.TestCase):
         )
 
     def test_override_gate(self):
-        options = StatsigOptions(local_mode=True)
+        options = StatsigOptions(local_mode=True, disable_diagnostics=True)
         server = StatsigServer()
         server.initialize("secret-key", options)
 
@@ -107,7 +107,7 @@ class TestLocalMocks(unittest.TestCase):
         server.remove_gate_override("fake_gate_non_existent")
 
     def test_override_all(self):
-        options = StatsigOptions(local_mode=True)
+        options = StatsigOptions(local_mode=True, disable_diagnostics=True)
         server = StatsigServer()
         server.initialize("secret-key", options)
 
@@ -149,7 +149,7 @@ class TestLocalMocks(unittest.TestCase):
         )
 
     def test_override_config(self):
-        options = StatsigOptions(local_mode=True)
+        options = StatsigOptions(local_mode=True, disable_diagnostics=True)
         server = StatsigServer()
         server.initialize("secret-key", options)
 

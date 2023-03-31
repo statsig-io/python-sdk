@@ -26,6 +26,7 @@ class TestConcurrencyOnInit(unittest.TestCase):
             self, _mock_post, _mock_start):
         self._server.initialize("secret-key", StatsigOptions(
             api=_api_override,
+            disable_diagnostics=True
         ))
 
         self.assertTrue(self._server._initialized)

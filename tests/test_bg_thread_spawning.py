@@ -21,6 +21,7 @@ class TestBackgroundThreadSpawning(unittest.TestCase):
         server = StatsigServer()
         options = StatsigOptions(
             api=_api_override,
+            disable_diagnostics=True
         )
 
         _network_stub.reset()

@@ -51,7 +51,7 @@ class TestClientInitializeResponse(unittest.TestCase):
 
     def test_none_result(self):
         statsig.initialize('secret-no-valid-key',
-                           StatsigOptions(local_mode=True))
+                           StatsigOptions(local_mode=True, disable_diagnostics=True))
         result = statsig.get_client_initialize_response(user_for_sdk)
         self.assertIsNone(result)
 
@@ -72,7 +72,7 @@ class TestClientInitializeResponse(unittest.TestCase):
     def get_initialize_responses(
             self, api: str, environment=None, force_fetch_from_server=False):
         server_user = user.copy()
-        options = StatsigOptions(api=api)
+        options = StatsigOptions(api=api, disable_diagnostics=True)
 
         if environment is not None:
             server_user["statsigEnvironment"] = {'tier': environment}

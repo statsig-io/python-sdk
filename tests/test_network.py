@@ -14,7 +14,7 @@ class TestNetwork(unittest.TestCase):
     def setUpClass(cls):
         # This test logspews expected errors, but the test itself should pass
         logger.disabled = False
-        cls.net = _StatsigNetwork("secret-test", StatsigOptions(), _StatsigErrorBoundary())
+        cls.net = _StatsigNetwork("secret-test", StatsigOptions(disable_diagnostics=True), _StatsigErrorBoundary())
         cls.net._raise_on_error = True
 
     @classmethod

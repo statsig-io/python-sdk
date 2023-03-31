@@ -45,7 +45,8 @@ class TestStatsigE2E(unittest.TestCase):
         cls._logs = {}
         options = StatsigOptions(
             api=_network_stub.host,
-            tier=StatsigEnvironmentTier.development)
+            tier=StatsigEnvironmentTier.development,
+            disable_diagnostics=True)
 
         statsig.initialize("secret-key", options)
         cls.initTime = round(time.time() * 1000)
@@ -81,6 +82,7 @@ class TestStatsigE2E(unittest.TestCase):
                 boolean=False,
             )
         )
+        self.assertEqual(config.group_name, "statsig email")
         config = statsig.get_config(self.random_user, "test_config")
         self.assertEqual(
             config.get_value(),
@@ -90,6 +92,7 @@ class TestStatsigE2E(unittest.TestCase):
                 boolean=True,
             )
         )
+        self.assertIsNone(config.group_name)
 
     def test_c_experiment(self, mock_post, mock_get):
         config = statsig.get_experiment(self.statsig_user, "sample_experiment")
