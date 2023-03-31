@@ -32,7 +32,7 @@ jobs:
         run: npm install
 
       - name: Setup Python SDK
-        run: npm run kong -- setup python --no-env -v
+        run: npm run kong -- setup python -v
 
       - name: Build Bridge
         run: npm run kong -- build python -v
