@@ -1,5 +1,5 @@
 class DynamicConfig:
-    def __init__(self, data, name, rule):
+    def __init__(self, data, name, rule, group_name=None):
         if data is None:
             data = {}
         self.value = data
@@ -9,6 +9,7 @@ class DynamicConfig:
         if rule is None:
             rule = ""
         self.rule_id = rule
+        self.group_name = group_name
 
     def get(self, key, default=None):
         """Returns the value of the config at the given key

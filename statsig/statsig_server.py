@@ -114,7 +114,7 @@ class StatsigServer:
             result = self.__get_config_server_fallback(
                 user, config_name, log_exposure)
             return DynamicConfig(
-                result.json_value, config_name, result.rule_id)
+                result.json_value, config_name, result.rule_id, group_name=result.group_name)
 
         return self._errorBoundary.capture(
             task, lambda: DynamicConfig({}, config_name, ""))
