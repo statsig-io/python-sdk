@@ -3,7 +3,7 @@ from typing import Callable, List
 from unittest.mock import patch
 
 from statsig import StatsigOptions, StatsigServer, StatsigUser, StatsigEvent
-from tests.network_stub import NetworkStub
+from network_stub import NetworkStub
 
 _api_override = "http://evaluation-details-test"
 _network_stub = NetworkStub(_api_override)

@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from statsig import statsig, IDataStore, StatsigOptions, StatsigUser
-from tests.network_stub import NetworkStub
+from network_stub import NetworkStub
 
 with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), '../testdata/download_config_specs.json')) as r:
     CONFIG_SPECS_RESPONSE = json.loads(r.read())

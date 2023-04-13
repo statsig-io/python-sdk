@@ -5,7 +5,7 @@ import unittest.mock
 import time
 from statsig import __version__
 from unittest.mock import patch
-from tests.network_stub import NetworkStub
+from network_stub import NetworkStub
 from statsig import statsig, StatsigUser, StatsigOptions, StatsigEnvironmentTier
 from statsig.utils import logger
 
@@ -51,5 +51,7 @@ class TestLoggingRetries(unittest.TestCase):
             statsig.check_gate(self.statsig_user, "always_on_gate"),
             True
         )
-        statsig.flush();  # type: ignore - its set at this point
+
+        # type: ignore
+        statsig.flush()  # it's set at this point
         time.sleep(12)

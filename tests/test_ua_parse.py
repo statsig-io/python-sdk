@@ -5,7 +5,7 @@ import json
 
 from unittest.mock import patch
 from unittest.mock import MagicMock
-from tests.network_stub import NetworkStub
+from network_stub import NetworkStub
 from statsig import statsig, StatsigUser, StatsigOptions, StatsigEvent, StatsigEnvironmentTier
 
 with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), '../testdata/download_config_specs_unique_conditions.json')) as r:

@@ -1,12 +1,12 @@
 import collections
+import concurrent.futures
 import threading
-from typing import Optional, Union
 
+from typing import Optional, Union
 from .retryable_logs import RetryableLogs
 from .evaluation_details import EvaluationDetails
 from .evaluator import _ConfigEvaluation
 from .statsig_event import StatsigEvent
-# from .statsig_user import StatsigUser
 from .layer import Layer
 from .utils import logger
 from .thread_util import spawn_background_thread, THREAD_JOIN_TIMEOUT
@@ -18,6 +18,7 @@ _GATE_EXPOSURE_EVENT = "statsig::gate_exposure"
 _DIAGNOSTICS_EVENT = "statsig::diagnostics"
 
 _IGNORED_METADATA_KEYS = {'serverTime', 'configSyncTime', 'initTime', 'reason'}
+
 
 def _safe_add_evaluation_to_event(
         evaluation_details: Union[EvaluationDetails, None], event: StatsigEvent):
@@ -52,6 +53,8 @@ class _StatsigLogger:
         self._background_retry = None
         self._background_deduper = None
         self.spawn_bg_threads_if_needed()
+        self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+        self._futures = []
 
     def spawn_bg_threads_if_needed(self):
         if self._local_mode:
@@ -74,7 +77,7 @@ class _StatsigLogger:
             return
         self._events.append(event.to_dict())
         if len(self._events) >= self._event_queue_size:
-            self.flush()
+            self._run_on_background_thread(lambda: self.flush())
 
     def log_gate_exposure(self, user, gate, value, rule_id, secondary_exposures,
                           evaluation_details: EvaluationDetails, is_manual_exposure=False):
@@ -168,6 +171,16 @@ class _StatsigLogger:
         if self._background_retry is not None:
             self._background_retry.join(THREAD_JOIN_TIMEOUT)
 
+        concurrent.futures.wait(self._futures, timeout=THREAD_JOIN_TIMEOUT)
+        self._executor.shutdown()
+
+    def _run_on_background_thread(self, closure):
+        future = self._executor.submit(closure)
+        self._futures.append(future)
+
+        for future in concurrent.futures.as_completed(self._futures):
+            self._futures.remove(future)
+
     def _periodic_flush(self, shutdown_event):
         while True:
             try:
@@ -206,7 +219,6 @@ class _StatsigLogger:
                         return
 
                     self._retry_logs.append(RetryableLogs(retry_logs.payload, retry_logs.retries))
-
 
     def log_diagnostics_event(self, diagnostics: _Diagnostics):
         event = StatsigEvent(None, _DIAGNOSTICS_EVENT)

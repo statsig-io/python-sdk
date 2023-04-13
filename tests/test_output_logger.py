@@ -2,7 +2,7 @@ import time
 import unittest
 
 from unittest.mock import patch
-from tests.network_stub import NetworkStub
+from network_stub import NetworkStub
 from statsig.utils import logger
 from statsig import StatsigOptions, statsig
 

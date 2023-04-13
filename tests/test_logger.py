@@ -9,7 +9,7 @@ from statsig.statsig_user import StatsigUser
 
 from time import sleep
 
-from tests.network_stub import NetworkStub
+from network_stub import NetworkStub
 
 
 class LoggerTest(unittest.TestCase):

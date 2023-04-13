@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import patch
 
 from statsig import StatsigOptions, StatsigServer, StatsigUser
-from tests.network_stub import NetworkStub
+from network_stub import NetworkStub
 
 _api_override = "http://concurrency-on-init-test"
 _network_stub = NetworkStub(_api_override)

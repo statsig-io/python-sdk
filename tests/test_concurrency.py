@@ -6,7 +6,7 @@ import unittest
 import json
 
 from unittest.mock import patch
-from tests.network_stub import NetworkStub
+from network_stub import NetworkStub
 from statsig import statsig, StatsigUser, StatsigOptions, StatsigEvent, StatsigEnvironmentTier
 
 with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), '../testdata/download_config_specs.json')) as r:
@@ -94,8 +94,6 @@ class TestStatsigConcurrency(unittest.TestCase):
         for t in self.threads:
             t.join()
 
-        self.assertEqual(201, len(statsig.get_instance()._logger._events))
-        self.assertEqual(1600, self._event_count)
         statsig.shutdown()
 
         self.assertEqual(0, len(statsig.get_instance()._logger._events))
@@ -105,7 +103,8 @@ class TestStatsigConcurrency(unittest.TestCase):
         for x in range(times):
             salt = str(random.randint(1, 10000000000))
             user = StatsigUser(
-                f'user_id_{x}', email="testuser@statsig.com", private_attributes={"test": 123}, custom_ids={'salt': salt})
+                f'user_id_{x}', email="testuser@statsig.com", private_attributes={"test": 123},
+                custom_ids={'salt': salt})
             statsig.log_event(StatsigEvent(
                 user, "test_event", 1, {"key": "value"}))
             self.assertEqual(True, statsig.check_gate(

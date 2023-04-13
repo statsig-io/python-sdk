@@ -3,9 +3,9 @@ import json
 from unittest.mock import patch
 
 from typing import Optional
-from tests.network_stub import NetworkStub
+from network_stub import NetworkStub
 from statsig import statsig, StatsigUser, StatsigOptions, StatsigEnvironmentTier, Layer
-from tests.test_case_with_extras import TestCaseWithExtras
+from test_case_with_extras import TestCaseWithExtras
 
 with open(os.path.join(os.path.abspath(os.path.dirname(__file__)),
                        '../testdata/download_config_specs.json')) as r:
