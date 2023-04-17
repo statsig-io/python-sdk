@@ -54,7 +54,7 @@ class _StatsigLogger:
         self._background_deduper = None
         self.spawn_bg_threads_if_needed()
         self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
-        self._futures = []
+        self._futures = collections.deque(maxlen=10)
 
     def spawn_bg_threads_if_needed(self):
         if self._local_mode:
@@ -77,7 +77,7 @@ class _StatsigLogger:
             return
         self._events.append(event.to_dict())
         if len(self._events) >= self._event_queue_size:
-            self._run_on_background_thread(lambda: self.flush())
+            self.flush_in_background()
 
     def log_gate_exposure(self, user, gate, value, rule_id, secondary_exposures,
                           evaluation_details: EvaluationDetails, is_manual_exposure=False):
@@ -150,17 +150,28 @@ class _StatsigLogger:
 
         self.log(event)
 
-    def flush(self):
+    def flush_in_background(self):
         if len(self._events) == 0:
             return
         events_copy = self._events.copy()
         self._events = []
+
+        self._run_on_background_thread(lambda: self._flush_to_server(events_copy))
+
+    def _flush_to_server(self, events_copy):
         res = self._net.retryable_request("log_event", {
             "events": events_copy,
             "statsigMetadata": self._statsig_metadata,
         }, log_on_exception=True)
         if res is not None:
             self._retry_logs.append(RetryableLogs(res, 0))
+
+    def flush(self):
+        if len(self._events) == 0:
+            return
+        events_copy = self._events.copy()
+        self._events = []
+        self._flush_to_server(events_copy)
 
     def shutdown(self):
         self.flush()
@@ -177,9 +188,6 @@ class _StatsigLogger:
     def _run_on_background_thread(self, closure):
         future = self._executor.submit(closure)
         self._futures.append(future)
-
-        for future in concurrent.futures.as_completed(self._futures):
-            self._futures.remove(future)
 
     def _periodic_flush(self, shutdown_event):
         while True:

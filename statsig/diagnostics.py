@@ -1,6 +1,5 @@
 import time
 
-
 class _Diagnostics:
     def __init__(self, context):
         self.context = context
