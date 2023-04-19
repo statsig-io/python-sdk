@@ -200,6 +200,10 @@ class _SpecStore:
              rulesets_sync_interval or RULESETS_SYNC_INTERVAL),
             self._error_boundary)
 
+    def _retry_bg_download_config_specs(self):
+        thread = spawn_background_thread(self._download_config_specs, (), self._error_boundary)
+        thread.join(THREAD_JOIN_TIMEOUT)
+
     def _download_config_specs(self):
         self._log_process("Loading specs from network...")
         log_on_exception = not self._initialized
@@ -213,10 +217,14 @@ class _SpecStore:
                 "sinceTime": self.last_update_time,
             }, log_on_exception, self._init_diagnostics)
         except Exception as e:
+            if not self._initialized:
+                self._retry_bg_download_config_specs()
             raise e
 
         if specs is None:
             self._sync_failure_count += 1
+            if not self._initialized:
+                self._retry_bg_download_config_specs()
             return
 
         self._init_diagnostics.mark("download_config_specs", "start", "process")
