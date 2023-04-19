@@ -361,3 +361,50 @@ class TestBackgroundSync(unittest.TestCase):
         time.sleep(3)
         self.assertEqual(self.config_sync_count, 2)
         self.assertEqual(self.idlist_sync_count, 2)
+
+    @patch('requests.post', side_effect=_network_stub.mock)
+    @patch('requests.get', side_effect=_network_stub.mock)
+    def test_dcs_retry(self, mock_post, mock_get):
+        self.config_sync_count = 0
+        self.idlist_sync_count = 0
+
+        def download_config_specs_response_callback(url: str, data: dict):
+            self.config_sync_count = self.config_sync_count + 1
+            if self.config_sync_count == 1:
+                return "{}"
+            return {
+                "dynamic_configs": [{"name": "config_1"}],
+                "feature_gates": [{"name": "gate_1"}, {"name": "gate_2"}],
+                "id_lists": {},
+                "has_updates": True,
+                "time": 1,
+            }
+
+        def download_config_specs_code_callback(url: str, data: dict):
+            if self.config_sync_count == 1:
+                return 500
+            return 200
+
+        self._network_stub.stub_request_with_function(
+            "download_config_specs",
+            download_config_specs_code_callback,
+            download_config_specs_response_callback
+        )
+
+        options = StatsigOptions(
+            api=self._api_override,
+            tier=StatsigEnvironmentTier.development,
+            rulesets_sync_interval=2,
+            idlists_sync_interval=2,
+            disable_diagnostics=True
+        )
+        self._client = StatsigServer()
+        self._client.initialize("secret-key", options)
+
+        time.sleep(1)
+        self.assertEqual(self.config_sync_count, 2)
+
+        time.sleep(1)
+        self.assertEqual(self.config_sync_count, 3)
+
+        self._client.shutdown()
