@@ -126,7 +126,7 @@ class _SpecStore:
             self._load_config_specs_from_storage_adapter()
             if self.last_update_time == 0:
                 self._log_process("Retrying with network...")
-                self._download_config_specs()
+                self._download_config_specs(for_initialize=True)
 
         elif self._options.bootstrap_values is not None:
             self._init_diagnostics.mark("bootstrap", "start", "load")
@@ -134,7 +134,7 @@ class _SpecStore:
             self._init_diagnostics.mark("bootstrap", "end", "load")
 
         else:
-            self._download_config_specs()
+            self._download_config_specs(for_initialize=True)
 
     def _process_specs(self, specs_json) -> bool:
         self._log_process("Processing specs...")
@@ -200,7 +200,12 @@ class _SpecStore:
              rulesets_sync_interval or RULESETS_SYNC_INTERVAL),
             self._error_boundary)
 
-    def _download_config_specs(self):
+    def _retry_bg_download_config_specs(self):
+        thread = spawn_background_thread(self._download_config_specs, (), self._error_boundary)
+        if thread is not None:
+            thread.join(THREAD_JOIN_TIMEOUT)
+
+    def _download_config_specs(self, for_initialize=False):
         self._log_process("Loading specs from network...")
         log_on_exception = not self._initialized
         if self._sync_failure_count * self._options.rulesets_sync_interval > 120:
@@ -213,10 +218,14 @@ class _SpecStore:
                 "sinceTime": self.last_update_time,
             }, log_on_exception, self._init_diagnostics)
         except Exception as e:
+            if for_initialize:
+                self._retry_bg_download_config_specs()
             raise e
 
         if specs is None:
             self._sync_failure_count += 1
+            if for_initialize:
+                self._retry_bg_download_config_specs()
             return
 
         self._init_diagnostics.mark("download_config_specs", "start", "process")
