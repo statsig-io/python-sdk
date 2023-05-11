@@ -228,9 +228,10 @@ class _StatsigLogger:
 
                     self._retry_logs.append(RetryableLogs(retry_logs.payload, retry_logs.retries))
 
-    def log_diagnostics_event(self, diagnostics: _Diagnostics):
+    def log_diagnostics_event(self, diagnostics: _Diagnostics, context: str):
         event = StatsigEvent(None, _DIAGNOSTICS_EVENT)
-        event.metadata = diagnostics.serialize()
+        event.metadata = diagnostics.serialize_context(context)
+        diagnostics.clear_markers(context)
         self.log(event)
 
     def _is_unique_exposure(self, user, eventName: str, metadata: dict or None) -> bool:

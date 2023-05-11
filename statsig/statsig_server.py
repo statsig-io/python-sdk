@@ -32,12 +32,12 @@ class StatsigServer:
     _logger: Optional[_StatsigLogger]
     _spec_store: Optional[_SpecStore]
     _evaluator: Optional[_Evaluator]
-    _init_diagnostics: _Diagnostics
+    _diagnostics: _Diagnostics
 
     def __init__(self) -> None:
         self._errorBoundary = _StatsigErrorBoundary()
         self._initialized = False
-        self._init_diagnostics = _Diagnostics("initialize")
+        self._diagnostics = _Diagnostics()
 
     def initialize_with_timeout(self, sdkKey: str, options=None):
         thread = threading.Thread(
@@ -62,7 +62,7 @@ class StatsigServer:
         self._errorBoundary.set_api_key(sdkKey)
 
         try:
-            self._init_diagnostics.mark("overall", "start")
+            self._diagnostics.mark("initialize", "overall", "start")
             self._options = options
             self.__shutdown_event = threading.Event()
             self.__statsig_metadata = _StatsigMetadata.get()
@@ -72,11 +72,11 @@ class StatsigServer:
                 self._network, self.__shutdown_event, self.__statsig_metadata, self._errorBoundary,
                 options)
             self._spec_store = _SpecStore(
-                self._network, self._options, self.__statsig_metadata, self._errorBoundary, self.__shutdown_event, self._init_diagnostics)
+                self._network, self._options, self.__statsig_metadata, self._errorBoundary, self.__shutdown_event, self._diagnostics)
             self._evaluator = _Evaluator(self._spec_store)
             self._initialized = True
-            self._init_diagnostics.mark("overall", "end")
-            self._log_diagnostics(self._init_diagnostics)
+            self._diagnostics.mark("initialize", "overall", "end")
+            self._log_diagnostics(self._diagnostics)
         except (StatsigValueError, StatsigNameError, StatsigRuntimeError) as e:
             raise e
         except Exception as e:
@@ -86,7 +86,7 @@ class StatsigServer:
     def _log_diagnostics(self, diagnostics: _Diagnostics):
         if self._options.disable_diagnostics:
             return
-        self._logger.log_diagnostics_event(diagnostics)
+        self._logger.log_diagnostics_event(diagnostics, "initialize")
 
     def check_gate(self, user: StatsigUser, gate_name: str, log_exposure=True):
         def task():
