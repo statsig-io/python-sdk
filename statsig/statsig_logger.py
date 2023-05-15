@@ -52,6 +52,7 @@ class _StatsigLogger:
         self._background_flush = None
         self._background_retry = None
         self._background_deduper = None
+        self._background_cleanup_futures = None
         self.spawn_bg_threads_if_needed()
         self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
         self._futures = collections.deque(maxlen=10)
@@ -71,6 +72,10 @@ class _StatsigLogger:
         if self._background_deduper is None or not self._background_deduper.is_alive():
             self._background_deduper = spawn_background_thread(
                 self._periodic_dedupe_clear, (self._shutdown_event,), self._error_boundary)
+
+        if self._background_cleanup_futures is None or not self._background_cleanup_futures.is_alive():
+            self._background_cleanup_futures = spawn_background_thread(
+                self._periodic_cleanup_futures, (self._shutdown_event,), self._error_boundary)
 
     def log(self, event):
         if self._local_mode:
@@ -183,11 +188,22 @@ class _StatsigLogger:
             self._background_retry.join(THREAD_JOIN_TIMEOUT)
 
         concurrent.futures.wait(self._futures, timeout=THREAD_JOIN_TIMEOUT)
+        self._futures.clear()
         self._executor.shutdown()
 
     def _run_on_background_thread(self, closure):
         future = self._executor.submit(closure)
         self._futures.append(future)
+
+    def _periodic_cleanup_futures(self, shutdown_event):
+        while True:
+            try:
+                if shutdown_event.is_set():
+                    break
+                for future in concurrent.futures.as_completed(self._futures, timeout=THREAD_JOIN_TIMEOUT):
+                    self._futures.remove(future)
+            except:
+                pass
 
     def _periodic_flush(self, shutdown_event):
         while True:
