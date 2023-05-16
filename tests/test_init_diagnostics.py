@@ -150,18 +150,29 @@ class TestInitDiagnostics(unittest.TestCase):
             'network_request',
             500,
         )
-        self._assert_marker_equal(markers[3], 'get_id_lists', 'start', 'network_request')
+        self._assert_marker_equal(
+            markers[3],
+            'download_config_specs',
+            'start',
+            'network_request',
+        )
         self._assert_marker_equal(
             markers[4],
+            'download_config_specs',
+            'end',
+            'network_request',
+            500
+        )
+        self._assert_marker_equal(markers[5], 'get_id_lists', 'start', 'network_request')
+        self._assert_marker_equal(
+            markers[6],
             'get_id_lists',
             'end',
             'network_request',
             200,
         )
-        # self._assert_marker_equal(markers[7], 'get_id_lists', 'start', 'process', 0)
-        # self._assert_marker_equal(markers[8], 'get_id_lists', 'end', 'process', True) don't run if id_list is empty
-        self._assert_marker_equal(markers[5], 'overall', 'end')
-        self.assertEqual(len(markers), 6)
+        self._assert_marker_equal(markers[7], 'overall', 'end')
+        self.assertEqual(len(markers), 8)
 
     def test_init_get_id_list(self, mock_post, mock_time):
         _network_stub.stub_request_with_value("get_id_lists", 200, {"list_1": {

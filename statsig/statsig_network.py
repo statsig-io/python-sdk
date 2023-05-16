@@ -2,13 +2,13 @@ import json
 import time
 from uuid import uuid4
 import requests
+
 from .utils import logger
 
 REQUEST_TIMEOUT = 20
 
 
 class _StatsigNetwork:
-
     _raise_on_error = False
     __RETRY_CODES = [408, 500, 502, 503, 504, 522, 524, 599]
 
@@ -24,10 +24,9 @@ class _StatsigNetwork:
         self.__log = logger
         self.__session = str(uuid4())
 
-    def post_request(self, endpoint, payload, log_on_exception = False, init_diagnostics=None):
-        if init_diagnostics:
-            init_diagnostics.mark(endpoint, "start", "network_request")
-
+    def post_request(self, endpoint, payload, log_on_exception=False, marker_tracker=None):
+        if marker_tracker is not None:
+            marker_tracker.mark_start()
         if self.__local_mode:
             self.__log.debug('Using local mode. Dropping network request')
             return None
@@ -48,12 +47,16 @@ class _StatsigNetwork:
         try:
             response = requests.post(
                 self.__api + endpoint, json=verified_payload, headers=headers, timeout=self.__timeout)
+            if marker_tracker is not None:
+                marker_tracker.mark_end({'value': response.status_code})
             if response.status_code == 200:
                 data = response.json()
                 if data:
                     return data
             return None
         except Exception as err:
+            if marker_tracker is not None:
+                marker_tracker.mark_end({'value': response.status_code if response is not None else False})
             if log_on_exception:
                 self.__error_boundary.log_exception(err)
                 self.__log.warning(
@@ -61,11 +64,8 @@ class _StatsigNetwork:
             if self._raise_on_error:
                 raise err
             return None
-        finally:
-            if init_diagnostics:
-                init_diagnostics.mark(endpoint, "end", "network_request", None if response is None else response.status_code)
 
-    def retryable_request(self, endpoint, payload, log_on_exception = False, retry = 0):
+    def retryable_request(self, endpoint, payload, log_on_exception=False, retry=0):
         if self.__local_mode:
             return None
 
@@ -100,7 +100,7 @@ class _StatsigNetwork:
                 raise err
             return payload
 
-    def get_request(self, url, headers, log_on_exception = False):
+    def get_request(self, url, headers, log_on_exception=False):
         if self.__local_mode:
             return None
         try:

@@ -37,7 +37,7 @@ class NetworkStub:
             "response_body": response_body,
         }
 
-    def stub_request_with_function(self, path, response_code: int,
+    def stub_request_with_function(self, path, response_code: Union[int, Callable[[str, dict], int]],
                                    response_func: Callable[[str, dict], object]):
         if not callable(response_func):
             raise "Must provide a function"
@@ -62,6 +62,9 @@ class NetworkStub:
                 response_body = stub_data.get("response_body", None)
                 if stub_data.get("response_func", None) is not None:
                     response_body = stub_data["response_func"](url, kwargs)
+                response_code = stub_data.get("response_code", None)
+                if callable(response_code):
+                    response_code = response_code(url, kwargs)
 
                 headers = {}
                 if isinstance(response_body, str):
