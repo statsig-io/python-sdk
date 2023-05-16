@@ -183,11 +183,16 @@ class _StatsigLogger:
             self._background_retry.join(THREAD_JOIN_TIMEOUT)
 
         concurrent.futures.wait(self._futures, timeout=THREAD_JOIN_TIMEOUT)
+        self._futures.clear()
         self._executor.shutdown()
 
     def _run_on_background_thread(self, closure):
         future = self._executor.submit(closure)
         self._futures.append(future)
+
+    def _flush_futures(self):
+        for future in concurrent.futures.as_completed(self._futures, timeout=THREAD_JOIN_TIMEOUT):
+            self._futures.remove(future)
 
     def _periodic_flush(self, shutdown_event):
         while True:
@@ -195,6 +200,7 @@ class _StatsigLogger:
                 if shutdown_event.wait(self._logging_interval):
                     break
                 self.flush()
+                self._flush_futures()
             except Exception as e:
                 self._error_boundary.log_exception(e)
 
