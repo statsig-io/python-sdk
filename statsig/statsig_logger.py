@@ -202,7 +202,7 @@ class _StatsigLogger:
                 self.flush()
                 self._flush_futures()
             except Exception as e:
-                self._error_boundary.log_exception(e)
+                self._error_boundary.log_exception("_periodic_flush", e)
 
     def _periodic_dedupe_clear(self, shutdown_event):
         while True:
@@ -211,7 +211,7 @@ class _StatsigLogger:
                     break
                 self._deduper = set()
             except Exception as e:
-                self._error_boundary.log_exception(e)
+                self._error_boundary.log_exception("_periodic_dedupe_clear", e)
 
     def _periodic_retry(self, shutdown_event):
         while True:

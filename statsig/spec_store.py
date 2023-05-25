@@ -370,7 +370,7 @@ class _SpecStore:
             marker_tracker.mark_end({'value': True})
 
         except Exception as e:
-            self._error_boundary.log_exception(e)
+            self._error_boundary.log_exception("_download_id_lists_process", e)
             marker_tracker.mark_end({'value': False})
 
     def _download_single_id_list(
@@ -403,7 +403,7 @@ class _SpecStore:
             local_list["readBytes"] = start_index + content_length
             all_lists[list_name] = local_list
         except Exception as e:
-            self._error_boundary.log_exception(e)
+            self._error_boundary.log_exception("_download_single_id_list", e)
 
     def _sync(self, sync_func, interval):
         while True:
@@ -412,7 +412,7 @@ class _SpecStore:
                     break
                 sync_func()
             except Exception as e:
-                self._error_boundary.log_exception(e)
+                self._error_boundary.log_exception("_sync", e)
 
     def _log_process(self, msg, process=None):
         if process is None:

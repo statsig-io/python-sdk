@@ -72,7 +72,8 @@ class StatsigServer:
                 self._network, self.__shutdown_event, self.__statsig_metadata, self._errorBoundary,
                 options)
             self._spec_store = _SpecStore(
-                self._network, self._options, self.__statsig_metadata, self._errorBoundary, self.__shutdown_event, self._diagnostics)
+                self._network, self._options, self.__statsig_metadata, self._errorBoundary, self.__shutdown_event,
+                self._diagnostics)
             self._evaluator = _Evaluator(self._spec_store)
             self._initialized = True
             self._diagnostics.mark("initialize", "overall", "end")
@@ -80,7 +81,7 @@ class StatsigServer:
         except (StatsigValueError, StatsigNameError, StatsigRuntimeError) as e:
             raise e
         except Exception as e:
-            self._errorBoundary.log_exception(e)
+            self._errorBoundary.log_exception("initialize", e)
             self._initialized = True
 
     def _log_diagnostics(self, diagnostics: _Diagnostics):
@@ -97,7 +98,7 @@ class StatsigServer:
                 user, gate_name, log_exposure)
             return result.boolean_value
 
-        return self._errorBoundary.capture(task, lambda: False)
+        return self._errorBoundary.capture("check_gate", task, lambda: False)
 
     def manually_log_gate_exposure(self, user: StatsigUser, gate_name: str):
         user = self.__normalize_user(user)
@@ -116,8 +117,8 @@ class StatsigServer:
             return DynamicConfig(
                 result.json_value, config_name, result.rule_id, group_name=result.group_name)
 
-        return self._errorBoundary.capture(
-            task, lambda: DynamicConfig({}, config_name, ""))
+        return self._errorBoundary.capture("get_config",
+                                           task, lambda: DynamicConfig({}, config_name, ""))
 
     def manually_log_config_exposure(self, user: StatsigUser, config_name: str):
         user = self.__normalize_user(user)
@@ -130,8 +131,8 @@ class StatsigServer:
         def task():
             return self.get_config(user, experiment_name, log_exposure)
 
-        return self._errorBoundary.capture(
-            task, lambda: DynamicConfig({}, experiment_name, ""))
+        return self._errorBoundary.capture("get_experiment",
+                                           task, lambda: DynamicConfig({}, experiment_name, ""))
 
     def manually_log_experiment_exposure(self, user: StatsigUser, experiment_name: str):
         user = self.__normalize_user(user)
@@ -162,8 +163,9 @@ class StatsigServer:
                 log_func
             )
 
-        return self._errorBoundary.capture(
-            task, lambda: Layer._create(layer_name, {}, ""))
+        return self._errorBoundary.capture("get_layer",
+                                           task,
+                                           lambda: Layer._create(layer_name, {}, ""))
 
     def manually_log_layer_parameter_exposure(
             self, user: StatsigUser, layer_name: str, parameter_name: str):
@@ -184,7 +186,7 @@ class StatsigServer:
             event.user = self.__normalize_user(event.user)
             self._logger.log(event)
 
-        self._errorBoundary.swallow(task)
+        self._errorBoundary.swallow("log_event", task)
 
     def flush(self):
         if self._logger is not None:
@@ -197,40 +199,40 @@ class StatsigServer:
             self._spec_store.shutdown()
             self._initialized = False
 
-        self._errorBoundary.swallow(task)
+        self._errorBoundary.swallow("shutdown", task)
 
     def override_gate(self, gate: str, value: bool,
                       user_id: Optional[str] = None):
-        self._errorBoundary.swallow(
-            lambda: self._evaluator.override_gate(gate, value, user_id))
+        self._errorBoundary.swallow("override_gate",
+                                    lambda: self._evaluator.override_gate(gate, value, user_id))
 
     def override_config(self, config: str, value: object,
                         user_id: Optional[str] = None):
-        self._errorBoundary.swallow(
-            lambda: self._evaluator.override_config(config, value, user_id))
+        self._errorBoundary.swallow("override_config",
+                                    lambda: self._evaluator.override_config(config, value, user_id))
 
     def override_experiment(self, experiment: str,
                             value: object, user_id: Optional[str] = None):
-        self._errorBoundary.swallow(
-            lambda: self._evaluator.override_config(experiment, value, user_id))
+        self._errorBoundary.swallow("override_experiment",
+                                    lambda: self._evaluator.override_config(experiment, value, user_id))
 
     def remove_gate_override(self, gate: str, user_id: Optional[str] = None):
-        self._errorBoundary.swallow(
-            lambda: self._evaluator.remove_gate_override(gate, user_id))
+        self._errorBoundary.swallow("remove_gate_override",
+                                    lambda: self._evaluator.remove_gate_override(gate, user_id))
 
     def remove_config_override(self, config: str,
                                user_id: Optional[str] = None):
-        self._errorBoundary.swallow(
-            lambda: self._evaluator.remove_config_override(config, user_id))
+        self._errorBoundary.swallow("remove_config_override",
+                                    lambda: self._evaluator.remove_config_override(config, user_id))
 
     def remove_experiment_override(
             self, experiment: str, user_id: Optional[str] = None):
-        self._errorBoundary.swallow(
-            lambda: self._evaluator.remove_config_override(experiment, user_id))
+        self._errorBoundary.swallow("remove_experiment_override",
+                                    lambda: self._evaluator.remove_config_override(experiment, user_id))
 
     def remove_all_overrides(self):
-        self._errorBoundary.swallow(
-            lambda: self._evaluator.remove_all_overrides())
+        self._errorBoundary.swallow("remove_all_overrides",
+                                    lambda: self._evaluator.remove_all_overrides())
 
     def get_client_initialize_response(self, user: StatsigUser):
         def task():
@@ -240,7 +242,7 @@ class StatsigServer:
         def recover():
             return None
 
-        return self._errorBoundary.capture(task, recover)
+        return self._errorBoundary.capture("get_client_initialize_response", task, recover)
 
     def evaluate_all(self, user: StatsigUser):
         def task():
@@ -270,7 +272,7 @@ class StatsigServer:
                 "dynamic_configs": {}
             })
 
-        return self._errorBoundary.capture(task, recover)
+        return self._errorBoundary.capture("evaluate_all", task, recover)
 
     def _verify_inputs(self, user: StatsigUser, variable_name: str):
         if not self._initialized:
@@ -352,4 +354,4 @@ class StatsigServer:
                     break
                 sync_func()
             except Exception as e:
-                self._errorBoundary.log_exception(e)
+                self._errorBoundary.log_exception("_sync", e)

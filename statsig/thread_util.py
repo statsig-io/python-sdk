@@ -17,5 +17,5 @@ def spawn_background_thread(task: Callable[[], None],
 
     except Exception as e:
         if error_boundary is not None:
-            error_boundary.log_exception(e)
+            error_boundary.log_exception("spawn_background_thread", e)
         return None

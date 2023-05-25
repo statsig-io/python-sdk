@@ -58,7 +58,7 @@ class _StatsigNetwork:
             if marker_tracker is not None:
                 marker_tracker.mark_end({'value': response.status_code if response is not None else False})
             if log_on_exception:
-                self.__error_boundary.log_exception(err)
+                self.__error_boundary.log_exception("post_request", err)
                 self.__log.warning(
                     'Network exception caught when making request to %s failed', endpoint)
             if self._raise_on_error:
@@ -94,7 +94,7 @@ class _StatsigNetwork:
             if log_on_exception:
                 template = "Network exception caught when making request to {0} - {1}. Arguments: {2!r}"
                 message = template.format(self.__api + endpoint, type(err).__name__, err.args)
-                self.__error_boundary.log_exception(err)
+                self.__error_boundary.log_exception("retryable_request", err)
                 self.__log.warning(message)
             if self._raise_on_error:
                 raise err
@@ -112,7 +112,7 @@ class _StatsigNetwork:
             return None
         except Exception as err:
             if log_on_exception:
-                self.__error_boundary.log_exception(err)
+                self.__error_boundary.log_exception("get_request", err)
                 self.__log.warning(
                     'Network exception caught when making request to %s failed', url)
             if self._raise_on_error:

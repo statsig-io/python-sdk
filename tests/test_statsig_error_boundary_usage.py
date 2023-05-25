@@ -1,7 +1,4 @@
-import threading
-import time
 import unittest
-from unittest import mock
 
 from statsig.dynamic_config import DynamicConfig
 from statsig.layer import Layer
