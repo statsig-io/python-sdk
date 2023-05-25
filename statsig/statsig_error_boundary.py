@@ -19,7 +19,7 @@ class _StatsigErrorBoundary:
     def set_api_key(self, api_key):
         self._api_key = api_key
 
-    def capture(self, task, recover):
+    def capture(self, tag: str, task, recover):
         try:
             return task()
         except (StatsigValueError, StatsigNameError, StatsigRuntimeError) as e:
@@ -29,16 +29,16 @@ class _StatsigErrorBoundary:
                 print("[Statsig]: An unexpected error occurred.")
                 traceback.print_exc()
 
-            self.log_exception(e)
+            self.log_exception(tag, e)
             return recover()
 
-    def swallow(self, task):
+    def swallow(self, tag: str, task):
         def empty_recover():
             return None
 
-        self.capture(task, empty_recover)
+        self.capture(tag, task, empty_recover)
 
-    def log_exception(self, exception: Exception):
+    def log_exception(self, tag: str, exception: Exception):
         try:
             name = type(exception).__name__
             if self._api_key is None or name in self._seen:
@@ -49,7 +49,8 @@ class _StatsigErrorBoundary:
             requests.post(self.endpoint, json={
                 "exception": type(exception).__name__,
                 "info": traceback.format_exc(),
-                "statsigMetadata": _StatsigMetadata.get()
+                "statsigMetadata": _StatsigMetadata.get(),
+                "tag": tag
             }, headers={
                 'Content-type': 'application/json',
                 'STATSIG-API-KEY': self._api_key,

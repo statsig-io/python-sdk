@@ -37,14 +37,14 @@ class TestStatsigErrorBoundary(unittest.TestCase):
             nonlocal called
             called = True
 
-        self._boundary.capture(task, recover)
+        self._boundary.capture("", task, recover)
         self.assertTrue(called)
 
     def test_has_default_recovery_of_none(self, mock_post):
         def task():
             raise RuntimeError()
 
-        res = self._boundary.swallow(task)
+        res = self._boundary.swallow("", task)
         self.assertIsNone(res)
 
     def test_logging_to_correct_endpoint(self, mock_post):
@@ -67,6 +67,7 @@ class TestStatsigErrorBoundary(unittest.TestCase):
         self.assertEqual(body['exception'], "RuntimeError")
         self.assertEqual(body['info'], "".join(traceback.format_exception(
             type(err), err, err.__traceback__)))
+        self.assertEqual(body['tag'], "_capture_error")
 
     def test_logging_statsig_metadata(self, mock_post):
         self._capture_error()
@@ -89,31 +90,31 @@ class TestStatsigErrorBoundary(unittest.TestCase):
             def task():
                 raise StatsigValueError()
 
-            self._boundary.swallow(task)
+            self._boundary.swallow("", task)
 
         def test_name_error():
             def task():
                 raise StatsigNameError()
 
-            self._boundary.swallow(task)
+            self._boundary.swallow("", task)
 
         def test_runtime_error():
             def task():
                 raise StatsigRuntimeError()
 
-            self._boundary.swallow(task)
+            self._boundary.swallow("", task)
 
         def test_interrupts():
             def task():
                 raise KeyboardInterrupt()
 
-            self._boundary.swallow(task)
+            self._boundary.swallow("", task)
 
         def test_exits():
             def task():
                 raise SystemExit()
 
-            self._boundary.swallow(task)
+            self._boundary.swallow("", task)
 
         self.assertRaises(StatsigValueError, test_value_error)
         self.assertRaises(StatsigNameError, test_name_error)
@@ -128,7 +129,7 @@ class TestStatsigErrorBoundary(unittest.TestCase):
         def recover():
             pass
 
-        res = self._boundary.capture(task, recover)
+        res = self._boundary.capture("", task, recover)
         self.assertEqual(res, "the_result")
 
     def test_returns_recovered_results(self, mock_post):
@@ -138,7 +139,7 @@ class TestStatsigErrorBoundary(unittest.TestCase):
         def recover():
             return "recovered_result"
 
-        res = self._boundary.capture(task, recover)
+        res = self._boundary.capture("", task, recover)
         self.assertEqual(res, "recovered_result")
 
     def _capture_error(self) -> RuntimeError:
@@ -150,7 +151,7 @@ class TestStatsigErrorBoundary(unittest.TestCase):
         def recover():
             pass
 
-        self._boundary.capture(task, recover)
+        self._boundary.capture("_capture_error", task, recover)
         return err
 
     def _get_requests(self):

@@ -4,9 +4,8 @@ import unittest
 import json
 
 from unittest.mock import patch
-from unittest.mock import MagicMock
 from network_stub import NetworkStub
-from statsig import statsig, StatsigUser, StatsigOptions, StatsigEvent, StatsigEnvironmentTier
+from statsig import statsig, StatsigUser, StatsigOptions, StatsigEnvironmentTier
 
 with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), '../testdata/download_config_specs_unique_conditions.json')) as r:
     CONFIG_SPECS_RESPONSE = r.read()
@@ -40,7 +39,6 @@ class TestStatsigE2E(unittest.TestCase):
             disable_diagnostics=True)
 
         statsig.initialize("secret-key", options)
-        statsig.get_instance()._errorBoundary.log_exception = MagicMock(side_effect=ValueError('Exception'))
         cls.initTime = round(time.time() * 1000)
 
     def test_ua_parser(self, mock_post, mock_get):
