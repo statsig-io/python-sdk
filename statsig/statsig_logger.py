@@ -187,6 +187,8 @@ class _StatsigLogger:
         self._executor.shutdown()
 
     def _run_on_background_thread(self, closure):
+        if self._shutdown_event.is_set():
+            return
         future = self._executor.submit(closure)
         self._futures.append(future)
 

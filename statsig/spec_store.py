@@ -83,13 +83,13 @@ class _SpecStore:
         if self._options.local_mode:
             return
 
-        self._executor.shutdown(wait=False)
-
         if self._background_download_configs is not None:
             self._background_download_configs.join(THREAD_JOIN_TIMEOUT)
 
         if self._background_download_id_lists is not None:
             self._background_download_id_lists.join(THREAD_JOIN_TIMEOUT)
+
+        self._executor.shutdown(wait=False)
 
     def get_gate(self, name: str):
         return self._gates.get(name)
@@ -346,8 +346,7 @@ class _SpecStore:
                 if size <= read_bytes or url == "":
                     continue
 
-                # if the main id sync is killed, we should too
-                if not self._background_download_id_lists or not self._background_download_id_lists.is_alive():
+                if self._shutdown_event.is_set():
                     return
 
                 future = self._executor.submit(
