@@ -12,7 +12,7 @@ jobs:
     if: startsWith(github.head_ref, 'releases/') || github.event_name == 'release'
     runs-on: ubuntu-latest
     steps:
-      - uses: statsig-io/statsig-publish-sdk-action@778465cae5a59e81a9a629088d9fa55239ebb96a
+      - uses: statsig-io/statsig-publish-sdk-action@main
         with:
           gh-token: ${{ secrets.KONG_FINE_GRAINED_REPO_PAT }}
           pypi-token: ${{ secrets.PYPI_PUBLISH_TOKEN }}
