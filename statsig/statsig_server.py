@@ -66,14 +66,26 @@ class StatsigServer:
             self.__shutdown_event = threading.Event()
             self.__statsig_metadata = _StatsigMetadata.get()
             self._network = _StatsigNetwork(
-                sdk_key, options, self._errorBoundary)
+                sdk_key,
+                self._options,
+                self._errorBoundary)
             self._logger = _StatsigLogger(
-                self._network, self.__shutdown_event, self.__statsig_metadata, self._errorBoundary,
-                options)
+                self._network,
+                self.__shutdown_event,
+                self.__statsig_metadata,
+                self._errorBoundary,
+                self._options)
             self._spec_store = _SpecStore(
-                self._network, self._options, self.__statsig_metadata, self._errorBoundary, self.__shutdown_event,
+                self._network,
+                self._options,
+                self.__statsig_metadata,
+                self._errorBoundary,
+                self.__shutdown_event,
                 self._diagnostics)
+
             self._evaluator = _Evaluator(self._spec_store)
+
+            self._spec_store.initialize()
             self._initialized = True
 
             self._diagnostics.mark("initialize", "overall", "end")

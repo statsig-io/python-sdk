@@ -56,14 +56,17 @@ class _SpecStore:
 
         self._id_lists = {}
 
-        if not options.local_mode:
-            self._initialize_specs()
-            self.initial_update_time = -1 if self.last_update_time == 0 else self.last_update_time
+    def initialize(self):
+        if self._options.local_mode:
+            self._initialized = True
+            return
 
-            self.spawn_bg_threads_if_needed()
+        self._initialize_specs()
+        self.initial_update_time = -1 if self.last_update_time == 0 else self.last_update_time
 
-            self._download_id_lists(for_initialize=True)
+        self.spawn_bg_threads_if_needed()
 
+        self._download_id_lists(for_initialize=True)
         self._initialized = True
 
     def is_ready_for_checks(self):
