@@ -22,52 +22,51 @@ IDLISTS_SYNC_INTERVAL = 60
 
 
 class StatsigServer:
-    _errorBoundary: _StatsigErrorBoundary
     _initialized: bool
 
-    _options: Optional[StatsigOptions]
-    __shutdown_event: Optional[threading.Event]
-    __statsig_metadata: Optional[dict]
-    _network: Optional[_StatsigNetwork]
-    _logger: Optional[_StatsigLogger]
-    _spec_store: Optional[_SpecStore]
-    _evaluator: Optional[_Evaluator]
+    _errorBoundary: _StatsigErrorBoundary
     _diagnostics: _Diagnostics
 
-    def __init__(self) -> None:
-        self._errorBoundary = _StatsigErrorBoundary()
-        self._initialized = False
-        self._diagnostics = _Diagnostics()
+    _options: Optional[StatsigOptions] = None
+    __shutdown_event: Optional[threading.Event] = None
+    __statsig_metadata: Optional[dict] = None
+    _network: Optional[_StatsigNetwork] = None
+    _logger: Optional[_StatsigLogger] = None
+    _spec_store: Optional[_SpecStore] = None
+    _evaluator: Optional[_Evaluator] = None
 
-    def initialize_with_timeout(self, sdkKey: str, options=None):
-        thread = threading.Thread(
-            target=self.initialize, args=(sdkKey, options))
-        thread.start()
-        thread.join(timeout=options.init_timeout)
-        if thread.is_alive():
-            self._initialized = True
-            logger.log_process("Initialize", "Timed out")
-            return
+    def __init__(self) -> None:
+        self._initialized = False
+
+        self._errorBoundary = _StatsigErrorBoundary()
+        self._diagnostics = _Diagnostics()
 
     def initialize(self, sdkKey: str, options=None):
         if self._initialized:
             logger.log_process("Initialize",
                                "Warning: Statsig is already initialized. No further action will be taken.")
             return
+
         if sdkKey is None or not sdkKey.startswith("secret-"):
             raise StatsigValueError(
                 'Invalid key provided.  You must use a Server Secret Key from the Statsig console.')
-        if options is None:
-            options = StatsigOptions()
-        self._errorBoundary.set_api_key(sdkKey)
 
+        self._initialize_impl(sdkKey, options)
+
+    def _initialize_impl(self, sdk_key: str, options: Optional[StatsigOptions]):
         try:
             self._diagnostics.mark("initialize", "overall", "start")
+
+            self._errorBoundary.set_api_key(sdk_key)
+
+            if options is None:
+                options = StatsigOptions()
+
             self._options = options
             self.__shutdown_event = threading.Event()
             self.__statsig_metadata = _StatsigMetadata.get()
             self._network = _StatsigNetwork(
-                sdkKey, options, self._errorBoundary)
+                sdk_key, options, self._errorBoundary)
             self._logger = _StatsigLogger(
                 self._network, self.__shutdown_event, self.__statsig_metadata, self._errorBoundary,
                 options)
@@ -76,18 +75,16 @@ class StatsigServer:
                 self._diagnostics)
             self._evaluator = _Evaluator(self._spec_store)
             self._initialized = True
+
             self._diagnostics.mark("initialize", "overall", "end")
             self._log_diagnostics(self._diagnostics)
+
         except (StatsigValueError, StatsigNameError, StatsigRuntimeError) as e:
             raise e
+
         except Exception as e:
             self._errorBoundary.log_exception("initialize", e)
             self._initialized = True
-
-    def _log_diagnostics(self, diagnostics: _Diagnostics):
-        if self._options.disable_diagnostics:
-            return
-        self._logger.log_diagnostics_event(diagnostics, "initialize")
 
     def check_gate(self, user: StatsigUser, gate_name: str, log_exposure=True):
         def task():
@@ -274,13 +271,21 @@ class StatsigServer:
 
         return self._errorBoundary.capture("evaluate_all", task, recover)
 
+    def _log_diagnostics(self, diagnostics: _Diagnostics):
+        if self._options.disable_diagnostics:
+            return
+        self._logger.log_diagnostics_event(diagnostics, "initialize")
+
     def _verify_inputs(self, user: StatsigUser, variable_name: str):
         if not self._initialized:
             raise StatsigRuntimeError(
                 'Must call initialize before checking gates/configs/experiments or logging events')
+
         if not user or (not user.user_id and not user.custom_ids):
             raise StatsigValueError(
-                'A non-empty StatsigUser with user_id or custom_ids is required. See https://docs.statsig.com/messages/serverRequiredUserID')
+                'A non-empty StatsigUser with user_id or custom_ids is required. See '
+                'https://docs.statsig.com/messages/serverRequiredUserID')
+
         if not variable_name:
             return False
 
@@ -291,6 +296,7 @@ class StatsigServer:
     def _verify_bg_threads_running(self):
         if self._logger is not None:
             self._logger.spawn_bg_threads_if_needed()
+
         if self._spec_store is not None:
             self._spec_store.spawn_bg_threads_if_needed()
 

@@ -15,11 +15,8 @@ def initialize(secret_key: str, options=None):
     :param options: The StatsigOptions object used to configure the SDK
     """
     logger.log_process("Initialize", "Starting...")
-    init_timeout = options.init_timeout if options is not None else None
-    if init_timeout is not None:
-        __instance.initialize_with_timeout(secret_key, options)
-    else:
-        __instance.initialize(secret_key, options)
+    __instance.initialize(secret_key, options)
+
     if __instance._initialized:
         logger.log_process("Initialize", "Done")
     else:
@@ -256,6 +253,7 @@ def evaluate_all(user: StatsigUser):
     """
     return __instance.evaluate_all(user)
 
+
 def flush():
     """
     Flushes any queued event logs
@@ -264,6 +262,7 @@ def flush():
     when using the sdk in a script or scenario where you need to flush logs, use this method
     """
     __instance.flush()
+
 
 def shutdown():
     """

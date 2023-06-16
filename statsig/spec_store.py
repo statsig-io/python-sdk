@@ -62,7 +62,7 @@ class _SpecStore:
 
             self.spawn_bg_threads_if_needed()
 
-            self._download_id_lists()
+            self._download_id_lists(for_initialize=True)
 
         self._initialized = True
 
@@ -193,21 +193,22 @@ class _SpecStore:
             marker_tracker.mark_end()
 
     def _spawn_bg_download_config_specs(self):
+        interval = self._options.rulesets_sync_interval or RULESETS_SYNC_INTERVAL
+        fast_start = self._sync_failure_count > 0
+
         self._background_download_configs = spawn_background_thread(
             self._sync,
-            (self._download_config_specs, self._options.
-             rulesets_sync_interval or RULESETS_SYNC_INTERVAL),
+            (self._download_config_specs, interval, fast_start),
             self._error_boundary)
-
-    def _retry_bg_download_config_specs(self):
-        thread = spawn_background_thread(
-            self._download_config_specs, (), self._error_boundary)
-        if thread is not None:
-            thread.join(THREAD_JOIN_TIMEOUT)
 
     def _download_config_specs(self, for_initialize=False):
         self._log_process("Loading specs from network...")
         log_on_exception = not self._initialized
+
+        timeout: Optional[int] = None
+        if for_initialize:
+            timeout = self._options.init_timeout
+
         if self._sync_failure_count * self._options.rulesets_sync_interval > 120:
             log_on_exception = True
             self._sync_failure_count = 0
@@ -216,18 +217,15 @@ class _SpecStore:
             marker_tracker = self._diagnostics.create_tracker(self._get_current_context(),
                                                               "download_config_specs", "network_request")
             specs = self._network.post_request("download_config_specs", {
-                                                  "statsigMetadata": self._statsig_metadata,
-                                                  "sinceTime": self.last_update_time,
-                                              }, log_on_exception, marker_tracker)
+                "statsigMetadata": self._statsig_metadata,
+                "sinceTime": self.last_update_time,
+            }, log_on_exception, marker_tracker, timeout)
+
         except Exception as e:
-            if for_initialize:
-                self._retry_bg_download_config_specs()
             raise e
 
         if specs is None:
             self._sync_failure_count += 1
-            if for_initialize:
-                self._retry_bg_download_config_specs()
             return
 
         self.download_config_spec_process(specs)
@@ -260,7 +258,6 @@ class _SpecStore:
         self._options.data_store.set(STORAGE_ADAPTER_KEY, json.dumps(specs))
 
     def _load_config_specs_from_storage_adapter(self):
-
         marker_tracker = self._diagnostics.create_tracker(self._get_current_context(),
                                                           "bootstrap", "load")
         marker_tracker.mark_start()
@@ -289,17 +286,23 @@ class _SpecStore:
         marker_tracker.mark_end()
 
     def _spawn_bg_download_id_lists(self):
-        self._background_download_id_lists = spawn_background_thread(self._sync, (
-            self._download_id_lists, self._options.idlists_sync_interval or IDLISTS_SYNC_INTERVAL
-        ), self._error_boundary)
+        interval = self._options.idlists_sync_interval or IDLISTS_SYNC_INTERVAL
+        self._background_download_id_lists = spawn_background_thread(
+            self._sync,
+            (self._download_id_lists, interval),
+            self._error_boundary)
 
-    def _download_id_lists(self):
+    def _download_id_lists(self, for_initialize=False):
         try:
-            marker_tracker = self._diagnostics.create_tracker(self._get_current_context(), "get_id_lists", "network_request")
+            marker_tracker = self._diagnostics.create_tracker(self._get_current_context(), "get_id_lists",
+                                                              "network_request")
+            timeout: Optional[int] = None
+            if for_initialize:
+                timeout = self._options.init_timeout
 
             server_id_lists = self._network.post_request("get_id_lists", {
-                                                            "statsigMetadata": self._statsig_metadata,
-                                                        }, False, marker_tracker)
+                "statsigMetadata": self._statsig_metadata,
+            }, marker_tracker=marker_tracker, timeout=timeout)
 
             if server_id_lists is None:
                 return
@@ -404,7 +407,10 @@ class _SpecStore:
         except Exception as e:
             self._error_boundary.log_exception("_download_single_id_list", e)
 
-    def _sync(self, sync_func, interval):
+    def _sync(self, sync_func, interval, fast_start=False):
+        if fast_start:
+            sync_func()
+
         while True:
             try:
                 if self._shutdown_event.wait(interval):
