@@ -17,14 +17,15 @@ class _StatsigNetwork:
         api = options.api
         if not options.api.endswith("/"):
             api = options.api + "/"
+
         self.__api = api
-        self.__timeout = options.timeout or REQUEST_TIMEOUT
+        self.__req_timeout = options.timeout or REQUEST_TIMEOUT
         self.__local_mode = options.local_mode
         self.__error_boundary = error_boundary
         self.__log = logger
         self.__session = str(uuid4())
 
-    def post_request(self, endpoint, payload, log_on_exception=False, marker_tracker=None):
+    def post_request(self, endpoint, payload, log_on_exception=False, marker_tracker=None, timeout=None):
         if marker_tracker is not None:
             marker_tracker.mark_start()
         if self.__local_mode:
@@ -45,10 +46,15 @@ class _StatsigNetwork:
 
         response = None
         try:
+            if timeout is None:
+                timeout = self.__req_timeout
+
             response = requests.post(
-                self.__api + endpoint, json=verified_payload, headers=headers, timeout=self.__timeout)
+                self.__api + endpoint, json=verified_payload, headers=headers, timeout=timeout)
+
             if marker_tracker is not None:
                 marker_tracker.mark_end({'value': response.status_code})
+
             if response.status_code == 200:
                 data = response.json()
                 if data:
@@ -83,7 +89,7 @@ class _StatsigNetwork:
 
         try:
             response = requests.post(
-                self.__api + endpoint, json=verified_payload, headers=headers, timeout=self.__timeout)
+                self.__api + endpoint, json=verified_payload, headers=headers, timeout=self.__req_timeout)
             if response.status_code in self.__RETRY_CODES:
                 return payload
             if response.status_code >= 300:
@@ -106,7 +112,7 @@ class _StatsigNetwork:
         try:
             headers['STATSIG-SERVER-SESSION-ID'] = self.__session
             response = requests.get(
-                url, headers=headers, timeout=self.__timeout)
+                url, headers=headers, timeout=self.__req_timeout)
             if response.ok:
                 return response
             return None
@@ -125,7 +131,8 @@ class _StatsigNetwork:
             return payload
         except TypeError as e:
             self.__log.error(
-                "Dropping request to %s. Failed to json encode payload. Are you sure the input is json serializable? %s %s",
+                "Dropping request to %s. Failed to json encode payload. Are you sure the input is json serializable? "
+                "%s %s",
                 endpoint,
                 type(e).__name__,
                 e.args,

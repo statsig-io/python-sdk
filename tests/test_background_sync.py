@@ -369,7 +369,7 @@ class TestBackgroundSync(unittest.TestCase):
         self.idlist_sync_count = 0
 
         def download_config_specs_response_callback(url: str, data: dict):
-            self.config_sync_count = self.config_sync_count + 1
+            self.config_sync_count += 1
             if self.config_sync_count == 1:
                 return "{}"
             return {

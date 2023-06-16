@@ -1,3 +1,4 @@
+import threading
 import time
 import os
 import unittest
@@ -23,7 +24,15 @@ class TestInitTimeout(unittest.TestCase):
         _network_stub.reset()
 
         def dcs_callback(url: str, data: dict):
-            time.sleep(MINIMUM_INIT_TIME_S)
+            def __work():
+                time.sleep(MINIMUM_INIT_TIME_S)
+
+            t = threading.Thread(target=__work)
+            t.start()
+            t.join(data.get("timeout", None))
+            if t.is_alive():
+                raise TimeoutError
+
             return json.loads(CONFIG_SPECS_RESPONSE)
 
         _network_stub.stub_request_with_function(
@@ -52,7 +61,7 @@ class TestInitTimeout(unittest.TestCase):
 
     @patch('requests.post', side_effect=_network_stub.mock)
     def test_timeout_with_timeout_option(self, mock_post):
-        options = StatsigOptions(api=_network_stub.host, init_timeout=1, disable_diagnostics=True)
+        options = StatsigOptions(api=_network_stub.host, init_timeout=0.1, disable_diagnostics=True)
         start = time.time()
         statsig.initialize("secret-key", options)
         end = time.time()
