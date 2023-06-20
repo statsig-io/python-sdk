@@ -38,7 +38,7 @@ class _StatsigErrorBoundary:
 
         self.capture(tag, task, empty_recover)
 
-    def log_exception(self, tag: str, exception: Exception):
+    def log_exception(self, tag: str, exception: Exception, extra: dict = None):
         try:
             name = type(exception).__name__
             if self._api_key is None or name in self._seen:
@@ -50,7 +50,8 @@ class _StatsigErrorBoundary:
                 "exception": type(exception).__name__,
                 "info": traceback.format_exc(),
                 "statsigMetadata": _StatsigMetadata.get(),
-                "tag": tag
+                "tag": tag,
+                "extra": extra
             }, headers={
                 'Content-type': 'application/json',
                 'STATSIG-API-KEY': self._api_key,

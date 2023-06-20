@@ -64,7 +64,7 @@ class _StatsigNetwork:
             if marker_tracker is not None:
                 marker_tracker.mark_end({'value': response.status_code if response is not None else False})
             if log_on_exception:
-                self.__error_boundary.log_exception("post_request", err)
+                self.__error_boundary.log_exception("post_request:" + endpoint, err, { "timeoutMs": timeout * 1000})
                 self.__log.warning(
                     'Network exception caught when making request to %s failed', endpoint)
             if self._raise_on_error:
