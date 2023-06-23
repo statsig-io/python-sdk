@@ -31,6 +31,7 @@ class ClientInitializeResponseFormatter:
             config_target_apps = config_spec.get("targetAppIDs", [])
             if target_app_id is not None and target_app_id not in config_target_apps:
                 return None
+            
             eval_result = eval_func(user, config_spec)
             if eval_result is None:
                 return None
