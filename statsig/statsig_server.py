@@ -243,10 +243,10 @@ class StatsigServer:
         self._errorBoundary.swallow("remove_all_overrides",
                                     lambda: self._evaluator.remove_all_overrides())
 
-    def get_client_initialize_response(self, user: StatsigUser):
+    def get_client_initialize_response(self, user: StatsigUser, client_sdk_key: Optional[str] = None):
         def task():
             return self._evaluator.get_client_initialize_response(
-                self.__normalize_user(user))
+                self.__normalize_user(user), client_sdk_key)
 
         def recover():
             return None

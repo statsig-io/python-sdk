@@ -53,6 +53,7 @@ class _SpecStore:
         self._gates = {}
         self._layers = {}
         self._experiment_to_layer = {}
+        self._sdk_keys_to_app_ids = {}
 
         self._id_lists = {}
 
@@ -121,6 +122,11 @@ class _SpecStore:
     def get_all_id_lists(self):
         return self._id_lists
 
+    def get_target_app_for_sdk_key(self, sdk_key=None):
+        if sdk_key is None:
+            return None
+        return self._sdk_keys_to_app_ids.get(sdk_key)
+
     def _initialize_specs(self):
         if self._options.data_store is not None:
             if self._options.bootstrap_values is not None:
@@ -162,6 +168,11 @@ class _SpecStore:
             for experiment_name in experiments:
                 new_experiment_to_layer[experiment_name] = layer_name
 
+        new_sdk_keys_to_app_ids = {}
+        for sdk_key in specs_json.get("sdk_keys_to_app_ids", []):
+            new_sdk_keys_to_app_ids[sdk_key] = specs_json["sdk_keys_to_app_ids"][sdk_key]
+
+        self._sdk_keys_to_app_ids = new_sdk_keys_to_app_ids
         self._gates = new_gates
         self._configs = new_configs
         self._layers = new_layers

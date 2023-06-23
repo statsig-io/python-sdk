@@ -25,8 +25,12 @@ class ClientInitializeResponseFormatter:
 
     @staticmethod
     def get_formatted_response(
-            eval_func, user: StatsigUser, spec_store: _SpecStore):
+            eval_func, user: StatsigUser, spec_store: _SpecStore, client_sdk_key=None):
         def config_to_response(config_name, config_spec):
+            target_app_id = spec_store.get_target_app_for_sdk_key(client_sdk_key)
+            config_target_apps = config_spec.get("targetAppIDs", [])
+            if target_app_id is not None and target_app_id not in config_target_apps:
+                return None
             eval_result = eval_func(user, config_spec)
             if eval_result is None:
                 return None

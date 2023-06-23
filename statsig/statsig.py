@@ -232,16 +232,17 @@ def remove_all_overrides():
     __instance.remove_all_overrides()
 
 
-def get_client_initialize_response(user: StatsigUser):
+def get_client_initialize_response(user: StatsigUser, client_sdk_key: Optional[str] = None):
     """
     Gets all evaluated values for the given user.
     These values can then be given to a Statsig Client SDK via bootstrapping.
     Note: See Python SDK documentation https://docs.statsig.com/server/pythonSDK
 
     :param user: The StatsigUser object used for evaluation
+    :param client_sdk_key: (Optional) The client sdk key to use for bootstrapping
     :return: An initialize response containing evaluated gates/configs/layers
     """
-    return __instance.get_client_initialize_response(user)
+    return __instance.get_client_initialize_response(user, client_sdk_key)
 
 
 def evaluate_all(user: StatsigUser):
