@@ -93,12 +93,12 @@ class _Evaluator:
         self._gate_overrides = {}
         self._config_overrides = {}
 
-    def get_client_initialize_response(self, user: StatsigUser):
+    def get_client_initialize_response(self, user: StatsigUser, client_sdk_key=None):
         if not self._spec_store.is_ready_for_checks():
             return None
 
         return ClientInitializeResponseFormatter \
-            .get_formatted_response(self.__eval_config, user, self._spec_store)
+            .get_formatted_response(self.__eval_config, user, self._spec_store, client_sdk_key)
 
     def _create_evaluation_details(self, reason: EvaluationReason):
         if reason == EvaluationReason.uninitialized:
