@@ -168,11 +168,7 @@ class _SpecStore:
             for experiment_name in experiments:
                 new_experiment_to_layer[experiment_name] = layer_name
 
-        new_sdk_keys_to_app_ids = {}
-        for sdk_key in specs_json.get("sdk_keys_to_app_ids", []):
-            new_sdk_keys_to_app_ids[sdk_key] = specs_json["sdk_keys_to_app_ids"][sdk_key]
-
-        self._sdk_keys_to_app_ids = new_sdk_keys_to_app_ids
+        self._sdk_keys_to_app_ids = specs_json.get("sdk_keys_to_app_ids", {})
         self._gates = new_gates
         self._configs = new_configs
         self._layers = new_layers
