@@ -9,7 +9,8 @@ from statsig.statsig_metadata import _StatsigMetadata
 from statsig.statsig_user import StatsigUser
 from .spec_store import _SpecStore
 from .statsig_error_boundary import _StatsigErrorBoundary
-from .evaluator import _ConfigEvaluation, _Evaluator
+from .config_evaluation import _ConfigEvaluation
+from .evaluator import _Evaluator
 from .statsig_network import _StatsigNetwork
 from .statsig_logger import _StatsigLogger
 from .dynamic_config import DynamicConfig

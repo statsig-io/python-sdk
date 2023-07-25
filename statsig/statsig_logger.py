@@ -5,7 +5,7 @@ import threading
 from typing import Optional, Union
 from .retryable_logs import RetryableLogs
 from .evaluation_details import EvaluationDetails
-from .evaluator import _ConfigEvaluation
+from .config_evaluation import _ConfigEvaluation
 from .statsig_event import StatsigEvent
 from .layer import Layer
 from .utils import logger
