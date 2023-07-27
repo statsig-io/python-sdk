@@ -7,17 +7,18 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: '0 0,15 * * *'
+    - cron: "0 0,15 * * *"
 
 jobs:
   test:
+    if: github.event_name != 'schedule' || github.event.repository.private
     runs-on: ubuntu-20.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
         with:
-          python-version: '3.8'
+          python-version: "3.8"
 
       - name: Install Deps
         run: |
