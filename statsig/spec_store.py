@@ -9,7 +9,7 @@ from .statsig_errors import StatsigValueError, StatsigNameError
 from .statsig_network import _StatsigNetwork
 from .statsig_options import StatsigOptions
 from .thread_util import spawn_background_thread, THREAD_JOIN_TIMEOUT
-from .diagnostics import _Diagnostics
+from .diagnostics import Context, Diagnostics
 from .utils import logger
 
 RULESETS_SYNC_INTERVAL = 10
@@ -32,8 +32,7 @@ class _SpecStore:
     _background_download_id_lists: Optional[threading.Thread]
 
     def __init__(self, network: _StatsigNetwork, options: StatsigOptions, statsig_metadata: dict,
-                 error_boundary: _StatsigErrorBoundary, shutdown_event: threading.Event,
-                 diagnostics: _Diagnostics):
+                 error_boundary: _StatsigErrorBoundary, shutdown_event: threading.Event):
         self.last_update_time = 0
         self.initial_update_time = 0
         self.init_reason = EvaluationReason.uninitialized
@@ -47,7 +46,6 @@ class _SpecStore:
         self._background_download_configs = None
         self._background_download_id_lists = None
         self._sync_failure_count = 0
-        self._diagnostics = diagnostics
 
         self._configs = {}
         self._gates = {}
@@ -65,9 +63,9 @@ class _SpecStore:
         self._initialize_specs()
         self.initial_update_time = -1 if self.last_update_time == 0 else self.last_update_time
 
-        self.spawn_bg_threads_if_needed()
-
         self._download_id_lists(for_initialize=True)
+
+        self.spawn_bg_threads_if_needed()
         self._initialized = True
 
     def is_ready_for_checks(self):
@@ -76,6 +74,7 @@ class _SpecStore:
     def spawn_bg_threads_if_needed(self):
         if self._options.local_mode:
             return
+        Diagnostics.set_context(Context.CONFIG_SYNC.value)
 
         if self._background_download_configs is None or not self._background_download_configs.is_alive():
             self._spawn_bg_download_config_specs()
@@ -175,6 +174,8 @@ class _SpecStore:
         self._layers = new_layers
         self._experiment_to_layer = new_experiment_to_layer
         self.last_update_time = specs_json.get("time", 0)
+        sampling_rate = specs_json.get("diagnostics", {})
+        Diagnostics.set_sampling_rate(sampling_rate)
 
         if callable(self._options.rules_updated_callback):
             self._options.rules_updated_callback(json.dumps(specs_json))
@@ -183,15 +184,13 @@ class _SpecStore:
         return True
 
     def _bootstrap_config_specs(self):
-        marker_tracker = self._diagnostics.create_tracker(self._get_current_context(), "bootstrap", "load")
-        marker_tracker.mark_start()
+        Diagnostics.mark().bootstrap().process().start()
         if self._options.bootstrap_values is None:
             return
 
         try:
             specs = json.loads(self._options.bootstrap_values)
             if specs is None or not _is_specs_json_valid(specs):
-                marker_tracker.mark_end()
                 return
             if self._process_specs(specs):
                 self.init_reason = EvaluationReason.bootstrap
@@ -201,7 +200,7 @@ class _SpecStore:
             logger.exception(
                 'Failed to parse bootstrap_values')
         finally:
-            marker_tracker.mark_end()
+            Diagnostics.mark().bootstrap().process().end({'success': self.init_reason is EvaluationReason.bootstrap})
 
     def _spawn_bg_download_config_specs(self):
         interval = self._options.rulesets_sync_interval or RULESETS_SYNC_INTERVAL
@@ -225,36 +224,36 @@ class _SpecStore:
             self._sync_failure_count = 0
 
         try:
-            marker_tracker = self._diagnostics.create_tracker(self._get_current_context(),
-                                                              "download_config_specs", "network_request")
             specs = self._network.post_request("download_config_specs", {
                 "statsigMetadata": self._statsig_metadata,
                 "sinceTime": self.last_update_time,
-            }, log_on_exception, marker_tracker, timeout)
+            }, log_on_exception, timeout)
 
+            if specs is None:
+                self._sync_failure_count += 1
+                return
+
+            self.download_config_spec_process(specs)
         except Exception as e:
             raise e
-
-        if specs is None:
-            self._sync_failure_count += 1
-            return
-
-        self.download_config_spec_process(specs)
+        finally:
+            Diagnostics.log_diagnostics("config_sync", "download_config_specs")
 
     def download_config_spec_process(self, specs):
-        marker_tracker = self._diagnostics.create_tracker(self._get_current_context(),
-                                                          "download_config_specs", "process")
-        marker_tracker.mark_start()
-        if not _is_specs_json_valid(specs):
-            marker_tracker.mark_end({'value': False})
-            return
+        try:
+            Diagnostics.mark().download_config_specs().process().start()
+            if not _is_specs_json_valid(specs):
+                return
 
-        self._log_process("Done loading specs")
-        if self._process_specs(specs):
-            self._save_to_storage_adapter(specs)
-            self.init_reason = EvaluationReason.network
-
-        marker_tracker.mark_end({'value': self.init_reason == EvaluationReason.network})
+            self._log_process("Done loading specs")
+            if self._process_specs(specs):
+                self._save_to_storage_adapter(specs)
+                self.init_reason = EvaluationReason.network
+        except Exception as e:
+            raise e
+        finally:
+            Diagnostics.mark().download_config_specs().process().end(
+                {'success': self.init_reason == EvaluationReason.network})
 
     def _save_to_storage_adapter(self, specs):
         if not _is_specs_json_valid(specs):
@@ -269,9 +268,6 @@ class _SpecStore:
         self._options.data_store.set(STORAGE_ADAPTER_KEY, json.dumps(specs))
 
     def _load_config_specs_from_storage_adapter(self):
-        marker_tracker = self._diagnostics.create_tracker(self._get_current_context(),
-                                                          "bootstrap", "load")
-        marker_tracker.mark_start()
         self._log_process("Loading specs from adapter")
         if self._options.data_store is None:
             return
@@ -294,9 +290,9 @@ class _SpecStore:
         self._log_process("Done loading specs")
         if self._process_specs(cache):
             self.init_reason = EvaluationReason.data_adapter
-        marker_tracker.mark_end()
 
     def _spawn_bg_download_id_lists(self):
+
         interval = self._options.idlists_sync_interval or IDLISTS_SYNC_INTERVAL
         self._background_download_id_lists = spawn_background_thread(
             self._sync,
@@ -305,28 +301,26 @@ class _SpecStore:
 
     def _download_id_lists(self, for_initialize=False):
         try:
-            marker_tracker = self._diagnostics.create_tracker(self._get_current_context(), "get_id_lists",
-                                                              "network_request")
             timeout: Optional[int] = None
             if for_initialize:
                 timeout = self._options.init_timeout
 
             server_id_lists = self._network.post_request("get_id_lists", {
                 "statsigMetadata": self._statsig_metadata,
-            }, marker_tracker=marker_tracker, timeout=timeout)
+            }, timeout=timeout)
 
             if server_id_lists is None:
                 return
-
+            self._download_id_lists_process(server_id_lists)
         except Exception as e:
             raise e
-
-        self._download_id_lists_process(server_id_lists)
+        finally:
+            Diagnostics.log_diagnostics("config_sync", "get_id_lists")
 
     def _download_id_lists_process(self, server_id_lists):
-        marker_tracker = self._diagnostics.create_tracker(self._get_current_context(), "get_id_lists", "process")
-        marker_tracker.mark_start()
+        threw_error = False
         try:
+            Diagnostics.mark().get_id_list_sources().process().start({'idListCount': len(server_id_lists)})
             local_id_lists = self._id_lists
             workers = []
 
@@ -380,19 +374,20 @@ class _SpecStore:
             for list_name in deleted_lists:
                 local_id_lists.pop(list_name, None)
 
-            marker_tracker.mark_end({'value': True})
-
         except Exception as e:
+            threw_error = True
             self._error_boundary.log_exception("_download_id_lists_process", e)
-            marker_tracker.mark_end({'value': False})
-
+        finally:
+            Diagnostics.mark().get_id_list_sources().process().end({'success': not threw_error})
     def _download_single_id_list(
             self, url, list_name, local_list, all_lists, start_index):
         resp = self._network.get_request(
             url, headers={"Range": f"bytes={start_index}-"})
         if resp is None:
             return
+        threw_error = False
         try:
+            Diagnostics.mark().get_id_list().process().start({'url': url})
             content_length_str = resp.headers.get('content-length')
             if content_length_str is None:
                 raise StatsigValueError("Content length invalid.")
@@ -416,7 +411,13 @@ class _SpecStore:
             local_list["readBytes"] = start_index + content_length
             all_lists[list_name] = local_list
         except Exception as e:
+            threw_error = True
             self._error_boundary.log_exception("_download_single_id_list", e)
+        finally:
+            Diagnostics.mark().get_id_list().process().end({
+                'url': url,
+                'success': not threw_error,
+            })
 
     def _sync(self, sync_func, interval, fast_start=False):
         if fast_start:
@@ -434,18 +435,6 @@ class _SpecStore:
         if process is None:
             process = "Initialize" if not self._initialized else "Sync"
         logger.log_process(process, msg)
-
-    def _add_diagnostics_marker(
-            self,
-            key: str,
-            action: str,
-            optional_args: dict = None,
-    ):
-        if self._get_current_context() != "initialized":
-            return
-        step = optional_args.get('step', None)
-        value = optional_args.get('value', None)
-        self._diagnostics.mark('initialize', key, action, step, value)
 
     def _get_current_context(self):
         return "initialize" if not self._initialized else "config_sync"

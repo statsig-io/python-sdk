@@ -2,6 +2,7 @@ import json
 import time
 from uuid import uuid4
 import requests
+from .diagnostics import Diagnostics
 
 from .utils import logger
 
@@ -25,9 +26,10 @@ class _StatsigNetwork:
         self.__log = logger
         self.__session = str(uuid4())
 
-    def post_request(self, endpoint, payload, log_on_exception=False, marker_tracker=None, timeout=None):
-        if marker_tracker is not None:
-            marker_tracker.mark_start()
+    def post_request(self, endpoint, payload, log_on_exception=False, timeout=None):
+        create_marker = self._get_diagnostics_from_url(endpoint)
+        if create_marker is not None:
+            create_marker().start()
         if self.__local_mode:
             self.__log.debug('Using local mode. Dropping network request')
             return None
@@ -52,19 +54,22 @@ class _StatsigNetwork:
             response = requests.post(
                 self.__api + endpoint, json=verified_payload, headers=headers, timeout=timeout)
 
-            if marker_tracker is not None:
-                marker_tracker.mark_end({'value': response.status_code})
+            if create_marker is not None:
+                create_marker().end({
+                    'statusCode': response.status_code,
+                    "success": response.ok,
+                    "sdkRegion": response.headers.get("x-statsig-region")
+                })
 
             if response.status_code == 200:
                 data = response.json()
-                if data:
-                    return data
+                return data if data else {}
             return None
         except Exception as err:
-            if marker_tracker is not None:
-                marker_tracker.mark_end({'value': response.status_code if response is not None else False})
+            if create_marker is not None:
+                create_marker().end({'statusCode': response.status_code if response is not None else False})
             if log_on_exception:
-                self.__error_boundary.log_exception("post_request:" + endpoint, err, { "timeoutMs": timeout * 1000})
+                self.__error_boundary.log_exception("post_request:" + endpoint, err, {"timeoutMs": timeout * 1000})
                 self.__log.warning(
                     'Network exception caught when making request to %s failed', endpoint)
             if self._raise_on_error:
@@ -109,7 +114,10 @@ class _StatsigNetwork:
     def get_request(self, url, headers, log_on_exception=False):
         if self.__local_mode:
             return None
+
+        response = None
         try:
+            Diagnostics.mark().get_id_list().network_request().start({'url': url})
             headers['STATSIG-SERVER-SESSION-ID'] = self.__session
             response = requests.get(
                 url, headers=headers, timeout=self.__req_timeout)
@@ -124,6 +132,12 @@ class _StatsigNetwork:
             if self._raise_on_error:
                 raise err
             return None
+        finally:
+            Diagnostics.mark().get_id_list().network_request().end({
+                'url': url,
+                'success': (response.ok is True) if response else False,
+                'statusCode': response.status_code if response else None
+            })
 
     def _verify_json_payload(self, payload, endpoint):
         try:
@@ -140,3 +154,10 @@ class _StatsigNetwork:
             if self._raise_on_error:
                 raise e
             return None
+
+    def _get_diagnostics_from_url(self, url: str):
+        if url.endswith('download_config_specs'):
+            return lambda: Diagnostics.mark().download_config_specs().network_request()
+        if url.endswith('get_id_lists'):
+            return lambda: Diagnostics.mark().get_id_list_sources().network_request()
+        return None

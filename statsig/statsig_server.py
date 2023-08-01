@@ -15,7 +15,7 @@ from .statsig_network import _StatsigNetwork
 from .statsig_logger import _StatsigLogger
 from .dynamic_config import DynamicConfig
 from .statsig_options import StatsigOptions
-from .diagnostics import _Diagnostics
+from .diagnostics import Diagnostics
 from .utils import logger
 
 RULESETS_SYNC_INTERVAL = 10
@@ -26,7 +26,6 @@ class StatsigServer:
     _initialized: bool
 
     _errorBoundary: _StatsigErrorBoundary
-    _diagnostics: _Diagnostics
 
     _options: Optional[StatsigOptions] = None
     __shutdown_event: Optional[threading.Event] = None
@@ -40,7 +39,6 @@ class StatsigServer:
         self._initialized = False
 
         self._errorBoundary = _StatsigErrorBoundary()
-        self._diagnostics = _Diagnostics()
 
     def initialize(self, sdkKey: str, options=None):
         if self._initialized:
@@ -55,14 +53,15 @@ class StatsigServer:
         self._initialize_impl(sdkKey, options)
 
     def _initialize_impl(self, sdk_key: str, options: Optional[StatsigOptions]):
+        threw_error = False
         try:
-            self._diagnostics.mark("initialize", "overall", "start")
+            Diagnostics.initialize()
+            Diagnostics.mark().overall().start()
 
             self._errorBoundary.set_api_key(sdk_key)
 
             if options is None:
                 options = StatsigOptions()
-
             self._options = options
             self.__shutdown_event = threading.Event()
             self.__statsig_metadata = _StatsigMetadata.get()
@@ -76,28 +75,33 @@ class StatsigServer:
                 self.__statsig_metadata,
                 self._errorBoundary,
                 self._options)
+
+            Diagnostics.set_logger(self._logger)
+            Diagnostics.set_diagnostics_enabled(self._options.disable_diagnostics)
+
             self._spec_store = _SpecStore(
                 self._network,
                 self._options,
                 self.__statsig_metadata,
                 self._errorBoundary,
                 self.__shutdown_event,
-                self._diagnostics)
-
+            )
             self._evaluator = _Evaluator(self._spec_store)
 
             self._spec_store.initialize()
             self._initialized = True
 
-            self._diagnostics.mark("initialize", "overall", "end")
-            self._log_diagnostics(self._diagnostics)
-
         except (StatsigValueError, StatsigNameError, StatsigRuntimeError) as e:
+            threw_error = True
             raise e
 
         except Exception as e:
+            threw_error = True
             self._errorBoundary.log_exception("initialize", e)
             self._initialized = True
+        finally:
+            Diagnostics.mark().overall().end({'success': not threw_error})
+            Diagnostics.log_diagnostics('initialize')
 
     def check_gate(self, user: StatsigUser, gate_name: str, log_exposure=True):
         def task():
@@ -284,10 +288,8 @@ class StatsigServer:
 
         return self._errorBoundary.capture("evaluate_all", task, recover)
 
-    def _log_diagnostics(self, diagnostics: _Diagnostics):
-        if self._options.disable_diagnostics:
-            return
-        self._logger.log_diagnostics_event(diagnostics, "initialize")
+    def _log_diagnostics(self):
+        self._logger.log_diagnostics_event("initialize")
 
     def _verify_inputs(self, user: StatsigUser, variable_name: str):
         if not self._initialized:
