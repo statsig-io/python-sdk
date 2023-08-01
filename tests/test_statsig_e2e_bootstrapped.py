@@ -11,36 +11,31 @@ CONFIG_SPECS_RESPONSE = "{\"dynamic_configs\":[{\"name\":\"test_config\",\"type\
 _network_stub = NetworkStub("http://test-statsig-bootstrapped")
 
 
-@patch('requests.post', side_effect=_network_stub.mock)
-class TestStatsigE2EBootstrapped(unittest.TestCase):
+class BaseStatsigE2ETestCase:
     _failure: bool
     _logs: list
+    _options: StatsigOptions
 
     @classmethod
     @patch('requests.post', side_effect=_network_stub.mock)
     def setUpClass(cls, mock_post):
-        _network_stub.stub_request_with_value(
-            "download_config_specs", 200, json.loads(CONFIG_SPECS_RESPONSE))
-
-        def log_event_callback(url: str, data: dict):
-            cls._logs = data["json"]
-
         _network_stub.stub_request_with_function(
-            "log_event", 202, log_event_callback)
+            "log_event", 202, cls.log_event_callback)
 
         cls._failure = False
         cls.statsig_user = StatsigUser(
             "123", email="testuser@statsig.com", private_attributes={"test": 123})
         cls.random_user = StatsigUser("random")
         cls._logs = {}
-        options = StatsigOptions(
+        cls._options = StatsigOptions(
             api=_network_stub.host,
             tier="development",
             disable_diagnostics=True)
-        options.bootstrap_values = CONFIG_SPECS_RESPONSE
-        options.rules_updated_callback = cls.callback
-        options.rulesets_sync_interval = 1
-        statsig.initialize("secret-key", options)
+        cls._options.rules_updated_callback = cls.callback
+
+    @classmethod
+    def log_event_callback(cls, url: str, data: dict):
+        cls._logs = data["json"]
 
     @classmethod
     def tearDownClass(cls):
@@ -107,6 +102,44 @@ class TestStatsigE2EBootstrapped(unittest.TestCase):
 
     def test_callback(self, mock_post):
         time.sleep(2)
+
+
+@patch('requests.post', side_effect=_network_stub.mock)
+class TestStatsigE2EBootstrapped(BaseStatsigE2ETestCase, unittest.TestCase):
+    @classmethod
+    @patch('requests.post', side_effect=_network_stub.mock)
+    def setUpClass(cls, mock_post):
+        super().setUpClass()
+        _network_stub.stub_request_with_value(
+            "download_config_specs", 200, json.loads(CONFIG_SPECS_RESPONSE))
+
+        cls._options.bootstrap_values = CONFIG_SPECS_RESPONSE
+        cls._options.rulesets_sync_interval = 1
+        statsig.initialize("secret-key", cls._options)
+
+
+@patch('requests.post', side_effect=_network_stub.mock)
+class TestBootstrapFailureFallBackToNetwork(BaseStatsigE2ETestCase, unittest.TestCase):
+    _download_config_specs_count = 0
+
+    @classmethod
+    @patch('requests.post', side_effect=_network_stub.mock)
+    def setUpClass(cls, mock_post):
+        super().setUpClass()
+
+        def mock_dcs(url: str, data: dict):
+            cls._download_config_specs_count += 1
+            return json.loads(CONFIG_SPECS_RESPONSE)
+
+        _network_stub.stub_request_with_function(
+            "download_config_specs", 200, mock_dcs)
+
+        cls._options.bootstrap_values = "{invalid_JSON}"
+        cls._options.rulesets_sync_interval = 30
+        statsig.initialize("secret-key", cls._options)
+
+    def test_download_config_specs_called(self, mock_post):
+        self.assertEqual(self._download_config_specs_count, 1)
 
 
 if __name__ == '__main__':

@@ -140,7 +140,8 @@ class _SpecStore:
         elif self._options.bootstrap_values is not None:
             self._bootstrap_config_specs()
 
-        else:
+        # If no updates from bootstrap or data_store, try to initialize from network
+        if self.init_reason is not EvaluationReason.bootstrap and self.last_update_time == 0:
             self._download_config_specs(for_initialize=True)
 
     def _process_specs(self, specs_json) -> bool:
