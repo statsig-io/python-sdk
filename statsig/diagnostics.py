@@ -8,7 +8,7 @@ from .statsig_logger import _StatsigLogger
 class Context(Enum):
     INITIALIZE = "initialize"
     CONFIG_SYNC = "config_sync"
-    ERROR_BOUNDARY = "error_boundary"
+    API_CALL = "api_call"
     LOG_EVENT = "log_event"
 
 
