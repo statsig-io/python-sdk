@@ -1,3 +1,4 @@
+import json
 from typing import Dict
 import time
 import random
@@ -50,7 +51,7 @@ class Marker:
     def __init__(self,
                  key: Key = None,
                  action: Action = None,
-                 timestamp: int = time.time(),
+                 timestamp: int = None,
                  step: Step = None,
                  statusCode: int = None,
                  success: bool = None,
@@ -65,7 +66,7 @@ class Marker:
                  configName: str = None):
         self.key = key
         self.action = action
-        self.timestamp = timestamp
+        self.timestamp = time.time() if timestamp is None else timestamp
         self.step = step
         self.statusCode = statusCode
         self.success = success
