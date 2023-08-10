@@ -207,6 +207,7 @@ class _SpecStore:
         fast_start = self._sync_failure_count > 0
 
         self._background_download_configs = spawn_background_thread(
+            "bg_download_config_specs",
             self._sync,
             (self._download_config_specs, interval, fast_start),
             self._error_boundary)
@@ -295,6 +296,7 @@ class _SpecStore:
 
         interval = self._options.idlists_sync_interval or IDLISTS_SYNC_INTERVAL
         self._background_download_id_lists = spawn_background_thread(
+            "bg_download_id_lists",
             self._sync,
             (self._download_id_lists, interval),
             self._error_boundary)

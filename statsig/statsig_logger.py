@@ -61,15 +61,15 @@ class _StatsigLogger:
 
         if self._background_flush is None or not self._background_flush.is_alive():
             self._background_flush = spawn_background_thread(
-                self._periodic_flush, (self._shutdown_event,), self._error_boundary)
+                "logger_background_flush", self._periodic_flush, (self._shutdown_event,), self._error_boundary)
 
         if self._background_retry is None or not self._background_retry.is_alive():
             self._background_retry = spawn_background_thread(
-                self._periodic_retry, (self._shutdown_event,), self._error_boundary)
+                "logger_background_retry", self._periodic_retry, (self._shutdown_event,), self._error_boundary)
 
         if self._background_deduper is None or not self._background_deduper.is_alive():
             self._background_deduper = spawn_background_thread(
-                self._periodic_dedupe_clear, (self._shutdown_event,), self._error_boundary)
+                "logger_background_deduper", self._periodic_dedupe_clear, (self._shutdown_event,), self._error_boundary)
 
     def log(self, event):
         if self._local_mode:
