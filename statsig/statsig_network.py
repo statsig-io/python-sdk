@@ -3,6 +3,8 @@ import time
 from uuid import uuid4
 import requests
 from .diagnostics import Diagnostics
+from .statsig_options import StatsigOptions
+from .statsig_error_boundary import _StatsigErrorBoundary
 
 from .utils import logger
 
@@ -13,7 +15,7 @@ class _StatsigNetwork:
     _raise_on_error = False
     __RETRY_CODES = [408, 500, 502, 503, 504, 522, 524, 599]
 
-    def __init__(self, sdk_key, options, error_boundary):
+    def __init__(self, sdk_key, options: StatsigOptions, statsig_metadata: dict, error_boundary: _StatsigErrorBoundary):
         self.__sdk_key = sdk_key
         api = options.api
         if not options.api.endswith("/"):
@@ -25,6 +27,7 @@ class _StatsigNetwork:
         self.__error_boundary = error_boundary
         self.__log = logger
         self.__session = str(uuid4())
+        self.__statsig_metadata = statsig_metadata
 
     def post_request(self, endpoint, payload, log_on_exception=False, timeout=None):
         create_marker = self._get_diagnostics_from_url(endpoint)
@@ -34,13 +37,9 @@ class _StatsigNetwork:
             self.__log.debug('Using local mode. Dropping network request')
             return None
 
-        headers = {
-            'Content-type': 'application/json',
-            'STATSIG-API-KEY': self.__sdk_key,
-            'STATSIG-CLIENT-TIME': str(round(time.time() * 1000)),
-            'STATSIG-SERVER-SESSION-ID': self.__session,
+        headers = self._create_headers({
             'STATSIG-RETRY': '0'
-        }
+        })
 
         verified_payload = self._verify_json_payload(payload, endpoint)
         if verified_payload is None:
@@ -80,13 +79,9 @@ class _StatsigNetwork:
         if self.__local_mode:
             return None
 
-        headers = {
-            'Content-type': 'application/json',
-            'STATSIG-API-KEY': self.__sdk_key,
-            'STATSIG-CLIENT-TIME': str(round(time.time() * 1000)),
-            'STATSIG-SERVER-SESSION-ID': self.__session,
+        headers = self._create_headers({
             'STATSIG-RETRY': str(retry)
-        }
+        })
 
         verified_payload = self._verify_json_payload(payload, endpoint)
         if verified_payload is None:
@@ -118,7 +113,7 @@ class _StatsigNetwork:
         response = None
         try:
             Diagnostics.mark().get_id_list().network_request().start({'url': url})
-            headers['STATSIG-SERVER-SESSION-ID'] = self.__session
+            headers = self._create_headers(headers)
             response = requests.get(
                 url, headers=headers, timeout=self.__req_timeout)
             if response.ok:
@@ -161,3 +156,15 @@ class _StatsigNetwork:
         if url.endswith('get_id_lists'):
             return lambda: Diagnostics.mark().get_id_list_sources().network_request()
         return None
+
+    def _create_headers(self, headers: dict):
+        result = {
+            'Content-type': 'application/json',
+            'STATSIG-API-KEY': self.__sdk_key,
+            'STATSIG-CLIENT-TIME': str(round(time.time() * 1000)),
+            'STATSIG-SERVER-SESSION-ID': self.__session,
+            'STATSIG-SDK-TYPE': self.__statsig_metadata['sdkType'],
+            'STATSIG-SDK-VERSION': self.__statsig_metadata['sdkVersion'],
+        }
+        result.update(headers)
+        return result

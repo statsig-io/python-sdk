@@ -2,9 +2,9 @@ import time
 from typing import Union, Optional
 
 from dataclasses import dataclass, field
-from statsig.statsig_errors import StatsigValueError
-from statsig.statsig_user import StatsigUser
-from statsig.utils import to_raw_dict_or_none
+from .statsig_errors import StatsigValueError
+from .statsig_user import StatsigUser
+from .utils import to_raw_dict_or_none
 
 
 @dataclass

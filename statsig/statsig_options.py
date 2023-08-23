@@ -1,5 +1,5 @@
 from typing import Optional, Union, Callable
-from statsig.statsig_errors import StatsigValueError
+from .statsig_errors import StatsigValueError
 from .interface_data_store import IDataStore
 from .statsig_environment_tier import StatsigEnvironmentTier
 

@@ -1,7 +1,7 @@
 import threading
 from typing import Callable, Optional
 
-from statsig.statsig_error_boundary import _StatsigErrorBoundary
+from .statsig_error_boundary import _StatsigErrorBoundary
 
 THREAD_JOIN_TIMEOUT = 10.0
 

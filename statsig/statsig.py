@@ -1,6 +1,6 @@
 from typing import Optional
-from statsig.statsig_event import StatsigEvent
-from statsig.statsig_user import StatsigUser
+from .statsig_event import StatsigEvent
+from .statsig_user import StatsigUser
 from .statsig_server import StatsigServer
 from .utils import logger
 

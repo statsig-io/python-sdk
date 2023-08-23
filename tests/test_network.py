@@ -3,6 +3,7 @@ import unittest
 from uuid import uuid4
 from statsig.statsig_error_boundary import _StatsigErrorBoundary
 from statsig.statsig_event import StatsigEvent
+from statsig.statsig_metadata import _StatsigMetadata
 from statsig.statsig_network import _StatsigNetwork
 from statsig.statsig_user import StatsigUser
 from statsig.utils import logger
@@ -14,7 +15,8 @@ class TestNetwork(unittest.TestCase):
     def setUpClass(cls):
         # This test logspews expected errors, but the test itself should pass
         logger.disabled = False
-        cls.net = _StatsigNetwork("secret-test", StatsigOptions(disable_diagnostics=True), _StatsigErrorBoundary())
+        metadata = _StatsigMetadata.get()
+        cls.net = _StatsigNetwork("secret-test", StatsigOptions(disable_diagnostics=True), metadata, _StatsigErrorBoundary())
         cls.net._raise_on_error = True
 
     @classmethod

@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 from typing import Optional
 
-from statsig import statsig_environment_tier
-from statsig.statsig_errors import StatsigValueError
-from statsig.utils import str_or_none, to_raw_dict_or_none
+from .statsig_environment_tier import StatsigEnvironmentTier
+from .statsig_errors import StatsigValueError
+from .utils import str_or_none, to_raw_dict_or_none
 
 
 @dataclass
@@ -67,7 +67,7 @@ class StatsigUser:
         if isinstance(tier, str):
             return {'tier': tier}
 
-        if isinstance(tier, statsig_environment_tier.StatsigEnvironmentTier):
+        if isinstance(tier, StatsigEnvironmentTier):
             return {'tier': tier.value}
 
         return None

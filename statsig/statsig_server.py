@@ -1,12 +1,12 @@
 import dataclasses
 import threading
 from typing import Optional
-from statsig.layer import Layer
-from statsig.statsig_errors import StatsigNameError, StatsigRuntimeError, StatsigValueError
-from statsig.statsig_event import StatsigEvent
-from statsig.statsig_metadata import _StatsigMetadata
+from .layer import Layer
+from .statsig_errors import StatsigNameError, StatsigRuntimeError, StatsigValueError
+from .statsig_event import StatsigEvent
+from .statsig_metadata import _StatsigMetadata
 
-from statsig.statsig_user import StatsigUser
+from .statsig_user import StatsigUser
 from .spec_store import _SpecStore
 from .statsig_error_boundary import _StatsigErrorBoundary
 from .config_evaluation import _ConfigEvaluation
@@ -68,6 +68,7 @@ class StatsigServer:
             self._network = _StatsigNetwork(
                 sdk_key,
                 self._options,
+                self.__statsig_metadata,
                 self._errorBoundary)
             self._logger = _StatsigLogger(
                 self._network,

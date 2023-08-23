@@ -1,8 +1,8 @@
 import traceback
 import requests
-from statsig.statsig_errors import StatsigNameError, StatsigRuntimeError, StatsigValueError
+from .statsig_errors import StatsigNameError, StatsigRuntimeError, StatsigValueError
 
-from statsig.statsig_metadata import _StatsigMetadata
+from .statsig_metadata import _StatsigMetadata
 
 REQUEST_TIMEOUT = 20
 
