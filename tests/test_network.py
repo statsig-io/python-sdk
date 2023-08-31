@@ -6,7 +6,7 @@ from statsig.statsig_event import StatsigEvent
 from statsig.statsig_metadata import _StatsigMetadata
 from statsig.statsig_network import _StatsigNetwork
 from statsig.statsig_user import StatsigUser
-from statsig.utils import logger
+from statsig import globals
 from statsig import StatsigOptions
 
 class TestNetwork(unittest.TestCase):
@@ -14,14 +14,14 @@ class TestNetwork(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # This test logspews expected errors, but the test itself should pass
-        logger.disabled = False
+        globals.logger._disabled = False
         metadata = _StatsigMetadata.get()
         cls.net = _StatsigNetwork("secret-test", StatsigOptions(disable_diagnostics=True), metadata, _StatsigErrorBoundary())
         cls.net._raise_on_error = True
 
     @classmethod
     def tearDownClass(cls):
-        logger.disabled = True
+        globals.logger._disabled = True
 
     def test_invalid_user(self):
         user = StatsigUser(user_id= "123", custom={'field': uuid4()})

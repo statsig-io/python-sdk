@@ -2,6 +2,7 @@ from typing import Optional, Union, Callable
 from .statsig_errors import StatsigValueError
 from .interface_data_store import IDataStore
 from .statsig_environment_tier import StatsigEnvironmentTier
+from .output_logger import OutputLogger
 
 
 class StatsigOptions:
@@ -22,7 +23,8 @@ class StatsigOptions:
             data_store: Optional[IDataStore] = None,
             idlists_thread_limit: int = 3,
             logging_interval: int = 60,
-            disable_diagnostics: bool = False
+            disable_diagnostics: bool = False,
+            custom_logger: Optional[OutputLogger] = None,
     ):
         self.data_store = data_store
         self._environment = None
@@ -51,6 +53,7 @@ class StatsigOptions:
         else:
             self.event_queue_size = event_queue_size
         self.logging_interval = logging_interval
+        self.custom_logger = custom_logger
 
     def set_environment_parameter(self, key: str, value: str):
         if self._environment is None:

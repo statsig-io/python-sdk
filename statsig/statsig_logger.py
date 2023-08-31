@@ -8,7 +8,7 @@ from .evaluation_details import EvaluationDetails
 from .config_evaluation import _ConfigEvaluation
 from .statsig_event import StatsigEvent
 from .layer import Layer
-from .utils import logger
+from . import globals
 from .thread_util import spawn_background_thread, THREAD_JOIN_TIMEOUT
 
 _CONFIG_EXPOSURE_EVENT = "statsig::config_exposure"
@@ -42,7 +42,7 @@ class _StatsigLogger:
         self._net = net
         self._statsig_metadata = statsig_metadata
         self._local_mode = options.local_mode
-        self._console_logger = logger
+        self._console_logger = globals.logger
         self._logging_interval = options.logging_interval
         self._retry_interval = options.logging_interval
         self._event_queue_size = options.event_queue_size

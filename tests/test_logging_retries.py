@@ -7,7 +7,7 @@ from statsig import __version__
 from unittest.mock import patch
 from network_stub import NetworkStub
 from statsig import statsig, StatsigUser, StatsigOptions, StatsigEnvironmentTier
-from statsig.utils import logger
+from statsig import globals
 
 with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), '../testdata/download_config_specs.json')) as r:
     CONFIG_SPECS_RESPONSE = r.read()
@@ -40,7 +40,7 @@ class TestLoggingRetries(unittest.TestCase):
 
         statsig.initialize("secret-test", options)
         cls.initTime = round(time.time() * 1000)
-        logger.disabled = False
+        globals.logger._disabled = False
 
     @classmethod
     def tearDownClass(cls) -> None:
