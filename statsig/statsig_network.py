@@ -6,7 +6,7 @@ from .diagnostics import Diagnostics
 from .statsig_options import StatsigOptions
 from .statsig_error_boundary import _StatsigErrorBoundary
 
-from .utils import logger
+from . import globals
 
 REQUEST_TIMEOUT = 20
 
@@ -25,7 +25,6 @@ class _StatsigNetwork:
         self.__req_timeout = options.timeout or REQUEST_TIMEOUT
         self.__local_mode = options.local_mode
         self.__error_boundary = error_boundary
-        self.__log = logger
         self.__session = str(uuid4())
         self.__statsig_metadata = statsig_metadata
 
@@ -34,7 +33,7 @@ class _StatsigNetwork:
         if create_marker is not None:
             create_marker().start()
         if self.__local_mode:
-            self.__log.debug('Using local mode. Dropping network request')
+            globals.logger.debug('Using local mode. Dropping network request')
             return None
 
         headers = self._create_headers({
@@ -69,7 +68,7 @@ class _StatsigNetwork:
                 create_marker().end({'statusCode': response.status_code if response is not None else False})
             if log_on_exception:
                 self.__error_boundary.log_exception("post_request:" + endpoint, err, {"timeoutMs": timeout * 1000})
-                self.__log.warning(
+                globals.logger.warning(
                     'Network exception caught when making request to %s failed', endpoint)
             if self._raise_on_error:
                 raise err
@@ -93,7 +92,7 @@ class _StatsigNetwork:
             if response.status_code in self.__RETRY_CODES:
                 return payload
             if response.status_code >= 300:
-                self.__log.warning(
+                globals.logger.warning(
                     "Request to %s failed with code %d", endpoint, response.status_code)
             return None
         except Exception as err:
@@ -101,7 +100,7 @@ class _StatsigNetwork:
                 template = "Network exception caught when making request to {0} - {1}. Arguments: {2!r}"
                 message = template.format(self.__api + endpoint, type(err).__name__, err.args)
                 self.__error_boundary.log_exception("retryable_request", err)
-                self.__log.warning(message)
+                globals.logger.warning(message)
             if self._raise_on_error:
                 raise err
             return payload
@@ -122,7 +121,7 @@ class _StatsigNetwork:
         except Exception as err:
             if log_on_exception:
                 self.__error_boundary.log_exception("get_request", err)
-                self.__log.warning(
+                globals.logger.warning(
                     'Network exception caught when making request to %s failed', url)
             if self._raise_on_error:
                 raise err
@@ -139,7 +138,7 @@ class _StatsigNetwork:
             json.dumps(payload)
             return payload
         except TypeError as e:
-            self.__log.error(
+            globals.logger.error(
                 "Dropping request to %s. Failed to json encode payload. Are you sure the input is json serializable? "
                 "%s %s",
                 endpoint,

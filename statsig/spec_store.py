@@ -10,7 +10,7 @@ from .statsig_network import _StatsigNetwork
 from .statsig_options import StatsigOptions
 from .thread_util import spawn_background_thread, THREAD_JOIN_TIMEOUT
 from .diagnostics import Context, Diagnostics
-from .utils import logger
+from . import globals
 
 RULESETS_SYNC_INTERVAL = 10
 IDLISTS_SYNC_INTERVAL = 60
@@ -129,7 +129,7 @@ class _SpecStore:
     def _initialize_specs(self):
         if self._options.data_store is not None:
             if self._options.bootstrap_values is not None:
-                logger.warning(
+                globals.logger.warning(
                     "data_store gets priority over bootstrap_values. bootstrap_values will be ignored")
             self._load_config_specs_from_storage_adapter()
             if self.last_update_time == 0:
@@ -197,7 +197,7 @@ class _SpecStore:
 
         except ValueError:
             # JSON decoding failed, just let background thread update rulesets
-            logger.exception(
+            globals.logger.exception(
                 'Failed to parse bootstrap_values')
         finally:
             Diagnostics.mark().bootstrap().process().end({'success': self.init_reason is EvaluationReason.bootstrap})
@@ -279,7 +279,7 @@ class _SpecStore:
 
         cache = json.loads(cache_string)
         if not isinstance(cache, dict):
-            logger.warning(
+            globals.logger.warning(
                 "Invalid type returned from StatsigOptions.data_store")
             return
 
@@ -436,7 +436,7 @@ class _SpecStore:
     def _log_process(self, msg, process=None):
         if process is None:
             process = "Initialize" if not self._initialized else "Sync"
-        logger.log_process(process, msg)
+        globals.logger.log_process(process, msg)
 
     def _get_current_context(self):
         return "initialize" if not self._initialized else "config_sync"

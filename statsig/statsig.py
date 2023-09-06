@@ -2,25 +2,32 @@ from typing import Optional
 from .statsig_event import StatsigEvent
 from .statsig_user import StatsigUser
 from .statsig_server import StatsigServer
-from .utils import logger
+from .statsig_options import StatsigOptions
+from . import globals
 
 __instance = StatsigServer()
 
 
-def initialize(secret_key: str, options=None):
+def initialize(secret_key: str, options: Optional[StatsigOptions] = None):
     """
     Initializes the global Statsig instance with the given SDK key and options
 
     :param secret_key: The server SDK key copied from console.statsig.com
     :param options: The StatsigOptions object used to configure the SDK
     """
-    logger.log_process("Initialize", "Starting...")
+    if options is None:
+        options = StatsigOptions()
+
+    if options.custom_logger is not None:
+        globals.set_logger(options.custom_logger)
+
+    globals.logger.log_process("Initialize", "Starting...")
     __instance.initialize(secret_key, options)
 
     if __instance._initialized:
-        logger.log_process("Initialize", "Done")
+        globals.logger.log_process("Initialize", "Done")
     else:
-        logger.log_process("Initialize", "Failed")
+        globals.logger.log_process("Initialize", "Failed")
 
 
 def check_gate(user: StatsigUser, gate: str):

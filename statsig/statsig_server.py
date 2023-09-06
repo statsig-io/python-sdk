@@ -16,7 +16,7 @@ from .statsig_logger import _StatsigLogger
 from .dynamic_config import DynamicConfig
 from .statsig_options import StatsigOptions
 from .diagnostics import Diagnostics
-from .utils import logger
+from . import globals
 
 RULESETS_SYNC_INTERVAL = 10
 IDLISTS_SYNC_INTERVAL = 60
@@ -40,9 +40,9 @@ class StatsigServer:
 
         self._errorBoundary = _StatsigErrorBoundary()
 
-    def initialize(self, sdkKey: str, options=None):
+    def initialize(self, sdkKey: str, options: Optional[StatsigOptions]=None):
         if self._initialized:
-            logger.log_process("Initialize",
+            globals.logger.log_process("Initialize",
                                "Warning: Statsig is already initialized. No further action will be taken.")
             return
 
@@ -52,7 +52,7 @@ class StatsigServer:
 
         self._initialize_impl(sdkKey, options)
 
-    def _initialize_impl(self, sdk_key: str, options: Optional[StatsigOptions]):
+    def _initialize_impl(self, sdk_key: str, options: StatsigOptions):
         threw_error = False
         try:
             Diagnostics.initialize()
