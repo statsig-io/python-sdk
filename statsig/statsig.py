@@ -3,6 +3,9 @@ from .statsig_event import StatsigEvent
 from .statsig_user import StatsigUser
 from .statsig_server import StatsigServer
 from .statsig_options import StatsigOptions
+from .dynamic_config import DynamicConfig
+from .layer import Layer
+from .client_initialize_formatter import ClientInitializeResponse
 from . import globals
 
 __instance = StatsigServer()
@@ -30,7 +33,7 @@ def initialize(secret_key: str, options: Optional[StatsigOptions] = None):
         globals.logger.log_process("Initialize", "Failed")
 
 
-def check_gate(user: StatsigUser, gate: str):
+def check_gate(user: StatsigUser, gate: str) -> bool:
     """
     Checks the value of a Feature Gate for the given user
 
@@ -41,7 +44,7 @@ def check_gate(user: StatsigUser, gate: str):
     return __instance.check_gate(user, gate)
 
 
-def check_gate_with_exposure_logging_disabled(user: StatsigUser, gate: str):
+def check_gate_with_exposure_logging_disabled(user: StatsigUser, gate: str) -> bool:
     """
     Checks the value of a Feature Gate for the given user without logging an exposure event
 
@@ -62,7 +65,7 @@ def manually_log_gate_exposure(user: StatsigUser, gate: str):
     __instance.manually_log_gate_exposure(user, gate)
 
 
-def get_config(user: StatsigUser, config: str):
+def get_config(user: StatsigUser, config: str) -> DynamicConfig:
     """
     Gets the DynamicConfig value for the given user
 
@@ -73,7 +76,7 @@ def get_config(user: StatsigUser, config: str):
     return __instance.get_config(user, config)
 
 
-def get_config_with_exposure_logging_disabled(user: StatsigUser, config: str):
+def get_config_with_exposure_logging_disabled(user: StatsigUser, config: str) -> DynamicConfig:
     """
     Gets the DynamicConfig value for the given user without logging an exposure event
 
@@ -94,7 +97,7 @@ def manually_log_config_exposure(user: StatsigUser, config: str):
     __instance.manually_log_config_exposure(user, config)
 
 
-def get_experiment(user: StatsigUser, experiment: str):
+def get_experiment(user: StatsigUser, experiment: str) -> DynamicConfig:
     """
     Gets the DynamicConfig value of an Experiment for the given user
 
@@ -105,7 +108,7 @@ def get_experiment(user: StatsigUser, experiment: str):
     return get_config(user, experiment)
 
 
-def get_experiment_with_exposure_logging_disabled(user: StatsigUser, experiment: str):
+def get_experiment_with_exposure_logging_disabled(user: StatsigUser, experiment: str) -> DynamicConfig:
     """
     Gets the DynamicConfig value of an Experiment for the given user without logging an exposure event
 
@@ -126,7 +129,7 @@ def manually_log_experiment_exposure(user: StatsigUser, experiment: str):
     __instance.manually_log_experiment_exposure(user, experiment)
 
 
-def get_layer(user: StatsigUser, layer: str):
+def get_layer(user: StatsigUser, layer: str) -> Layer:
     """
     Gets the Layer object for the given user
 
@@ -137,7 +140,7 @@ def get_layer(user: StatsigUser, layer: str):
     return __instance.get_layer(user, layer)
 
 
-def get_layer_with_exposure_logging_disabled(user: StatsigUser, layer: str):
+def get_layer_with_exposure_logging_disabled(user: StatsigUser, layer: str) -> Layer:
     """
     Gets the Layer object for the given user without logging an exposure event
 
@@ -239,7 +242,7 @@ def remove_all_overrides():
     __instance.remove_all_overrides()
 
 
-def get_client_initialize_response(user: StatsigUser, client_sdk_key: Optional[str] = None):
+def get_client_initialize_response(user: StatsigUser, client_sdk_key: Optional[str] = None) -> ClientInitializeResponse:
     """
     Gets all evaluated values for the given user.
     These values can then be given to a Statsig Client SDK via bootstrapping.
