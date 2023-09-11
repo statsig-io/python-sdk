@@ -1,5 +1,6 @@
 import base64
 from hashlib import sha256
+from typing import Any, Dict, Optional
 
 from .statsig_user import StatsigUser
 from .spec_store import _SpecStore
@@ -20,12 +21,13 @@ def clean_exposures(exposures):
             result.append(exposure)
     return result
 
+ClientInitializeResponse = Optional[Dict[str, Any]]
 
 class ClientInitializeResponseFormatter:
 
     @staticmethod
     def get_formatted_response(
-            eval_func, user: StatsigUser, spec_store: _SpecStore, client_sdk_key=None):
+            eval_func, user: StatsigUser, spec_store: _SpecStore, client_sdk_key=None) -> ClientInitializeResponse:
         def config_to_response(config_name, config_spec):
             target_app_id = spec_store.get_target_app_for_sdk_key(client_sdk_key)
             config_target_apps = config_spec.get("targetAppIDs", [])
