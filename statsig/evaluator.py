@@ -256,6 +256,29 @@ class _Evaluator:
             pass_gate = other_result.boolean_value if type == "PASS_GATE" else not other_result.boolean_value
             return _ConfigEvaluation(
                 other_result.fetch_from_server, pass_gate, {}, "", exposures)
+        if type in ("MULTI_PASS_GATE", "MULTI_FAIL_GATE"):
+            if target is None or len(target) == 0:
+                return _ConfigEvaluation(False, False)
+            pass_gate = False
+            exposures = []
+            for gate in target:
+                other_result = self.check_gate(user, gate)
+                if other_result.fetch_from_server:
+                    return _ConfigEvaluation(True)
+                new_exposure = {
+                    "gate": gate,
+                    "gateValue": "true" if other_result.boolean_value else "false",
+                    "ruleID": other_result.rule_id
+                }
+                exposures.append(new_exposure)
+                if other_result.secondary_exposures is not None and len(
+                        other_result.secondary_exposures) > 0:
+                    exposures = exposures + other_result.secondary_exposures
+                pass_gate = pass_gate or other_result.boolean_value if type == "MULTI_PASS_GATE" else pass_gate or not other_result.boolean_value
+                if pass_gate:
+                    break
+            return _ConfigEvaluation(
+                False, pass_gate, {}, "", exposures)
         if type == "IP_BASED":
             value = self.__get_from_user(user, field)
             if value is None:
