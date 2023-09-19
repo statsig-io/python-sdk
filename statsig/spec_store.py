@@ -129,7 +129,7 @@ class _SpecStore:
     def _initialize_specs(self):
         if self._options.data_store is not None:
             if self._options.bootstrap_values is not None:
-                globals.logger.warning(
+                globals.logger.debug(
                     "data_store gets priority over bootstrap_values. bootstrap_values will be ignored")
             self._load_config_specs_from_storage_adapter()
             if self.last_update_time == 0:
@@ -197,7 +197,7 @@ class _SpecStore:
 
         except ValueError:
             # JSON decoding failed, just let background thread update rulesets
-            globals.logger.exception(
+            globals.logger.error(
                 'Failed to parse bootstrap_values')
         finally:
             Diagnostics.mark().bootstrap().process().end({'success': self.init_reason is EvaluationReason.bootstrap})

@@ -23,6 +23,8 @@ def initialize(secret_key: str, options: Optional[StatsigOptions] = None):
 
     if options.custom_logger is not None:
         globals.set_logger(options.custom_logger)
+    elif options.enable_debug_logs:
+        globals.enable_debug_logs()
 
     globals.logger.log_process("Initialize", "Starting...")
     __instance.initialize(secret_key, options)
