@@ -25,6 +25,7 @@ class StatsigOptions:
             logging_interval: int = 60,
             disable_diagnostics: bool = False,
             custom_logger: Optional[OutputLogger] = None,
+            enable_debug_logs = False,
     ):
         self.data_store = data_store
         self._environment = None
@@ -54,6 +55,7 @@ class StatsigOptions:
             self.event_queue_size = event_queue_size
         self.logging_interval = logging_interval
         self.custom_logger = custom_logger
+        self.enable_debug_logs = enable_debug_logs
 
     def set_environment_parameter(self, key: str, value: str):
         if self._environment is None:

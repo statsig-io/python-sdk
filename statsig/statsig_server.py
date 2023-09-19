@@ -42,8 +42,7 @@ class StatsigServer:
 
     def initialize(self, sdkKey: str, options: Optional[StatsigOptions]=None):
         if self._initialized:
-            globals.logger.log_process("Initialize",
-                               "Warning: Statsig is already initialized. No further action will be taken.")
+            globals.logger.info("Statsig is already initialized.")
             return
 
         if sdkKey is None or not sdkKey.startswith("secret-"):

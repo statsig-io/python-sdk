@@ -1,19 +1,19 @@
-from datetime import datetime
 import logging
 import sys
 
 
 class OutputLogger:
-    def __init__(self, name):
+    def __init__(self, name, enable_debug_logs=False):
         self._disabled = 'unittest' in sys.modules
         self._logger = logging.getLogger(name)
+        self._enable_debug_logs = enable_debug_logs
 
     def log_process(self, process: str, msg: str):
-        message = f"[{datetime.now().isoformat(' ')}] {process}: {msg}"
-        self.info(message)
+        message = f"{process}: {msg}"
+        self.debug(message)
 
     def debug(self, msg, *args, **kwargs):
-        if not self._disabled:
+        if not self._disabled and self._enable_debug_logs:
             self._logger.debug(msg, *args, **kwargs)
 
     def info(self, msg, *args, **kwargs):

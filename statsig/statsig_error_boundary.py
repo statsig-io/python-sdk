@@ -3,6 +3,7 @@ import requests
 from .statsig_errors import StatsigNameError, StatsigRuntimeError, StatsigValueError
 
 from .statsig_metadata import _StatsigMetadata
+from . import globals
 
 REQUEST_TIMEOUT = 20
 
@@ -26,8 +27,8 @@ class _StatsigErrorBoundary:
             raise e
         except Exception as e:
             if self._is_silent is False:
-                print("[Statsig]: An unexpected error occurred.")
-                traceback.print_exc()
+                globals.logger.warning("[Statsig]: An unexpected error occurred.")
+                globals.logger.warning(traceback.format_exc())
 
             self.log_exception(tag, e)
             return recover()
