@@ -25,10 +25,6 @@ class _StatsigErrorBoundary:
         except (StatsigValueError, StatsigNameError, StatsigRuntimeError) as e:
             raise e
         except Exception as e:
-            if self._is_silent is False:
-                print("[Statsig]: An unexpected error occurred.")
-                traceback.print_exc()
-
             self.log_exception(tag, e)
             return recover()
 
@@ -40,6 +36,10 @@ class _StatsigErrorBoundary:
 
     def log_exception(self, tag: str, exception: Exception, extra: dict = None):
         try:
+            if self._is_silent is False:
+                print("[Statsig]: An unexpected error occurred.")
+                traceback.print_exc()
+
             name = type(exception).__name__
             if self._api_key is None or name in self._seen:
                 return
