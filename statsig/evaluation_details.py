@@ -9,6 +9,7 @@ class EvaluationReason(str, Enum):
     uninitialized = "Uninitialized"
     bootstrap = "Bootstrap"
     data_adapter = "DataAdapter"
+    unsupported = "Unsupported"
 
 
 class EvaluationDetails:

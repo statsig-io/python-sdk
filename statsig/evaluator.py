@@ -169,8 +169,9 @@ class _Evaluator:
 
         for rule in config.get("rules", []):
             result = self.__evaluate_rule(user, rule)
-            if result.fetch_from_server:
-                return result
+            if result.unsupported:
+                return _ConfigEvaluation(True, False, default_value, "", exposures,
+                                        evaluation_details=self._create_evaluation_details(EvaluationReason.unsupported))
             if result.secondary_exposures is not None and len(
                     result.secondary_exposures) > 0:
                 exposures = exposures + result.secondary_exposures
@@ -200,7 +201,7 @@ class _Evaluator:
         eval_result = True
         for condition in rule.get("conditions", []):
             result = self.__evaluate_condition(user, condition)
-            if result.fetch_from_server:
+            if result.unsupported:
                 return result
             if result.secondary_exposures is not None and len(
                     result.secondary_exposures) > 0:
@@ -242,7 +243,7 @@ class _Evaluator:
             return _ConfigEvaluation(False, True)
         if type in ("FAIL_GATE", "PASS_GATE"):
             other_result = self.check_gate(user, target)
-            if other_result.fetch_from_server:
+            if other_result.unsupported:
                 return _ConfigEvaluation(True)
             new_exposure = {
                 "gate": target,
@@ -255,7 +256,7 @@ class _Evaluator:
                 exposures = other_result.secondary_exposures + exposures
             pass_gate = other_result.boolean_value if type == "PASS_GATE" else not other_result.boolean_value
             return _ConfigEvaluation(
-                other_result.fetch_from_server, pass_gate, {}, "", exposures)
+                False, pass_gate, {}, "", exposures)
         if type in ("MULTI_PASS_GATE", "MULTI_FAIL_GATE"):
             if target is None or len(target) == 0:
                 return _ConfigEvaluation(False, False)
@@ -263,7 +264,7 @@ class _Evaluator:
             exposures = []
             for gate in target:
                 other_result = self.check_gate(user, gate)
-                if other_result.fetch_from_server:
+                if other_result.unsupported:
                     return _ConfigEvaluation(True)
                 new_exposure = {
                     "gate": gate,

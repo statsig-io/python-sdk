@@ -9,7 +9,6 @@ from .statsig_metadata import _StatsigMetadata
 from .statsig_user import StatsigUser
 from .spec_store import _SpecStore
 from .statsig_error_boundary import _StatsigErrorBoundary
-from .config_evaluation import _ConfigEvaluation
 from .evaluator import _Evaluator
 from .statsig_network import _StatsigNetwork
 from .statsig_logger import _StatsigLogger
@@ -108,7 +107,7 @@ class StatsigServer:
             if not self._verify_inputs(user, gate_name):
                 return False
 
-            result = self.__check_gate_server_fallback(
+            result = self.__check_gate(
                 user, gate_name, log_exposure)
             return result.boolean_value
 
@@ -126,7 +125,7 @@ class StatsigServer:
             if not self._verify_inputs(user, config_name):
                 return DynamicConfig({}, config_name, "")
 
-            result = self.__get_config_server_fallback(
+            result = self.__get_config(
                 user, config_name, log_exposure)
             return DynamicConfig(
                 result.json_value, config_name, result.rule_id, group_name=result.group_name)
@@ -152,8 +151,7 @@ class StatsigServer:
         user = self.__normalize_user(user)
         result = self._evaluator.get_config(user, experiment_name)
         self._logger.log_config_exposure(
-            user, experiment_name, result.rule_id, result.secondary_exposures, result.
-            evaluation_details, is_manual_exposure=True)
+            user, experiment_name, result.rule_id, result.secondary_exposures, result.evaluation_details, is_manual_exposure=True)
 
     def get_layer(self, user: StatsigUser, layer_name: str, log_exposure=True) -> Layer:
         def task():
@@ -162,8 +160,6 @@ class StatsigServer:
 
             normal_user = self.__normalize_user(user)
             result = self._evaluator.get_layer(normal_user, layer_name)
-            result = self.__resolve_eval_result(
-                normal_user, layer_name, result=result, log_exposure=True, is_layer=True)
 
             def log_func(layer: Layer, parameter_name: str):
                 if log_exposure:
@@ -262,7 +258,7 @@ class StatsigServer:
         def task():
             all_gates = {}
             for gate in self._spec_store.get_all_gates():
-                result = self.__check_gate_server_fallback(user, gate, False)
+                result = self.__check_gate(user, gate, False)
                 all_gates[gate] = {
                     "value": result.boolean_value,
                     "rule_id": result.rule_id
@@ -270,7 +266,7 @@ class StatsigServer:
 
             all_configs = {}
             for config in self._spec_store.get_all_configs():
-                result = self.__get_config_server_fallback(user, config, False)
+                result = self.__get_config(user, config, False)
                 all_configs[config] = {
                     "value": result.json_value,
                     "rule_id": result.rule_id
@@ -315,51 +311,24 @@ class StatsigServer:
         if self._spec_store is not None:
             self._spec_store.spawn_bg_threads_if_needed()
 
-    def __check_gate_server_fallback(
+    def __check_gate(
             self, user: StatsigUser, gate_name: str, log_exposure=True):
         user = self.__normalize_user(user)
         result = self._evaluator.check_gate(user, gate_name)
-        if result.fetch_from_server:
-            network_gate = self._network.post_request("check_gate", {
-                "gateName": gate_name,
-                "user": user.to_dict(True),
-                "statsigMetadata": self.__statsig_metadata,
-            })
-            if network_gate is None:
-                return _ConfigEvaluation()
-            return _ConfigEvaluation(boolean_value=network_gate.get(
-                "value"), rule_id=network_gate.get("rule_id"))
         if log_exposure:
             self._logger.log_gate_exposure(
                 user, gate_name, result.boolean_value, result.rule_id, result.secondary_exposures,
                 result.evaluation_details)
         return result
 
-    def __get_config_server_fallback(
+    def __get_config(
             self, user: StatsigUser, config_name: str, log_exposure=True):
         user = self.__normalize_user(user)
 
         result = self._evaluator.get_config(user, config_name)
-        return self.__resolve_eval_result(
-            user, config_name, result, log_exposure, False)
-
-    def __resolve_eval_result(self, user, config_name: str,
-                              result: _ConfigEvaluation, log_exposure, is_layer):
-        if result.fetch_from_server:
-            network_config = self._network.post_request("get_config", {
-                "configName": config_name,
-                "user": user.to_dict(True),
-                "statsigMetadata": self.__statsig_metadata,
-            })
-            if network_config is None:
-                return _ConfigEvaluation()
-
-            return _ConfigEvaluation(json_value=network_config.get("value", {}),
-                                     rule_id=network_config.get("ruleID", ""))
         if log_exposure:
-            if not is_layer:
-                self._logger.log_config_exposure(
-                    user, config_name, result.rule_id, result.secondary_exposures, result.evaluation_details)
+            self._logger.log_config_exposure(
+                user, config_name, result.rule_id, result.secondary_exposures, result.evaluation_details)
         return result
 
     def __normalize_user(self, user):

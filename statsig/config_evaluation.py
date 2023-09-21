@@ -1,7 +1,10 @@
+from statsig.evaluation_details import EvaluationDetails, EvaluationReason
+
+
 class _ConfigEvaluation:
 
     def __init__(self,
-                 fetch_from_server=False,
+                 unsupported=False,
                  boolean_value=False,
                  json_value=None,
                  rule_id="",
@@ -11,9 +14,7 @@ class _ConfigEvaluation:
                  is_experiment_group=False,
                  evaluation_details=None,
                  group_name=None):
-        if fetch_from_server is None:
-            fetch_from_server = False
-        self.fetch_from_server = fetch_from_server
+        self.unsupported = unsupported is True
         if boolean_value is None:
             boolean_value = False
         self.boolean_value = boolean_value
@@ -32,5 +33,7 @@ class _ConfigEvaluation:
         self.allocated_experiment = allocated_experiment
         self.explicit_parameters = explicit_parameters
         self.is_experiment_group = is_experiment_group is True
+        if evaluation_details is None:
+            evaluation_details = EvaluationDetails(0, 0, EvaluationReason.unrecognized)
         self.evaluation_details = evaluation_details
         self.group_name = group_name

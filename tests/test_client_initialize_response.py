@@ -56,7 +56,7 @@ class TestClientInitializeResponse(unittest.TestCase):
         result = statsig.get_client_initialize_response(user_for_sdk)
         self.assertIsNone(result)
 
-    def test_fetch_from_server(self):
+    def test_unsupported_server(self):
         server_res, sdk_res = self.get_initialize_responses(
             'https://statsigapi.net/v1', None, True)
         for key in server_res:
@@ -71,7 +71,7 @@ class TestClientInitializeResponse(unittest.TestCase):
                             self.assertEqual({}, sdk_value["value"])
 
     def get_initialize_responses(
-            self, api: str, environment=None, force_fetch_from_server=False):
+            self, api: str, environment=None, force_unsupported=False):
         server_user = user.copy()
         options = StatsigOptions(api=api, disable_diagnostics=True)
 
@@ -92,7 +92,7 @@ class TestClientInitializeResponse(unittest.TestCase):
 
         statsig.initialize(self.secret_key, options)
 
-        if force_fetch_from_server:
+        if force_unsupported:
             statsig.get_instance()._evaluator._Evaluator__eval_config = MagicMock(
                 return_value=_ConfigEvaluation(True))
 
