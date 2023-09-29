@@ -3,7 +3,7 @@ from typing import Optional
 
 from .statsig_environment_tier import StatsigEnvironmentTier
 from .statsig_errors import StatsigValueError
-from .utils import str_or_none, to_raw_dict_or_none
+from .utils import str_or_none, to_raw_dict_or_none, djb2_hash_for_dict
 
 
 @dataclass
@@ -57,6 +57,19 @@ class StatsigUser:
             user_nullable["privateAttributes"] = to_raw_dict_or_none(self.private_attributes)
 
         return {k: v for k, v in user_nullable.items() if v is not None}
+
+    def to_hash_without_stable_id(self):
+        dictionary = self.to_dict(True)
+        if "customIDs" in dictionary:
+            customIDs = dictionary["customIDs"]
+            del dictionary["customIDs"]
+            if isinstance(customIDs, dict):
+                if "stableID" in customIDs:
+                    del customIDs["stableID"]
+                dictionary["customIDs"] = customIDs
+        else:
+            dictionary["customIDs"] = {}
+        return djb2_hash_for_dict(dictionary)
 
     def _get_environment(self):
         if self._statsig_environment is None or not isinstance(

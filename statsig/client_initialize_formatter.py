@@ -141,4 +141,5 @@ class ClientInitializeResponseFormatter:
             "generator": "statsig-python-sdk",
             "evaluated_keys": evaluated_keys,
             "time": 0,
+            "user_hash": user.to_hash_without_stable_id(),
         }
