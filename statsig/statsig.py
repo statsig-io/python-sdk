@@ -207,6 +207,18 @@ def override_experiment(experiment: str, value: object,
     __instance.override_experiment(experiment, value, user_id)
 
 
+def override_layer(layer: str, value: object,
+                   user_id: Optional[str] = None):
+    """
+    Override the Layer value for the given user
+
+    :param layer: The name of the layer being overriden
+    :param value: The value to override the layer with
+    :param user_id: (Optional) The user_id of the user to override
+    """
+    __instance.override_layer(layer, value, user_id)
+
+
 def remove_gate_override(gate: str, user_id: Optional[str] = None):
     """
     Remove the overriden value of a Feature Gate for a given user

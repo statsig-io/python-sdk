@@ -13,6 +13,7 @@ from .evaluation_details import EvaluationDetails, EvaluationReason
 from .spec_store import _SpecStore
 from .config_evaluation import _ConfigEvaluation
 
+
 class _Evaluator:
     def __init__(self, spec_store: _SpecStore):
         self._spec_store = spec_store
@@ -20,6 +21,7 @@ class _Evaluator:
         self._country_lookup = CountryLookup()
         self._gate_overrides = {}
         self._config_overrides = {}
+        self._layer_overrides = {}
 
     def override_gate(self, gate, value, user_id=None):
         gate_overrides = self._gate_overrides.get(gate)
@@ -34,6 +36,13 @@ class _Evaluator:
             config_overrides = {}
         config_overrides[user_id] = value
         self._config_overrides[config] = config_overrides
+
+    def override_layer(self, layer, value, user_id=None):
+        layer_overrides = self._layer_overrides.get(layer)
+        if layer_overrides is None:
+            layer_overrides = {}
+        layer_overrides[user_id] = value
+        self._layer_overrides[layer] = layer_overrides
 
     def remove_gate_override(self, gate, user_id=None):
         gate_overrides = self._gate_overrides.get(gate)
@@ -51,9 +60,18 @@ class _Evaluator:
             del config_overrides[user_id]
         self._config_overrides[config] = config_overrides
 
+    def remove_layer_override(self, layer, user_id=None):
+        layer_overrides = self._layer_overrides.get(layer)
+        if layer_overrides is None:
+            return
+        if user_id in layer_overrides:
+            del layer_overrides[user_id]
+        self._layer_overrides[layer] = layer_overrides
+
     def remove_all_overrides(self):
         self._gate_overrides = {}
         self._config_overrides = {}
+        self._layer_overrides = {}
 
     def get_client_initialize_response(self, user: StatsigUser, client_sdk_key=None):
         if not self._spec_store.is_ready_for_checks():
@@ -106,6 +124,24 @@ class _Evaluator:
                 json_value=all_override, rule_id="override", evaluation_details=eval_details)
         return None
 
+    def __lookup_layer_override(self, user, config):
+        layer_overrides = self._layer_overrides.get(config)
+        if layer_overrides is None:
+            return None
+
+        eval_details = self._create_evaluation_details(
+            EvaluationReason.local_override)
+        override = layer_overrides.get(user.user_id)
+        if override is not None:
+            return _ConfigEvaluation(json_value=override, rule_id="override",
+                                     evaluation_details=eval_details)
+
+        all_override = layer_overrides.get(None)
+        if all_override is not None:
+            return _ConfigEvaluation(
+                json_value=all_override, rule_id="override", evaluation_details=eval_details)
+        return None
+
     def check_gate(self, user, gate):
         override = self.__lookup_gate_override(user, gate)
         if override is not None:
@@ -133,6 +169,10 @@ class _Evaluator:
         return self.__eval_config(user, eval_config)
 
     def get_layer(self, user, layer):
+        override = self.__lookup_layer_override(user, layer)
+        if override is not None:
+            return override
+
         if self._spec_store.init_reason == EvaluationReason.uninitialized:
             return _ConfigEvaluation(
                 evaluation_details=self._create_evaluation_details(
@@ -171,7 +211,8 @@ class _Evaluator:
             result = self.__evaluate_rule(user, rule)
             if result.unsupported:
                 return _ConfigEvaluation(True, False, default_value, "", exposures,
-                                        evaluation_details=self._create_evaluation_details(EvaluationReason.unsupported))
+                                         evaluation_details=self._create_evaluation_details(
+                                             EvaluationReason.unsupported))
             if result.secondary_exposures is not None and len(
                     result.secondary_exposures) > 0:
                 exposures = exposures + result.secondary_exposures
@@ -229,7 +270,7 @@ class _Evaluator:
             "explicitParameters", [])
         delegated_result.allocated_experiment = config_delegate
         delegated_result.secondary_exposures = exposures + \
-            delegated_result.secondary_exposures
+                                               delegated_result.secondary_exposures
         delegated_result.undelegated_secondary_exposures = exposures
         return delegated_result
 
@@ -568,7 +609,7 @@ class _Evaluator:
         patch = self.__get_numeric_subver(version, "patch")
         if patch is None:
             return None
-        return str.format("{}.{}.{}", major, minor,patch)
+        return str.format("{}.{}.{}", major, minor, patch)
 
     def __get_numeric_subver(self, version, subver):
         ver = version.get(subver, "0")

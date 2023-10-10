@@ -39,7 +39,7 @@ class StatsigServer:
 
         self._errorBoundary = _StatsigErrorBoundary()
 
-    def initialize(self, sdkKey: str, options: Optional[StatsigOptions]=None):
+    def initialize(self, sdkKey: str, options: Optional[StatsigOptions] = None):
         if self._initialized:
             globals.logger.info("Statsig is already initialized.")
             return
@@ -151,7 +151,8 @@ class StatsigServer:
         user = self.__normalize_user(user)
         result = self._evaluator.get_config(user, experiment_name)
         self._logger.log_config_exposure(
-            user, experiment_name, result.rule_id, result.secondary_exposures, result.evaluation_details, is_manual_exposure=True)
+            user, experiment_name, result.rule_id, result.secondary_exposures, result.evaluation_details,
+            is_manual_exposure=True)
 
     def get_layer(self, user: StatsigUser, layer_name: str, log_exposure=True) -> Layer:
         def task():
@@ -226,6 +227,11 @@ class StatsigServer:
         self._errorBoundary.swallow("override_experiment",
                                     lambda: self._evaluator.override_config(experiment, value, user_id))
 
+    def override_layer(self, layer: str,
+                       value: object, user_id: Optional[str] = None):
+        self._errorBoundary.swallow("override_layer",
+                                    lambda: self._evaluator.override_layer(layer, value, user_id))
+
     def remove_gate_override(self, gate: str, user_id: Optional[str] = None):
         self._errorBoundary.swallow("remove_gate_override",
                                     lambda: self._evaluator.remove_gate_override(gate, user_id))
@@ -239,6 +245,11 @@ class StatsigServer:
             self, experiment: str, user_id: Optional[str] = None):
         self._errorBoundary.swallow("remove_experiment_override",
                                     lambda: self._evaluator.remove_config_override(experiment, user_id))
+
+    def remove_layer_override(
+            self, layer: str, user_id: Optional[str] = None):
+        self._errorBoundary.swallow("remove_layer_override",
+                                    lambda: self._evaluator.remove_layer_override(layer, user_id))
 
     def remove_all_overrides(self):
         self._errorBoundary.swallow("remove_all_overrides",

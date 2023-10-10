@@ -235,3 +235,77 @@ class TestLocalMocks(unittest.TestCase):
 
         # try removing one that doesn't exist
         server.remove_config_override("fake_config_non_existent")
+
+    def test_override_layer(self):
+        options = StatsigOptions(local_mode=True, disable_diagnostics=True)
+        server = StatsigServer()
+        server.initialize("secret-key", options)
+
+        user_one = StatsigUser("123", email="testuser@statsig.com")
+        user_two = StatsigUser("456", email="test@statsig.com")
+
+        # no override
+        self.assertEqual(
+            server.get_layer(user_one, "a_layer").get("a_string", "fallback"),
+            "fallback"
+        )
+        self.assertEqual(
+            server.get_layer(user_two, "a_layer").get("a_string", "fallback"),
+            "fallback"
+        )
+
+        # add override
+        server.override_layer("a_layer", {"a_string": "override_str"}, "123")
+        self.assertEqual(
+            server.get_layer(user_one, "a_layer").get("a_string", "fallback"),
+            "override_str"
+        )
+        self.assertEqual(
+            server.get_layer(user_two, "a_layer").get("a_string", "fallback"),
+            "fallback"
+        )
+
+        # change user 1, add to user 2
+        server.override_layer("a_layer", {"a_bool": True}, "123")
+        server.override_layer("a_layer", {"a_string": "override_str"}, "456")
+        self.assertEqual(
+            server.get_layer(user_one, "a_layer").get("a_string", "fallback"),
+            "fallback"
+        )
+        self.assertEqual(
+            server.get_layer(user_two, "a_layer").get("a_string", "fallback"),
+            "override_str"
+        )
+
+        # global overrides respect user level overrides first
+        server.override_layer("a_layer", {"a_string": "global_override"})
+        self.assertEqual(
+            server.get_layer(user_two, "a_layer").get("a_string", "fallback"),
+            "override_str"
+        )
+
+        # remove user override first
+        server.remove_layer_override("a_layer", "123")
+        # user one should now use global override
+        self.assertEqual(
+            server.get_layer(user_one, "a_layer").get("a_string", "fallback"),
+            "global_override"
+        )
+
+        # remove global override
+        server.remove_layer_override("a_layer")
+        # user one should now have no override
+        self.assertEqual(
+            server.get_layer(user_one, "a_layer").get("a_string", "fallback"),
+            "fallback"
+        )
+
+        # remove all overrides
+        server.remove_all_overrides()
+        self.assertEqual(
+            server.get_layer(user_one, "a_layer").get("a_string", "fallback"),
+            "fallback"
+        )
+
+        # try removing one that doesn't exist
+        server.remove_layer_override("fake_config_non_existent")
