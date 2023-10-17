@@ -249,6 +249,16 @@ def remove_experiment_override(experiment: str, user_id: Optional[str] = None):
     __instance.remove_experiment_override(experiment, user_id)
 
 
+def remove_layer_override(layer: str, user_id: Optional[str] = None):
+    """
+    Remove the overriden value of a Layer for a given user
+
+    :param layer: The name of the layer that was overriden
+    :param user_id: (Optional) The user_id of the user to remove override for
+    """
+    __instance.remove_layer_override(layer, user_id)
+
+
 def remove_all_overrides():
     """
     Removes all overrides for all users
