@@ -56,10 +56,6 @@ class _SpecStore:
         self._id_lists = {}
 
     def initialize(self):
-        if self._options.local_mode:
-            self._initialized = True
-            return
-
         self._initialize_specs()
         self.initial_update_time = -1 if self.last_update_time == 0 else self.last_update_time
 
