@@ -56,7 +56,7 @@ class _StatsigNetwork:
                 create_marker().end({
                     'statusCode': response.status_code,
                     "success": response.ok,
-                    "sdkRegion": response.headers.get("x-statsig-region")
+                    "sdkRegion": response.headers.get("x-statsig-region"),
                 })
 
             if response.status_code == 200:
@@ -65,7 +65,11 @@ class _StatsigNetwork:
             return None
         except Exception as err:
             if create_marker is not None:
-                create_marker().end({'statusCode': response.status_code if response is not None else False})
+                create_marker().end({
+                    'statusCode': response.status_code if response is not None else None,
+                    'success': False,
+                    "error": Diagnostics.format_error(err)
+                })
             if log_on_exception:
                 self.__error_boundary.log_exception("post_request:" + endpoint, err, {"timeoutMs": timeout * 1000})
                 globals.logger.warning(
@@ -110,6 +114,7 @@ class _StatsigNetwork:
             return None
 
         response = None
+        error = None
         try:
             Diagnostics.mark().get_id_list().network_request().start({'url': url})
             headers = self._create_headers(headers)
@@ -118,19 +123,21 @@ class _StatsigNetwork:
             if response.ok:
                 return response
             return None
-        except Exception as err:
+        except Exception as localErr:
+            error = localErr
             if log_on_exception:
-                self.__error_boundary.log_exception("get_request", err)
+                self.__error_boundary.log_exception("get_request", localErr)
                 globals.logger.warning(
                     'Network exception caught when making request to %s failed', url)
             if self._raise_on_error:
-                raise err
+                raise localErr
             return None
         finally:
             Diagnostics.mark().get_id_list().network_request().end({
                 'url': url,
                 'success': (response.ok is True) if response else False,
-                'statusCode': response.status_code if response else None
+                'statusCode': response.status_code if response else None,
+                'error': Diagnostics.format_error(error)
             })
 
     def _verify_json_payload(self, payload, endpoint):
@@ -150,9 +157,9 @@ class _StatsigNetwork:
             return None
 
     def _get_diagnostics_from_url(self, url: str):
-        if url.endswith('download_config_specs'):
+        if 'download_config_specs' in url:
             return lambda: Diagnostics.mark().download_config_specs().network_request()
-        if url.endswith('get_id_lists'):
+        if 'get_id_lists' in url:
             return lambda: Diagnostics.mark().get_id_list_sources().network_request()
         return None
 

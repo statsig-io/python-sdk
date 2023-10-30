@@ -43,7 +43,6 @@ class SamplingRate(Enum):
 MAX_SAMPLING_RATE = 10000
 DEFAULT_SAMPLING_RATE = 100
 
-
 class Marker:
     context = None
 
@@ -62,7 +61,8 @@ class Marker:
                  attempt: int = None,
                  retryLimit: int = None,
                  isRetry: bool = None,
-                 configName: str = None):
+                 configName: str = None,
+                 error: dict = None):
         self.key = key
         self.action = action
         self.timestamp = (time.time() * 1000) if timestamp is None else timestamp
@@ -78,6 +78,7 @@ class Marker:
         self.retryLimit = retryLimit
         self.isRetry = isRetry
         self.configName = configName
+        self.error = error
 
     def to_dict(self) -> Dict:
         marker_dict = {
@@ -96,7 +97,7 @@ class Marker:
             "retryLimit": self.retryLimit,
             "isRetry": self.isRetry,
             "configName": self.configName,
-
+            "error": self.error
         }
         return {k: v for k, v in marker_dict.items() if v is not None}
 
@@ -265,3 +266,17 @@ class Diagnostics:
         Diagnostics.clear_context = Diagnostics.instance.clear_context
         Diagnostics.log_diagnostics = Diagnostics.instance.log_diagnostics
         Diagnostics.set_sampling_rate = Diagnostics.instance.set_sampling_rate
+
+    @staticmethod
+    def format_error(e: Exception):
+        if e is None:
+            return None
+        return {
+            'name': type(e).__name__,
+        }
+
+    @staticmethod
+    def _safe_get_field(data: dict, field: str) -> str:
+        if field in data:
+            return str(data[field])
+        return None
