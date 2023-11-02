@@ -3,6 +3,8 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, wait
 from typing import Optional
 
+from .utils import djb2_hash
+
 from .evaluation_details import EvaluationReason
 from .statsig_error_boundary import _StatsigErrorBoundary
 from .statsig_errors import StatsigValueError, StatsigNameError
@@ -52,6 +54,7 @@ class _SpecStore:
         self._layers = {}
         self._experiment_to_layer = {}
         self._sdk_keys_to_app_ids = {}
+        self._hashed_sdk_keys_to_app_ids = {}
 
         self._id_lists = {}
 
@@ -120,6 +123,9 @@ class _SpecStore:
     def get_target_app_for_sdk_key(self, sdk_key=None):
         if sdk_key is None:
             return None
+        target_app_id = self._hashed_sdk_keys_to_app_ids.get(djb2_hash(sdk_key))
+        if target_app_id is not None:
+            return target_app_id
         return self._sdk_keys_to_app_ids.get(sdk_key)
 
     def _initialize_specs(self):
@@ -165,6 +171,7 @@ class _SpecStore:
                 new_experiment_to_layer[experiment_name] = layer_name
 
         self._sdk_keys_to_app_ids = specs_json.get("sdk_keys_to_app_ids", {})
+        self._hashed_sdk_keys_to_app_ids = specs_json.get("hashed_sdk_keys_to_app_ids", {})
         self._gates = new_gates
         self._configs = new_configs
         self._layers = new_layers
