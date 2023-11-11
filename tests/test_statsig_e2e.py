@@ -34,7 +34,17 @@ class TestStatsigE2E(unittest.TestCase):
         }})
 
         def log_event_callback(url: str, data: dict):
-            cls._logs = data["json"]
+            if "json" in data:
+                cls._logs = data["json"]
+            else:
+                headers = data["headers"]
+                if "Content-Encoding" in headers and headers["Content-Encoding"] == "gzip":
+                    import gzip
+                    import io
+                    with gzip.GzipFile(fileobj=io.BytesIO(data["data"]), mode="rb") as f:
+                        cls._logs = json.loads(f.read().decode("utf-8"))
+                else:
+                    cls._logs = json.loads(data["data"])
 
         _network_stub.stub_request_with_function(
             "log_event", 202, log_event_callback)
