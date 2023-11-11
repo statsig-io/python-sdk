@@ -1,9 +1,9 @@
 import json
 import time
 from uuid import uuid4
-import requests
 from io import BytesIO
 import gzip
+import requests
 from .diagnostics import Diagnostics
 from .statsig_options import StatsigOptions
 from .statsig_error_boundary import _StatsigErrorBoundary
