@@ -92,6 +92,7 @@ class TestStatsigConcurrency(unittest.TestCase):
             thread.start()
             self.threads.append(thread)
 
+        time.sleep(1)
         for t in self.threads:
             t.join()
 
