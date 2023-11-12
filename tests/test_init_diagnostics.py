@@ -4,6 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from statsig import StatsigOptions, StatsigServer, _Evaluator, StatsigUser, IDataStore
+from gzip_helpers import GzipHelpers
 from network_stub import NetworkStub
 
 with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), '../testdata/download_config_specs.json')) as r:
@@ -31,7 +32,7 @@ class TestDiagnostics(unittest.TestCase):
         self._events = []
 
         def on_log(url: str, data: dict):
-            self._events += data["json"]["events"]
+            self._events += GzipHelpers.decode_body(data)["events"]
 
         _network_stub.stub_request_with_function("log_event", 202, on_log)
 

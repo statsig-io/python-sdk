@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 from network_stub import NetworkStub
 from statsig import statsig, StatsigUser, StatsigOptions, StatsigEnvironmentTier, Layer
+from gzip_helpers import GzipHelpers
 from test_case_with_extras import TestCaseWithExtras
 
 with open(os.path.join(os.path.abspath(os.path.dirname(__file__)),
@@ -28,7 +29,7 @@ class TestLayerExposures(TestCaseWithExtras):
             "download_config_specs", 200, json.loads(CONFIG_SPECS_RESPONSE))
 
         def log_event_callback(url: str, data: dict):
-            cls._logs = data["json"]
+            cls._logs = GzipHelpers.decode_body(data)
 
         _network_stub.stub_request_with_function(
             "log_event", 202, log_event_callback)

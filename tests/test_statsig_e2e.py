@@ -4,6 +4,7 @@ import unittest
 import json
 
 from unittest.mock import patch
+from gzip_helpers import GzipHelpers
 from network_stub import NetworkStub
 from statsig import statsig, StatsigUser, StatsigOptions, StatsigEvent, StatsigEnvironmentTier
 
@@ -34,17 +35,7 @@ class TestStatsigE2E(unittest.TestCase):
         }})
 
         def log_event_callback(url: str, data: dict):
-            if "json" in data:
-                cls._logs = data["json"]
-            else:
-                headers = data["headers"]
-                if "Content-Encoding" in headers and headers["Content-Encoding"] == "gzip":
-                    import gzip
-                    import io
-                    with gzip.GzipFile(fileobj=io.BytesIO(data["data"]), mode="rb") as f:
-                        cls._logs = json.loads(f.read().decode("utf-8"))
-                else:
-                    cls._logs = json.loads(data["data"])
+            cls._logs = GzipHelpers.decode_body(data)
 
         _network_stub.stub_request_with_function(
             "log_event", 202, log_event_callback)

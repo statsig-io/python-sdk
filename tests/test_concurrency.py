@@ -6,6 +6,7 @@ import unittest
 import json
 
 from unittest.mock import patch
+from gzip_helpers import GzipHelpers
 from network_stub import NetworkStub
 from statsig import statsig, StatsigUser, StatsigOptions, StatsigEvent, StatsigEnvironmentTier
 
@@ -57,7 +58,7 @@ class TestStatsigConcurrency(unittest.TestCase):
             "list_1", 202, id_list_download_callback)
 
         def log_event_callback(url: str, data: dict):
-            cls._event_count += len(data["json"]["events"])
+            cls._event_count += len(GzipHelpers.decode_body(data)["events"])
 
         cls._network_stub.stub_request_with_function(
             "log_event", 202, log_event_callback)
