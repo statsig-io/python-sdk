@@ -1,6 +1,8 @@
 import json
 import time
 from uuid import uuid4
+from io import BytesIO
+import gzip
 import requests
 from .diagnostics import Diagnostics
 from .statsig_options import StatsigOptions
@@ -37,11 +39,11 @@ class _StatsigNetwork:
             return None
 
         headers = self._create_headers({
-            'STATSIG-RETRY': '0'
+            'STATSIG-RETRY': '0',
         })
 
-        verified_payload = self._verify_json_payload(payload, endpoint)
-        if verified_payload is None:
+        payload_data = self._verify_json_payload(payload, endpoint)
+        if payload_data is None:
             return None
 
         response = None
@@ -50,7 +52,7 @@ class _StatsigNetwork:
                 timeout = self.__req_timeout
 
             response = requests.post(
-                self.__api + endpoint, json=verified_payload, headers=headers, timeout=timeout)
+                self.__api + endpoint, data=payload_data, headers=headers, timeout=timeout)
 
             if create_marker is not None:
                 create_marker().end({
@@ -83,21 +85,24 @@ class _StatsigNetwork:
             return None
 
         headers = self._create_headers({
-            'STATSIG-RETRY': str(retry)
+            'STATSIG-RETRY': str(retry),
+            'Content-Encoding': 'gzip',
         })
 
-        verified_payload = self._verify_json_payload(payload, endpoint)
-        if verified_payload is None:
+        payload_data = self._verify_json_payload(payload, endpoint)
+        if payload_data is None:
             return None
 
         try:
+            compressed_data = self._zip_payload(payload_data)
             response = requests.post(
-                self.__api + endpoint, json=verified_payload, headers=headers, timeout=self.__req_timeout)
+                self.__api + endpoint, data=compressed_data, headers=headers, timeout=self.__req_timeout)
             if response.status_code in self.__RETRY_CODES:
                 return payload
             if response.status_code >= 300:
                 globals.logger.warning(
                     "Request to %s failed with code %d", endpoint, response.status_code)
+                globals.logger.warning(response.text)
             return None
         except Exception as err:
             if log_on_exception:
@@ -140,10 +145,15 @@ class _StatsigNetwork:
                 'error': Diagnostics.format_error(error)
             })
 
+    def _zip_payload(self, payload: str) -> bytes:
+        btsio = BytesIO()
+        with gzip.GzipFile(fileobj=btsio, mode='w') as gz:
+            gz.write(payload.encode('utf-8'))
+        return btsio.getvalue()
+
     def _verify_json_payload(self, payload, endpoint):
         try:
-            json.dumps(payload)
-            return payload
+            return json.dumps(payload)
         except TypeError as e:
             globals.logger.error(
                 "Dropping request to %s. Failed to json encode payload. Are you sure the input is json serializable? "

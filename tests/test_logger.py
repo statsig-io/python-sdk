@@ -2,6 +2,7 @@ import random
 import unittest
 from unittest.mock import patch
 
+from gzip_helpers import GzipHelpers
 from statsig.statsig_event import StatsigEvent
 from statsig.statsig_options import StatsigOptions
 from statsig.statsig_server import StatsigServer
@@ -30,7 +31,7 @@ class LoggerTest(unittest.TestCase):
         self._events = []
 
         def on_log(url: str, data: dict):
-            self._events += data["json"]["events"]
+            self._events += GzipHelpers.decode_body(data)["events"]
             self._didLog.set()
 
         self._network_stub.stub_request_with_function("log_event", 202, on_log)
@@ -115,7 +116,7 @@ class LoggerTest(unittest.TestCase):
         sleep(0.1)
 
         evt = StatsigEvent(self._user, "my_event", 10)
-        self._instance.log_event(evt)
+        self._run_and_wait_for_logs(lambda: self._instance.log_event(evt))        
 
         self.assertEqual(len(self._events), 3)
         gate_exposure = self._events[0]
