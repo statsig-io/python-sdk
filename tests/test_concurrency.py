@@ -88,16 +88,14 @@ class TestStatsigConcurrency(unittest.TestCase):
         self.threads = []
         for x in range(10):
             thread = threading.Thread(
-                target=self.run_checks, args=(0.01, 20))
+                target=self.run_checks, args=(0.1, 20))
             thread.start()
             self.threads.append(thread)
 
         for t in self.threads:
             t.join()
 
-        time.sleep(1)
         statsig.shutdown()
-        time.sleep(1)
 
         self.assertEqual(0, len(statsig.get_instance()._logger._events))
         self.assertEqual(1801, self._event_count)
