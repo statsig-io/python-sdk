@@ -171,6 +171,8 @@ class StatsigServer:
                 layer_name,
                 result.json_value,
                 result.rule_id,
+                result.group_name,
+                result.allocated_experiment,
                 log_func
             )
 
@@ -182,7 +184,9 @@ class StatsigServer:
             self, user: StatsigUser, layer_name: str, parameter_name: str):
         user = self.__normalize_user(user)
         result = self._evaluator.get_layer(user, layer_name)
-        layer = Layer._create(layer_name, result.json_value, result.rule_id)
+        layer = Layer._create(layer_name, result.json_value, result.rule_id,
+                              result.group_name,
+                              result.allocated_experiment)
         self._logger.log_layer_exposure(
             user, layer, parameter_name, result, is_manual_exposure=True)
 
@@ -224,8 +228,9 @@ class StatsigServer:
 
     def override_experiment(self, experiment: str,
                             value: object, user_id: Optional[str] = None):
-        self._errorBoundary.swallow("override_experiment",
-                                    lambda: self._evaluator.override_config(experiment, value, user_id))
+        self._errorBoundary.swallow(
+            "override_experiment", lambda: self._evaluator.override_config(
+                experiment, value, user_id))
 
     def override_layer(self, layer: str,
                        value: object, user_id: Optional[str] = None):
@@ -244,7 +249,8 @@ class StatsigServer:
     def remove_experiment_override(
             self, experiment: str, user_id: Optional[str] = None):
         self._errorBoundary.swallow("remove_experiment_override",
-                                    lambda: self._evaluator.remove_config_override(experiment, user_id))
+                                    lambda: self._evaluator.remove_config_override(
+                                        experiment, user_id))
 
     def remove_layer_override(
             self, layer: str, user_id: Optional[str] = None):
@@ -255,7 +261,8 @@ class StatsigServer:
         self._errorBoundary.swallow("remove_all_overrides",
                                     lambda: self._evaluator.remove_all_overrides())
 
-    def get_client_initialize_response(self, user: StatsigUser, client_sdk_key: Optional[str] = None):
+    def get_client_initialize_response(
+            self, user: StatsigUser, client_sdk_key: Optional[str] = None):
         def task():
             return self._evaluator.get_client_initialize_response(
                 self.__normalize_user(user), client_sdk_key)

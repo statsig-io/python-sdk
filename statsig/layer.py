@@ -1,12 +1,20 @@
+from typing import Callable, Optional
+
+
 class Layer:
     __create_key = object()
 
     @classmethod
-    def _create(cls, name: str, value: dict, rule: str, param_log_func=None):
-        return Layer(cls.__create_key, name, value, rule, param_log_func)
+    def _create(cls, name: str, value: dict, rule: str, group_name=None,
+                allocated_experiment=None, param_log_func=None):
+        return Layer(
+            cls.__create_key, name, value, rule, group_name, allocated_experiment,
+            param_log_func)
 
-    def __init__(self, create_key, name: str,
-                 value: dict, rule: str, param_log_func):
+    def __init__(self, create_key, name: str, value: dict, rule: str,
+                 group_name: Optional[str],
+                 allocated_experiment: Optional[str],
+                 param_log_func: Callable[[str], None]):
         assert (create_key == Layer.__create_key), \
             "Layers should only be created internally by Statsig"
 
@@ -20,6 +28,8 @@ class Layer:
         if rule is None:
             rule = ""
         self.rule_id = rule
+        self.group_name = group_name
+        self.allocated_experiment = allocated_experiment
 
     def get(self, key, default=None):
         """Returns the value of the layer at the given key
