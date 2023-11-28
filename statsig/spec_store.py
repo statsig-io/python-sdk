@@ -3,6 +3,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, wait
 from typing import Optional
 
+from .sdk_flags import _SDKFlags
 from .utils import djb2_hash
 
 from .evaluation_details import EvaluationReason
@@ -177,6 +178,10 @@ class _SpecStore:
         self._layers = new_layers
         self._experiment_to_layer = new_experiment_to_layer
         self.last_update_time = specs_json.get("time", 0)
+
+        flags = specs_json.get("sdk_flags", {})
+        _SDKFlags.set_flags(flags)
+
         sampling_rate = specs_json.get("diagnostics", {})
         Diagnostics.set_sampling_rate(sampling_rate)
 
@@ -384,6 +389,7 @@ class _SpecStore:
             self._error_boundary.log_exception("_download_id_lists_process", e)
         finally:
             Diagnostics.mark().get_id_list_sources().process().end({'success': not threw_error})
+
     def _download_single_id_list(
             self, url, list_name, local_list, all_lists, start_index):
         resp = self._network.get_request(

@@ -5,6 +5,7 @@ from io import BytesIO
 import gzip
 import requests
 from .diagnostics import Diagnostics
+from .sdk_flags import _SDKFlags
 from .statsig_options import StatsigOptions
 from .statsig_error_boundary import _StatsigErrorBoundary
 
@@ -84,21 +85,30 @@ class _StatsigNetwork:
         if self.__local_mode:
             return None
 
-        headers = self._create_headers({
-            'STATSIG-RETRY': str(retry),
-            'Content-Encoding': 'gzip',
-        })
-
         payload_data = self._verify_json_payload(payload, endpoint)
         if payload_data is None:
             return None
 
         try:
-            compressed_data = self._zip_payload(payload_data)
+            disable_compression = _SDKFlags.on("stop_log_event_compression")
+
+            headers = self._create_headers({
+                'STATSIG-RETRY': str(retry),
+            })
+
+            if not disable_compression:
+                headers['Content-Encoding'] = 'gzip'
+
             response = requests.post(
-                self.__api + endpoint, data=compressed_data, headers=headers, timeout=self.__req_timeout)
+                self.__api + endpoint,
+                data=payload_data if disable_compression else self._zip_payload(payload_data),
+                headers=headers,
+                timeout=self.__req_timeout
+            )
+
             if response.status_code in self.__RETRY_CODES:
                 return payload
+
             if response.status_code >= 300:
                 globals.logger.warning(
                     "Request to %s failed with code %d", endpoint, response.status_code)
