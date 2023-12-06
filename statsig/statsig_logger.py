@@ -150,27 +150,36 @@ class _StatsigLogger:
         self.log(event)
 
     def flush_in_background(self):
-        if len(self._events) == 0:
+        event_count = len(self._events)
+        if event_count == 0:
             return
         events_copy = self._events.copy()
         self._events = []
 
-        self._run_on_background_thread(lambda: self._flush_to_server(events_copy))
+        self._run_on_background_thread(lambda: self._flush_to_server(events_copy, event_count))
 
-    def _flush_to_server(self, events_copy):
-        res = self._net.retryable_request("log_event", {
-            "events": events_copy,
-            "statsigMetadata": self._statsig_metadata,
-        }, log_on_exception=True)
+    def _flush_to_server(self, events_copy, event_count):
+        headers = {'STATSIG-EVENT-COUNT': str(event_count)}
+
+        res = self._net.retryable_request(
+            "log_event", {
+                "events": events_copy,
+                "statsigMetadata": self._statsig_metadata,
+            },
+            log_on_exception=True,
+            additional_headers=headers
+        )
+
         if res is not None:
-            self._retry_logs.append(RetryableLogs(res, 0))
+            self._retry_logs.append(RetryableLogs(res, headers, event_count, 0))
 
     def flush(self):
-        if len(self._events) == 0:
+        event_count = len(self._events)
+        if event_count == 0:
             return
         events_copy = self._events.copy()
         self._events = []
-        self._flush_to_server(events_copy)
+        self._flush_to_server(events_copy, event_count)
 
     def shutdown(self):
         self.flush()
@@ -226,14 +235,30 @@ class _StatsigLogger:
                 except IndexError:
                     break
 
-                res = self._net.retryable_request("log_event", retry_logs.payload, log_on_exception=True,
-                                                  retry=retry_logs.retries)
+                res = self._net.retryable_request(
+                    "log_event",
+                    retry_logs.payload,
+                    log_on_exception=True,
+                    retry=retry_logs.retries,
+                    additional_headers=retry_logs.headers
+                )
                 if res is not None:
                     if retry_logs.retries >= 10:
-                        self._console_logger.warning("Failed to post logs after 10 retries, dropping the request")
+                        message = "Failed to post logs after 10 retries, dropping the request"
+                        self._error_boundary.log_exception(
+                            "statsig::log_event_failed",
+                            Exception(message),
+                            {
+                                "eventCount": retry_logs.event_count,
+                                "error": message
+                            }
+                        )
+                        self._console_logger.warning(message)
                         return
 
-                    self._retry_logs.append(RetryableLogs(retry_logs.payload, retry_logs.retries))
+                    self._retry_logs.append(
+                        RetryableLogs(retry_logs.payload, retry_logs.headers, retry_logs.event_count,
+                                      retry_logs.retries))
 
     def log_diagnostics_event(self, metadata):
         event = StatsigEvent(None, _DIAGNOSTICS_EVENT)
@@ -251,7 +276,8 @@ class _StatsigLogger:
 
         metadata_key = ''
         if metadata and isinstance(metadata, dict):
-            metadata_key = ','.join(str(value) for key, value in metadata.items() if key not in _IGNORED_METADATA_KEYS)
+            metadata_key = ','.join(
+                str(value) for key, value in metadata.items() if key not in _IGNORED_METADATA_KEYS)
 
         key = ','.join(str(item) for item in [user.user_id, custom_id_key, eventName, metadata_key])
 

@@ -81,7 +81,7 @@ class _StatsigNetwork:
                 raise err
             return None
 
-    def retryable_request(self, endpoint, payload, log_on_exception=False, retry=0):
+    def retryable_request(self, endpoint, payload, log_on_exception=False, retry=0, additional_headers=None):
         if self.__local_mode:
             return None
 
@@ -95,6 +95,9 @@ class _StatsigNetwork:
             headers = self._create_headers({
                 'STATSIG-RETRY': str(retry),
             })
+
+            if additional_headers is not None:
+                headers.update(additional_headers)
 
             if not disable_compression:
                 headers['Content-Encoding'] = 'gzip'
