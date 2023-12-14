@@ -84,6 +84,7 @@ class StatsigServer:
                 self.__statsig_metadata,
                 self._errorBoundary,
                 self.__shutdown_event,
+                sdk_key,
             )
             self._evaluator = _Evaluator(self._spec_store)
 

@@ -20,22 +20,12 @@ IDLISTS_SYNC_INTERVAL = 60
 STORAGE_ADAPTER_KEY = "statsig.cache"
 SYNC_OUTDATED_MAX_S = 120
 
-
-def _is_specs_json_valid(specs_json):
-    if specs_json is None or specs_json.get("time") is None:
-        return False
-    if specs_json.get("has_updates", False) is False:
-        return False
-
-    return True
-
-
 class _SpecStore:
     _background_download_configs: Optional[threading.Thread]
     _background_download_id_lists: Optional[threading.Thread]
 
     def __init__(self, network: _StatsigNetwork, options: StatsigOptions, statsig_metadata: dict,
-                 error_boundary: _StatsigErrorBoundary, shutdown_event: threading.Event):
+                 error_boundary: _StatsigErrorBoundary, shutdown_event: threading.Event, sdk_key: str):
         self.last_update_time = 0
         self.initial_update_time = 0
         self.init_reason = EvaluationReason.uninitialized
@@ -49,6 +39,7 @@ class _SpecStore:
         self._background_download_configs = None
         self._background_download_id_lists = None
         self._sync_failure_count = 0
+        self._sdk_key = sdk_key
 
         self._configs = {}
         self._gates = {}
@@ -58,6 +49,16 @@ class _SpecStore:
         self._hashed_sdk_keys_to_app_ids = {}
 
         self._id_lists = {}
+
+    def _is_specs_json_valid(self, specs_json):
+        if specs_json is None or specs_json.get("time") is None:
+            return False
+        hashed_sdk_key_used = specs_json.get("hashed_sdk_key_used", None)
+        if hashed_sdk_key_used is not None and hashed_sdk_key_used != djb2_hash(self._sdk_key):
+            return False
+        if specs_json.get("has_updates", False) is False:
+            return False
+        return True
 
     def initialize(self):
         self._initialize_specs()
@@ -148,7 +149,7 @@ class _SpecStore:
 
     def _process_specs(self, specs_json) -> bool:
         self._log_process("Processing specs...")
-        if not _is_specs_json_valid(specs_json):
+        if not self._is_specs_json_valid(specs_json):
             self._log_process("Failed to process specs")
             return False
 
@@ -198,7 +199,7 @@ class _SpecStore:
 
         try:
             specs = json.loads(self._options.bootstrap_values)
-            if specs is None or not _is_specs_json_valid(specs):
+            if specs is None or not self._is_specs_json_valid(specs):
                 return
             if self._process_specs(specs):
                 self.init_reason = EvaluationReason.bootstrap
@@ -251,8 +252,6 @@ class _SpecStore:
     def download_config_spec_process(self, specs):
         try:
             Diagnostics.mark().download_config_specs().process().start()
-            if not _is_specs_json_valid(specs):
-                return
 
             self._log_process("Done loading specs")
             if self._process_specs(specs):
@@ -265,7 +264,7 @@ class _SpecStore:
                 {'success': self.init_reason == EvaluationReason.network})
 
     def _save_to_storage_adapter(self, specs):
-        if not _is_specs_json_valid(specs):
+        if not self._is_specs_json_valid(specs):
             return
 
         if self._options.data_store is None:
@@ -290,7 +289,6 @@ class _SpecStore:
             globals.logger.warning(
                 "Invalid type returned from StatsigOptions.data_store")
             return
-
         adapter_time = cache.get("time", None)
         if not isinstance(adapter_time,
                           int) or adapter_time < self.last_update_time:
