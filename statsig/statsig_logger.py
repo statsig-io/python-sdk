@@ -202,7 +202,8 @@ class _StatsigLogger:
 
     def _flush_futures(self):
         for future in concurrent.futures.as_completed(self._futures, timeout=THREAD_JOIN_TIMEOUT):
-            self._futures.remove(future)
+            if future in self._futures:
+                self._futures.remove(future)
 
     def _periodic_flush(self, shutdown_event):
         while True:
