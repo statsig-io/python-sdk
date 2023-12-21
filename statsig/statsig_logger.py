@@ -10,17 +10,19 @@ from .statsig_event import StatsigEvent
 from .layer import Layer
 from . import globals
 from .thread_util import spawn_background_thread, THREAD_JOIN_TIMEOUT
+from .diagnostics import Diagnostics, Context
 
 _CONFIG_EXPOSURE_EVENT = "statsig::config_exposure"
 _LAYER_EXPOSURE_EVENT = "statsig::layer_exposure"
 _GATE_EXPOSURE_EVENT = "statsig::gate_exposure"
 _DIAGNOSTICS_EVENT = "statsig::diagnostics"
 
-_IGNORED_METADATA_KEYS = {'serverTime', 'configSyncTime', 'initTime', 'reason'}
+_IGNORED_METADATA_KEYS = {"serverTime", "configSyncTime", "initTime", "reason"}
 
 
 def _safe_add_evaluation_to_event(
-        evaluation_details: Union[EvaluationDetails, None], event: StatsigEvent):
+    evaluation_details: Union[EvaluationDetails, None], event: StatsigEvent
+):
     if evaluation_details is None or event is None or event.metadata is None:
         return
 
@@ -61,15 +63,27 @@ class _StatsigLogger:
 
         if self._background_flush is None or not self._background_flush.is_alive():
             self._background_flush = spawn_background_thread(
-                "logger_background_flush", self._periodic_flush, (self._shutdown_event,), self._error_boundary)
+                "logger_background_flush",
+                self._periodic_flush,
+                (self._shutdown_event,),
+                self._error_boundary,
+            )
 
         if self._background_retry is None or not self._background_retry.is_alive():
             self._background_retry = spawn_background_thread(
-                "logger_background_retry", self._periodic_retry, (self._shutdown_event,), self._error_boundary)
+                "logger_background_retry",
+                self._periodic_retry,
+                (self._shutdown_event,),
+                self._error_boundary,
+            )
 
         if self._background_deduper is None or not self._background_deduper.is_alive():
             self._background_deduper = spawn_background_thread(
-                "logger_background_deduper", self._periodic_dedupe_clear, (self._shutdown_event,), self._error_boundary)
+                "logger_background_deduper",
+                self._periodic_dedupe_clear,
+                (self._shutdown_event,),
+                self._error_boundary,
+            )
 
     def log(self, event):
         if self._local_mode:
@@ -78,8 +92,16 @@ class _StatsigLogger:
         if len(self._events) >= self._event_queue_size:
             self.flush_in_background()
 
-    def log_gate_exposure(self, user, gate, value, rule_id, secondary_exposures,
-                          evaluation_details: EvaluationDetails, is_manual_exposure=False):
+    def log_gate_exposure(
+        self,
+        user,
+        gate,
+        value,
+        rule_id,
+        secondary_exposures,
+        evaluation_details: EvaluationDetails,
+        is_manual_exposure=False,
+    ):
         event = StatsigEvent(user, _GATE_EXPOSURE_EVENT)
         event.metadata = {
             "gate": gate,
@@ -99,8 +121,15 @@ class _StatsigLogger:
         _safe_add_evaluation_to_event(evaluation_details, event)
         self.log(event)
 
-    def log_config_exposure(self, user, config, rule_id, secondary_exposures,
-                            evaluation_details: EvaluationDetails, is_manual_exposure=False):
+    def log_config_exposure(
+        self,
+        user,
+        config,
+        rule_id,
+        secondary_exposures,
+        evaluation_details: EvaluationDetails,
+        is_manual_exposure=False,
+    ):
         event = StatsigEvent(user, _CONFIG_EXPOSURE_EVENT)
         event.metadata = {
             "config": config,
@@ -118,8 +147,14 @@ class _StatsigLogger:
         _safe_add_evaluation_to_event(evaluation_details, event)
         self.log(event)
 
-    def log_layer_exposure(self, user, layer: Layer, parameter_name: str,
-                           config_evaluation: _ConfigEvaluation, is_manual_exposure=False):
+    def log_layer_exposure(
+        self,
+        user,
+        layer: Layer,
+        parameter_name: str,
+        config_evaluation: _ConfigEvaluation,
+        is_manual_exposure=False,
+    ):
         event = StatsigEvent(user, _LAYER_EXPOSURE_EVENT)
 
         allocated_experiment = ""
@@ -134,7 +169,7 @@ class _StatsigLogger:
             "ruleID": layer.rule_id,
             "allocatedExperiment": allocated_experiment,
             "parameterName": parameter_name,
-            "isExplicitParameter": "true" if is_explicit else "false"
+            "isExplicitParameter": "true" if is_explicit else "false",
         }
         if not self._is_unique_exposure(user, _LAYER_EXPOSURE_EVENT, metadata):
             return
@@ -144,8 +179,7 @@ class _StatsigLogger:
 
         event._secondary_exposures = [] if exposures is None else exposures
 
-        _safe_add_evaluation_to_event(
-            config_evaluation.evaluation_details, event)
+        _safe_add_evaluation_to_event(config_evaluation.evaluation_details, event)
 
         self.log(event)
 
@@ -156,24 +190,28 @@ class _StatsigLogger:
         events_copy = self._events.copy()
         self._events = []
 
-        self._run_on_background_thread(lambda: self._flush_to_server(events_copy, event_count))
+        self._run_on_background_thread(
+            lambda: self._flush_to_server(events_copy, event_count)
+        )
 
     def _flush_to_server(self, events_copy, event_count):
-        headers = {'STATSIG-EVENT-COUNT': str(event_count)}
+        headers = {"STATSIG-EVENT-COUNT": str(event_count)}
 
         res = self._net.retryable_request(
-            "log_event", {
+            "log_event",
+            {
                 "events": events_copy,
                 "statsigMetadata": self._statsig_metadata,
             },
             log_on_exception=True,
-            additional_headers=headers
+            additional_headers=headers,
         )
 
         if res is not None:
             self._retry_logs.append(RetryableLogs(res, headers, event_count, 0))
 
     def flush(self):
+        self._add_diagnostics_api_call_event()
         event_count = len(self._events)
         if event_count == 0:
             return
@@ -201,7 +239,9 @@ class _StatsigLogger:
         self._futures.append(future)
 
     def _flush_futures(self):
-        for future in concurrent.futures.as_completed(self._futures, timeout=THREAD_JOIN_TIMEOUT):
+        for future in concurrent.futures.as_completed(
+            self._futures, timeout=THREAD_JOIN_TIMEOUT
+        ):
             if future in self._futures:
                 self._futures.remove(future)
 
@@ -241,25 +281,29 @@ class _StatsigLogger:
                     retry_logs.payload,
                     log_on_exception=True,
                     retry=retry_logs.retries,
-                    additional_headers=retry_logs.headers
+                    additional_headers=retry_logs.headers,
                 )
                 if res is not None:
                     if retry_logs.retries >= 10:
-                        message = "Failed to post logs after 10 retries, dropping the request"
+                        message = (
+                            "Failed to post logs after 10 retries, dropping the request"
+                        )
                         self._error_boundary.log_exception(
                             "statsig::log_event_failed",
                             Exception(message),
-                            {
-                                "eventCount": retry_logs.event_count,
-                                "error": message
-                            }
+                            {"eventCount": retry_logs.event_count, "error": message},
                         )
                         self._console_logger.warning(message)
                         return
 
                     self._retry_logs.append(
-                        RetryableLogs(retry_logs.payload, retry_logs.headers, retry_logs.event_count,
-                                      retry_logs.retries))
+                        RetryableLogs(
+                            retry_logs.payload,
+                            retry_logs.headers,
+                            retry_logs.event_count,
+                            retry_logs.retries,
+                        )
+                    )
 
     def log_diagnostics_event(self, metadata):
         event = StatsigEvent(None, _DIAGNOSTICS_EVENT)
@@ -271,19 +315,39 @@ class _StatsigLogger:
             return True
         if len(self._deduper) > 10000:
             self._deduper = set()
-        custom_id_key = ''
+        custom_id_key = ""
         if user.custom_ids and isinstance(user.custom_ids, dict):
-            custom_id_key = ','.join(user.custom_ids.values())
+            custom_id_key = ",".join(user.custom_ids.values())
 
-        metadata_key = ''
+        metadata_key = ""
         if metadata and isinstance(metadata, dict):
-            metadata_key = ','.join(
-                str(value) for key, value in metadata.items() if key not in _IGNORED_METADATA_KEYS)
+            metadata_key = ",".join(
+                str(value)
+                for key, value in metadata.items()
+                if key not in _IGNORED_METADATA_KEYS
+            )
 
-        key = ','.join(str(item) for item in [user.user_id, custom_id_key, eventName, metadata_key])
+        key = ",".join(
+            str(item) for item in [user.user_id, custom_id_key, eventName, metadata_key]
+        )
 
         if key in self._deduper:
             return False
 
         self._deduper.add(key)
         return True
+
+    def _add_diagnostics_api_call_event(self):
+        if self._local_mode or not Diagnostics.should_log_diagnostics(Context.API_CALL):
+            return
+        markers = Diagnostics.get_markers(Context.API_CALL.value)
+        Diagnostics.clear_context(Context.API_CALL.value)
+        if len(markers) == 0:
+            return
+        metadata = {
+            "markers": [marker.to_dict() for marker in markers],
+            "context": Context.API_CALL,
+        }
+        event = StatsigEvent(None, _DIAGNOSTICS_EVENT)
+        event.metadata = metadata
+        self._events.append(event.to_dict())

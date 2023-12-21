@@ -107,7 +107,7 @@ def get_experiment(user: StatsigUser, experiment: str) -> DynamicConfig:
     :param experiment: The name of the experiment
     :return: A DynamicConfig object
     """
-    return get_config(user, experiment)
+    return __instance.get_experiment(user, experiment)
 
 
 def get_experiment_with_exposure_logging_disabled(user: StatsigUser, experiment: str) -> DynamicConfig:
@@ -118,7 +118,7 @@ def get_experiment_with_exposure_logging_disabled(user: StatsigUser, experiment:
     :param experiment: The name of the experiment
     :return: A DynamicConfig object
     """
-    return get_config_with_exposure_logging_disabled(user, experiment)
+    return __instance.get_experiment(user, experiment, log_exposure=False)
 
 
 def manually_log_experiment_exposure(user: StatsigUser, experiment: str):

@@ -46,7 +46,8 @@ class StatsigServer:
 
         if sdkKey is None or not sdkKey.startswith("secret-"):
             raise StatsigValueError(
-                'Invalid key provided.  You must use a Server Secret Key from the Statsig console.')
+                "Invalid key provided.  You must use a Server Secret Key from the Statsig console."
+            )
 
         self._initialize_impl(sdkKey, options)
 
@@ -63,19 +64,21 @@ class StatsigServer:
             self._options = options
             self.__shutdown_event = threading.Event()
             self.__statsig_metadata = _StatsigMetadata.get()
+            self._errorBoundary.set_statsig_options_and_metadata(
+                self._options, self.__statsig_metadata
+            )
             self._network = _StatsigNetwork(
-                sdk_key,
-                self._options,
-                self.__statsig_metadata,
-                self._errorBoundary)
+                sdk_key, self._options, self.__statsig_metadata, self._errorBoundary
+            )
             self._logger = _StatsigLogger(
                 self._network,
                 self.__shutdown_event,
                 self.__statsig_metadata,
                 self._errorBoundary,
-                self._options)
-
+                self._options,
+            )
             Diagnostics.set_logger(self._logger)
+            Diagnostics.set_statsig_options(self._options)
             Diagnostics.set_diagnostics_enabled(self._options.disable_diagnostics)
 
             self._spec_store = _SpecStore(
@@ -100,60 +103,98 @@ class StatsigServer:
             self._errorBoundary.log_exception("initialize", e)
             self._initialized = True
         finally:
-            Diagnostics.mark().overall().end({'success': not threw_error})
-            Diagnostics.log_diagnostics('initialize')
+            Diagnostics.mark().overall().end({"success": not threw_error})
+            Diagnostics.log_diagnostics("initialize")
 
     def check_gate(self, user: StatsigUser, gate_name: str, log_exposure=True):
         def task():
             if not self._verify_inputs(user, gate_name):
                 return False
 
-            result = self.__check_gate(
-                user, gate_name, log_exposure)
+            result = self.__check_gate(user, gate_name, log_exposure)
             return result.boolean_value
 
-        return self._errorBoundary.capture("check_gate", task, lambda: False)
+        return self._errorBoundary.capture(
+            "check_gate", task, lambda: False, {"configName": gate_name}
+        )
 
     def manually_log_gate_exposure(self, user: StatsigUser, gate_name: str):
         user = self.__normalize_user(user)
         result = self._evaluator.check_gate(user, gate_name)
         self._logger.log_gate_exposure(
-            user, gate_name, result.boolean_value, result.rule_id, result.secondary_exposures,
-            result.evaluation_details, is_manual_exposure=True)
+            user,
+            gate_name,
+            result.boolean_value,
+            result.rule_id,
+            result.secondary_exposures,
+            result.evaluation_details,
+            is_manual_exposure=True,
+        )
 
     def get_config(self, user: StatsigUser, config_name: str, log_exposure=True):
         def task():
             if not self._verify_inputs(user, config_name):
                 return DynamicConfig({}, config_name, "")
 
-            result = self.__get_config(
-                user, config_name, log_exposure)
+            result = self.__get_config(user, config_name, log_exposure)
             return DynamicConfig(
-                result.json_value, config_name, result.rule_id, group_name=result.group_name)
+                result.json_value,
+                config_name,
+                result.rule_id,
+                group_name=result.group_name,
+            )
 
-        return self._errorBoundary.capture("get_config",
-                                           task, lambda: DynamicConfig({}, config_name, ""))
+        return self._errorBoundary.capture(
+            "get_config",
+            task,
+            lambda: DynamicConfig({}, config_name, ""),
+            {"configName": config_name},
+        )
 
     def manually_log_config_exposure(self, user: StatsigUser, config_name: str):
         user = self.__normalize_user(user)
         result = self._evaluator.get_config(user, config_name)
         self._logger.log_config_exposure(
-            user, config_name, result.rule_id, result.secondary_exposures, result.
-            evaluation_details, is_manual_exposure=True)
+            user,
+            config_name,
+            result.rule_id,
+            result.secondary_exposures,
+            result.evaluation_details,
+            is_manual_exposure=True,
+        )
 
-    def get_experiment(self, user: StatsigUser, experiment_name: str, log_exposure=True):
+    def get_experiment(
+        self, user: StatsigUser, experiment_name: str, log_exposure=True
+    ):
         def task():
-            return self.get_config(user, experiment_name, log_exposure)
+            if not self._verify_inputs(user, experiment_name):
+                return DynamicConfig({}, experiment_name, "")
+            result = self.__get_config(user, experiment_name, log_exposure)
+            return DynamicConfig(
+                result.json_value,
+                experiment_name,
+                result.rule_id,
+                group_name=result.group_name,
+            )
 
-        return self._errorBoundary.capture("get_experiment",
-                                           task, lambda: DynamicConfig({}, experiment_name, ""))
+        return self._errorBoundary.capture(
+            "get_experiment",
+            task,
+            lambda: DynamicConfig({}, experiment_name, ""),
+            {"configName": experiment_name},
+        )
 
     def manually_log_experiment_exposure(self, user: StatsigUser, experiment_name: str):
         user = self.__normalize_user(user)
         result = self._evaluator.get_config(user, experiment_name)
         self._logger.log_config_exposure(
-            user, experiment_name, result.rule_id, result.secondary_exposures, result.evaluation_details,
-            is_manual_exposure=True)
+            user,
+            experiment_name,
+            result.rule_id,
+            result.secondary_exposures,
+            result.evaluation_details,
+            is_manual_exposure=True,
+        )
 
     def get_layer(self, user: StatsigUser, layer_name: str, log_exposure=True) -> Layer:
         def task():
@@ -166,7 +207,8 @@ class StatsigServer:
             def log_func(layer: Layer, parameter_name: str):
                 if log_exposure:
                     self._logger.log_layer_exposure(
-                        normal_user, layer, parameter_name, result)
+                        normal_user, layer, parameter_name, result
+                    )
 
             return Layer._create(
                 layer_name,
@@ -174,28 +216,38 @@ class StatsigServer:
                 result.rule_id,
                 result.group_name,
                 result.allocated_experiment,
-                log_func
+                log_func,
             )
 
-        return self._errorBoundary.capture("get_layer",
-                                           task,
-                                           lambda: Layer._create(layer_name, {}, ""))
+        return self._errorBoundary.capture(
+            "get_layer",
+            task,
+            lambda: Layer._create(layer_name, {}, ""),
+            {"configName": layer_name},
+        )
 
     def manually_log_layer_parameter_exposure(
-            self, user: StatsigUser, layer_name: str, parameter_name: str):
+        self, user: StatsigUser, layer_name: str, parameter_name: str
+    ):
         user = self.__normalize_user(user)
         result = self._evaluator.get_layer(user, layer_name)
-        layer = Layer._create(layer_name, result.json_value, result.rule_id,
-                              result.group_name,
-                              result.allocated_experiment)
+        layer = Layer._create(
+            layer_name,
+            result.json_value,
+            result.rule_id,
+            result.group_name,
+            result.allocated_experiment,
+        )
         self._logger.log_layer_exposure(
-            user, layer, parameter_name, result, is_manual_exposure=True)
+            user, layer, parameter_name, result, is_manual_exposure=True
+        )
 
     def log_event(self, event: StatsigEvent):
         def task():
             if not self._initialized:
                 raise StatsigRuntimeError(
-                    'Must call initialize before checking gates/configs/experiments or logging events')
+                    "Must call initialize before checking gates/configs/experiments or logging events"
+                )
 
             self._verify_bg_threads_running()
 
@@ -217,61 +269,78 @@ class StatsigServer:
 
         self._errorBoundary.swallow("shutdown", task)
 
-    def override_gate(self, gate: str, value: bool,
-                      user_id: Optional[str] = None):
-        self._errorBoundary.swallow("override_gate",
-                                    lambda: self._evaluator.override_gate(gate, value, user_id))
-
-    def override_config(self, config: str, value: object,
-                        user_id: Optional[str] = None):
-        self._errorBoundary.swallow("override_config",
-                                    lambda: self._evaluator.override_config(config, value, user_id))
-
-    def override_experiment(self, experiment: str,
-                            value: object, user_id: Optional[str] = None):
+    def override_gate(self, gate: str, value: bool, user_id: Optional[str] = None):
         self._errorBoundary.swallow(
-            "override_experiment", lambda: self._evaluator.override_config(
-                experiment, value, user_id))
+            "override_gate", lambda: self._evaluator.override_gate(gate, value, user_id)
+        )
 
-    def override_layer(self, layer: str,
-                       value: object, user_id: Optional[str] = None):
-        self._errorBoundary.swallow("override_layer",
-                                    lambda: self._evaluator.override_layer(layer, value, user_id))
+    def override_config(
+        self, config: str, value: object, user_id: Optional[str] = None
+    ):
+        self._errorBoundary.swallow(
+            "override_config",
+            lambda: self._evaluator.override_config(config, value, user_id),
+        )
+
+    def override_experiment(
+        self, experiment: str, value: object, user_id: Optional[str] = None
+    ):
+        self._errorBoundary.swallow(
+            "override_experiment",
+            lambda: self._evaluator.override_config(experiment, value, user_id),
+        )
+
+    def override_layer(self, layer: str, value: object, user_id: Optional[str] = None):
+        self._errorBoundary.swallow(
+            "override_layer",
+            lambda: self._evaluator.override_layer(layer, value, user_id),
+        )
 
     def remove_gate_override(self, gate: str, user_id: Optional[str] = None):
-        self._errorBoundary.swallow("remove_gate_override",
-                                    lambda: self._evaluator.remove_gate_override(gate, user_id))
+        self._errorBoundary.swallow(
+            "remove_gate_override",
+            lambda: self._evaluator.remove_gate_override(gate, user_id),
+        )
 
-    def remove_config_override(self, config: str,
-                               user_id: Optional[str] = None):
-        self._errorBoundary.swallow("remove_config_override",
-                                    lambda: self._evaluator.remove_config_override(config, user_id))
+    def remove_config_override(self, config: str, user_id: Optional[str] = None):
+        self._errorBoundary.swallow(
+            "remove_config_override",
+            lambda: self._evaluator.remove_config_override(config, user_id),
+        )
 
     def remove_experiment_override(
-            self, experiment: str, user_id: Optional[str] = None):
-        self._errorBoundary.swallow("remove_experiment_override",
-                                    lambda: self._evaluator.remove_config_override(
-                                        experiment, user_id))
+        self, experiment: str, user_id: Optional[str] = None
+    ):
+        self._errorBoundary.swallow(
+            "remove_experiment_override",
+            lambda: self._evaluator.remove_config_override(experiment, user_id),
+        )
 
-    def remove_layer_override(
-            self, layer: str, user_id: Optional[str] = None):
-        self._errorBoundary.swallow("remove_layer_override",
-                                    lambda: self._evaluator.remove_layer_override(layer, user_id))
+    def remove_layer_override(self, layer: str, user_id: Optional[str] = None):
+        self._errorBoundary.swallow(
+            "remove_layer_override",
+            lambda: self._evaluator.remove_layer_override(layer, user_id),
+        )
 
     def remove_all_overrides(self):
-        self._errorBoundary.swallow("remove_all_overrides",
-                                    lambda: self._evaluator.remove_all_overrides())
+        self._errorBoundary.swallow(
+            "remove_all_overrides", lambda: self._evaluator.remove_all_overrides()
+        )
 
     def get_client_initialize_response(
-            self, user: StatsigUser, client_sdk_key: Optional[str] = None):
+        self, user: StatsigUser, client_sdk_key: Optional[str] = None
+    ):
         def task():
             return self._evaluator.get_client_initialize_response(
-                self.__normalize_user(user), client_sdk_key)
+                self.__normalize_user(user), client_sdk_key
+            )
 
         def recover():
             return None
 
-        return self._errorBoundary.capture("get_client_initialize_response", task, recover)
+        return self._errorBoundary.capture(
+            "get_client_initialize_response", task, recover
+        )
 
     def evaluate_all(self, user: StatsigUser):
         def task():
@@ -280,7 +349,7 @@ class StatsigServer:
                 result = self.__check_gate(user, gate, False)
                 all_gates[gate] = {
                     "value": result.boolean_value,
-                    "rule_id": result.rule_id
+                    "rule_id": result.rule_id,
                 }
 
             all_configs = {}
@@ -288,18 +357,12 @@ class StatsigServer:
                 result = self.__get_config(user, config, False)
                 all_configs[config] = {
                     "value": result.json_value,
-                    "rule_id": result.rule_id
+                    "rule_id": result.rule_id,
                 }
-            return dict({
-                "feature_gates": all_gates,
-                "dynamic_configs": all_configs
-            })
+            return dict({"feature_gates": all_gates, "dynamic_configs": all_configs})
 
         def recover():
-            return dict({
-                "feature_gates": {},
-                "dynamic_configs": {}
-            })
+            return dict({"feature_gates": {}, "dynamic_configs": {}})
 
         return self._errorBoundary.capture("evaluate_all", task, recover)
 
@@ -309,12 +372,14 @@ class StatsigServer:
     def _verify_inputs(self, user: StatsigUser, variable_name: str):
         if not self._initialized:
             raise StatsigRuntimeError(
-                'Must call initialize before checking gates/configs/experiments or logging events')
+                "Must call initialize before checking gates/configs/experiments or logging events"
+            )
 
         if not user or (not user.user_id and not user.custom_ids):
             raise StatsigValueError(
-                'A non-empty StatsigUser with user_id or custom_ids is required. See '
-                'https://docs.statsig.com/messages/serverRequiredUserID')
+                "A non-empty StatsigUser with user_id or custom_ids is required. See "
+                "https://docs.statsig.com/messages/serverRequiredUserID"
+            )
 
         if not variable_name:
             return False
@@ -330,24 +395,32 @@ class StatsigServer:
         if self._spec_store is not None:
             self._spec_store.spawn_bg_threads_if_needed()
 
-    def __check_gate(
-            self, user: StatsigUser, gate_name: str, log_exposure=True):
+    def __check_gate(self, user: StatsigUser, gate_name: str, log_exposure=True):
         user = self.__normalize_user(user)
         result = self._evaluator.check_gate(user, gate_name)
         if log_exposure:
             self._logger.log_gate_exposure(
-                user, gate_name, result.boolean_value, result.rule_id, result.secondary_exposures,
-                result.evaluation_details)
+                user,
+                gate_name,
+                result.boolean_value,
+                result.rule_id,
+                result.secondary_exposures,
+                result.evaluation_details,
+            )
         return result
 
-    def __get_config(
-            self, user: StatsigUser, config_name: str, log_exposure=True):
+    def __get_config(self, user: StatsigUser, config_name: str, log_exposure=True):
         user = self.__normalize_user(user)
 
         result = self._evaluator.get_config(user, config_name)
         if log_exposure:
             self._logger.log_config_exposure(
-                user, config_name, result.rule_id, result.secondary_exposures, result.evaluation_details)
+                user,
+                config_name,
+                result.rule_id,
+                result.secondary_exposures,
+                result.evaluation_details,
+            )
         return result
 
     def __normalize_user(self, user):

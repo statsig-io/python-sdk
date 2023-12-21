@@ -2,8 +2,8 @@ from typing import Dict
 import time
 import random
 from enum import Enum
+from .statsig_options import StatsigOptions
 
-from .statsig_logger import _StatsigLogger
 
 class Context(Enum):
     INITIALIZE = "initialize"
@@ -23,6 +23,18 @@ class Key(Enum):
     GET_EXPERIMENT = "get_experiment"
     GET_LAYER = "get_layer"
 
+    @staticmethod
+    def fromStr(key: str):
+        if key == "check_gate":
+            return Key.CHECK_GATE
+        if key == "get_config":
+            return Key.GET_CONFIG
+        if key == "get_layer":
+            return Key.GET_LAYER
+        if key == "get_experiment":
+            return Key.GET_EXPERIMENT
+        return None
+
 
 class Step(Enum):
     PROCESS = "process"
@@ -33,36 +45,41 @@ class Action(Enum):
     START = "start"
     END = "end"
 
+
 class SamplingRate(Enum):
     ID_LIST = "idlist"
-    DCS = 'dcs'
-    INITIALIZE = 'initialize'
-    LOG_EVENT = 'logevent'
+    DCS = "dcs"
+    INITIALIZE = "initialize"
+    LOG_EVENT = "logevent"
+    API_CALL = "api_call"
 
 
 MAX_SAMPLING_RATE = 10000
 DEFAULT_SAMPLING_RATE = 100
 
+
 class Marker:
     context = None
 
-    def __init__(self,
-                 key: Key = None,
-                 action: Action = None,
-                 timestamp: float = None,
-                 step: Step = None,
-                 statusCode: int = None,
-                 success: bool = None,
-                 url: str = None,
-                 idListCount: int = None,
-                 reason: str = None,
-                 sdkRegion: str = None,
-                 markerID: str = None,
-                 attempt: int = None,
-                 retryLimit: int = None,
-                 isRetry: bool = None,
-                 configName: str = None,
-                 error: dict = None):
+    def __init__(
+        self,
+        key: Key = None,
+        action: Action = None,
+        timestamp: float = None,
+        step: Step = None,
+        statusCode: int = None,
+        success: bool = None,
+        url: str = None,
+        idListCount: int = None,
+        reason: str = None,
+        sdkRegion: str = None,
+        markerID: str = None,
+        attempt: int = None,
+        retryLimit: int = None,
+        isRetry: bool = None,
+        configName: str = None,
+        error: dict = None,
+    ):
         self.key = key
         self.action = action
         self.timestamp = (time.time() * 1000) if timestamp is None else timestamp
@@ -97,7 +114,7 @@ class Marker:
             "retryLimit": self.retryLimit,
             "isRetry": self.isRetry,
             "configName": self.configName,
-            "error": self.error
+            "error": self.error,
         }
         return {k: v for k, v in marker_dict.items() if v is not None}
 
@@ -138,7 +155,9 @@ class Marker:
         return self
 
     def overall(self):
-        self.context = Context.INITIALIZE.value  # overall is only ever used in initialize
+        self.context = (
+            Context.INITIALIZE.value
+        )  # overall is only ever used in initialize
         self.key = Key.OVERALL
         return self
 
@@ -150,6 +169,11 @@ class Marker:
         self.key = Key.GET_ID_LIST_SOURCES
         return self
 
+    def api_call(self, key: Key):
+        self.context = Context.API_CALL.value
+        self.key = key
+        return self
+
 
 class DiagnosticsImpl:
     def __init__(self, markers=None):
@@ -157,17 +181,20 @@ class DiagnosticsImpl:
             "initialize": [],
             "config_sync": [],
             "event_logging": [],
-            "error_boundary": []
+            "api_call": [],
         }
         self.context = "initialize"
         self.default_max_markers = 50
-        self.maxMarkers = {context.value: self.default_max_markers for context in Context}
+        self.maxMarkers = {
+            context.value: self.default_max_markers for context in Context
+        }
 
         self.sampling_rate = {
             SamplingRate.DCS.value: 100,
             SamplingRate.ID_LIST.value: 100,
             SamplingRate.INITIALIZE.value: 10000,
-            SamplingRate.LOG_EVENT.value: 100
+            SamplingRate.LOG_EVENT.value: 100,
+            SamplingRate.API_CALL.value: 100,
         }
         self.disabled = False
         self.logger = None
@@ -176,7 +203,7 @@ class DiagnosticsImpl:
         self.disabled = disable_diagnostics
         return self
 
-    def set_logger(self, logger: _StatsigLogger):
+    def set_logger(self, logger):
         self.logger = logger
         return self
 
@@ -188,9 +215,9 @@ class DiagnosticsImpl:
         return self
 
     def add_marker(self, marker):
-        if self.disabled:
-            return False
         context = marker.context if marker.context is not None else self.context
+        if self.disabled and context == Context.API_CALL.value:
+            return False
         max_markers = self.maxMarkers.get(context, self.default_max_markers)
         cur_length = len(self.context_to_markers[context])
         if max_markers <= cur_length:
@@ -204,19 +231,34 @@ class DiagnosticsImpl:
     def get_marker_count(self, context):
         return len(self.context_to_markers.get(context, []))
 
+    def get_markers(self, context):
+        return self.context_to_markers.get(context, [])
+
     def clear_context(self, context):
         self.context_to_markers[context] = []
 
     def log_diagnostics(self, context: Context, key: Key = None):
-        if self.disabled is True or self.logger is None or len(self.context_to_markers[context]) == 0:
+        if (
+            self.logger is None
+            or len(self.context_to_markers[context]) == 0
+        ):
             return
+
         metadata = {
-            "markers": [marker.to_dict() for marker in self.context_to_markers[context]],
+            "markers": [
+                marker.to_dict() for marker in self.context_to_markers[context]
+            ],
             "context": context,
         }
+        if context == Context.INITIALIZE.value:
+            metadata["statsigOptions"] = (
+                self.statsig_options.get_logging_copy()
+                if isinstance(self.statsig_options, StatsigOptions)
+                else None
+            )
         self.clear_context(context)
 
-        if self._should_log_diagnostics(context, key):
+        if self.should_log_diagnostics(context, key):
             self.logger.log_diagnostics_event(metadata)
 
     def set_sampling_rate(self, obj: dict):
@@ -236,13 +278,18 @@ class DiagnosticsImpl:
         for samplingRateKey in SamplingRate:
             safe_set(samplingRateKey.value, obj.get(samplingRateKey.value))
 
-    def _should_log_diagnostics(self, context: Context, key: Key) -> bool:
+    def set_statsig_options(self, options: StatsigOptions):
+        self.statsig_options = options
+
+    def should_log_diagnostics(self, context: Context, key: Key = None) -> bool:
         rand = random.random() * MAX_SAMPLING_RATE
 
         if context == Context.LOG_EVENT.value:
             return rand < self.sampling_rate.get(SamplingRate.LOG_EVENT.value, 0)
         if context == Context.INITIALIZE.value:
             return rand < self.sampling_rate.get(SamplingRate.INITIALIZE.value, 0)
+        if context == Context.API_CALL:
+            return rand < self.sampling_rate.get(SamplingRate.API_CALL.value, 0)
         if key in (Key.GET_ID_LIST.value, Key.GET_ID_LIST_SOURCES.value):
             return rand < self.sampling_rate.get(SamplingRate.ID_LIST.value, 0)
         if key == Key.DOWNLOAD_CONFIG_SPECS.value:
@@ -256,23 +303,28 @@ class Diagnostics:
     @staticmethod
     def initialize():
         Diagnostics.instance = DiagnosticsImpl()
-        Diagnostics.set_diagnostics_enabled = Diagnostics.instance.set_diagnostics_enabled
+        Diagnostics.set_diagnostics_enabled = (
+            Diagnostics.instance.set_diagnostics_enabled
+        )
         Diagnostics.set_logger = Diagnostics.instance.set_logger
         Diagnostics.mark = Diagnostics.instance.mark
         Diagnostics.add_marker = Diagnostics.instance.add_marker
         Diagnostics.get_marker_count = Diagnostics.instance.get_marker_count
+        Diagnostics.get_markers = Diagnostics.instance.get_markers
         Diagnostics.set_max_markers = Diagnostics.instance.set_max_markers
         Diagnostics.set_context = Diagnostics.instance.set_context
         Diagnostics.clear_context = Diagnostics.instance.clear_context
         Diagnostics.log_diagnostics = Diagnostics.instance.log_diagnostics
         Diagnostics.set_sampling_rate = Diagnostics.instance.set_sampling_rate
+        Diagnostics.set_statsig_options = Diagnostics.instance.set_statsig_options
+        Diagnostics.should_log_diagnostics = Diagnostics.instance.should_log_diagnostics
 
     @staticmethod
     def format_error(e: Exception):
         if e is None:
             return None
         return {
-            'name': type(e).__name__,
+            "name": type(e).__name__,
         }
 
     @staticmethod

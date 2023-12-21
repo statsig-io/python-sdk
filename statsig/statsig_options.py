@@ -4,39 +4,48 @@ from .interface_data_store import IDataStore
 from .statsig_environment_tier import StatsigEnvironmentTier
 from .output_logger import OutputLogger
 
+DEFAULT_API = "https://statsigapi.net/v1/"
+DEFAULT_RULESET_SYNC_INTERVAL = 10
+DEFAULT_IDLIST_SYNC_INTERVAL = 60
+DEFAULT_EVENT_QUEUE_SIZE = 500
+DEFAULT_IDLISTS_THREAD_LIMIT = 3
+DEFAULT_LOGGING_INTERVAL = 60
+
 
 class StatsigOptions:
     """An object of properties for initializing the sdk with additional parameters"""
 
     def __init__(
-            self,
-            api: str = "https://statsigapi.net/v1/",
-            tier: Union[str, StatsigEnvironmentTier, None] = None,
-            init_timeout: Optional[int] = None,
-            timeout: Optional[int] = None,
-            rulesets_sync_interval: int = 10,
-            idlists_sync_interval: int = 60,
-            local_mode: bool = False,
-            bootstrap_values: Optional[str] = None,
-            rules_updated_callback: Optional[Callable] = None,
-            event_queue_size: Optional[int] = 500,
-            data_store: Optional[IDataStore] = None,
-            idlists_thread_limit: int = 3,
-            logging_interval: int = 60,
-            disable_diagnostics: bool = False,
-            custom_logger: Optional[OutputLogger] = None,
-            enable_debug_logs = False,
+        self,
+        api: str = DEFAULT_API,
+        tier: Union[str, StatsigEnvironmentTier, None] = None,
+        init_timeout: Optional[int] = None,
+        timeout: Optional[int] = None,
+        rulesets_sync_interval: int = DEFAULT_RULESET_SYNC_INTERVAL,
+        idlists_sync_interval: int = DEFAULT_IDLIST_SYNC_INTERVAL,
+        local_mode: bool = False,
+        bootstrap_values: Optional[str] = None,
+        rules_updated_callback: Optional[Callable] = None,
+        event_queue_size: Optional[int] = DEFAULT_EVENT_QUEUE_SIZE,
+        data_store: Optional[IDataStore] = None,
+        idlists_thread_limit: int = DEFAULT_IDLISTS_THREAD_LIMIT,
+        logging_interval: int = DEFAULT_LOGGING_INTERVAL,
+        disable_diagnostics: bool = False,
+        custom_logger: Optional[OutputLogger] = None,
+        enable_debug_logs=False,
     ):
         self.data_store = data_store
         self._environment = None
         if tier is not None:
             if isinstance(tier, (str, StatsigEnvironmentTier)):
-                tier_str = tier.value if isinstance(
-                    tier, StatsigEnvironmentTier) else tier
+                tier_str = (
+                    tier.value if isinstance(tier, StatsigEnvironmentTier) else tier
+                )
                 self.set_environment_parameter("tier", tier_str)
             else:
                 raise StatsigValueError(
-                    'StatsigOptions.tier must be a str or StatsigEnvironmentTier')
+                    "StatsigOptions.tier must be a str or StatsigEnvironmentTier"
+                )
         if api is None:
             api = "https://statsigapi.net/v1/"
         self.api = api
@@ -56,6 +65,10 @@ class StatsigOptions:
         self.logging_interval = logging_interval
         self.custom_logger = custom_logger
         self.enable_debug_logs = enable_debug_logs
+        self._set_logging_copy()
+
+    def get_logging_copy(self):
+        return self.logging_copy
 
     def set_environment_parameter(self, key: str, value: str):
         if self._environment is None:
@@ -64,3 +77,33 @@ class StatsigOptions:
 
     def _get_evironment(self):
         return self._environment
+
+    def _set_logging_copy(self):
+        logging_copy = {}
+        if self.api != DEFAULT_API:
+            logging_copy["api"] = self.api
+        if self._environment != {} and self._environment is not None:
+            logging_copy["environment"] = self._environment
+        if self.init_timeout:
+            logging_copy["init_timeout"] = self.init_timeout
+        if self.timeout:
+            logging_copy["timeout"] = self.timeout
+        if (self.rulesets_sync_interval) != DEFAULT_RULESET_SYNC_INTERVAL:
+            logging_copy["rulesets_sync_interval"] = self.rulesets_sync_interval
+        if self.idlists_sync_interval != DEFAULT_IDLIST_SYNC_INTERVAL:
+            logging_copy["idlists_sync_interval"] = self.idlists_sync_interval
+        if self.idlist_threadpool_size != DEFAULT_IDLISTS_THREAD_LIMIT:
+            logging_copy["idlist_threadpool_size"] = self.idlist_threadpool_size
+        if self.local_mode:
+            logging_copy["local_mode"] = self.local_mode
+        if self.bootstrap_values:
+            logging_copy["bootstrap_values"] = "SET"
+        if self.data_store:
+            logging_copy["data_store"] = "SET"
+        if self.logging_interval != DEFAULT_LOGGING_INTERVAL:
+            logging_copy["logging_interval"] = self.logging_interval
+        if self.disable_diagnostics:
+            logging_copy["disable_diagnostics"] = self.disable_diagnostics
+        if self.event_queue_size != DEFAULT_EVENT_QUEUE_SIZE:
+            logging_copy["event_queue_size"] = self.event_queue_size
+        self.logging_copy = logging_copy

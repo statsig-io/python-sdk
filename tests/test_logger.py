@@ -24,20 +24,27 @@ class LoggerTest(unittest.TestCase):
         options = StatsigOptions(
             api="http://logger-test",
             event_queue_size=3,
-            disable_diagnostics=True
+            disable_diagnostics=True,
+            rulesets_sync_interval=100000, #Skip config sync and avoid diagnostics event
+            idlists_sync_interval=100000 #Skip config sync and avoid diagnostics event
         )
 
         self._network_stub.reset()
         self._events = []
 
         def on_log(url: str, data: dict):
-            self._events += GzipHelpers.decode_body(data)["events"]
-            self._didLog.set()
+            new_events = GzipHelpers.decode_body(data)["events"]
+            if(len(new_events) > 0):
+                self._events += new_events
+                self._didLog.set()
 
         self._network_stub.stub_request_with_function("log_event", 202, on_log)
 
         self._instance.initialize("secret-key", options)
         self._user = StatsigUser("dloomb")
+        
+        ## clear diagnostics initialize log
+        self._instance.flush()
 
     @patch('requests.post', side_effect=_network_stub.mock)
     def test_log_size(self, mock_post):

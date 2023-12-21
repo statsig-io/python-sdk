@@ -1,4 +1,5 @@
 from platform import python_version
+import uuid
 from .version import __version__
 
 
@@ -8,5 +9,6 @@ class _StatsigMetadata:
         return {
             "sdkVersion": __version__,
             "sdkType": "py-server",
-            "languageVersion": python_version()
+            "languageVersion": python_version(),
+            "sessionID": str(uuid.uuid4())
         }
