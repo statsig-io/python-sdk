@@ -13,7 +13,8 @@ class _ConfigEvaluation:
                  explicit_parameters=None,
                  is_experiment_group=False,
                  evaluation_details=None,
-                 group_name=None):
+                 group_name=None,
+                 aggregate_exposures=False):
         self.unsupported = unsupported is True
         if boolean_value is None:
             boolean_value = False
@@ -37,3 +38,6 @@ class _ConfigEvaluation:
             evaluation_details = EvaluationDetails(0, 0, EvaluationReason.unrecognized)
         self.evaluation_details = evaluation_details
         self.group_name = group_name
+        if aggregate_exposures is None:
+            aggregate_exposures = False
+        self.aggregate_exposures = aggregate_exposures

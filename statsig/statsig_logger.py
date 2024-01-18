@@ -5,6 +5,7 @@ import threading
 from typing import Optional, Union
 from .retryable_logs import RetryableLogs
 from .evaluation_details import EvaluationDetails
+from .exposure_aggregation_data import ExposureAggregationData
 from .config_evaluation import _ConfigEvaluation
 from .statsig_event import StatsigEvent
 from .layer import Layer
@@ -35,7 +36,7 @@ def _safe_add_evaluation_to_event(
 class _StatsigLogger:
     _background_flush: Optional[threading.Thread]
     _background_retry: Optional[threading.Thread]
-    _background_deduper: Optional[threading.Thread]
+    _background_exposure_handler: Optional[threading.Thread]
 
     def __init__(self, net, shutdown_event, statsig_metadata, error_boundary, options):
         self._events = []
@@ -52,10 +53,11 @@ class _StatsigLogger:
         self._shutdown_event = shutdown_event
         self._background_flush = None
         self._background_retry = None
-        self._background_deduper = None
+        self._background_exposure_handler = None
         self.spawn_bg_threads_if_needed()
         self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
         self._futures = collections.deque(maxlen=10)
+        self._exposure_aggregation_data = collections.defaultdict(ExposureAggregationData)
 
     def spawn_bg_threads_if_needed(self):
         if self._local_mode:
@@ -77,10 +79,10 @@ class _StatsigLogger:
                 self._error_boundary,
             )
 
-        if self._background_deduper is None or not self._background_deduper.is_alive():
-            self._background_deduper = spawn_background_thread(
-                "logger_background_deduper",
-                self._periodic_dedupe_clear,
+        if self._background_exposure_handler is None or not self._background_exposure_handler.is_alive():
+            self._background_exposure_handler = spawn_background_thread(
+                "logger_background_exposure_handler",
+                self._periodic_exposure_reset,
                 (self._shutdown_event,),
                 self._error_boundary,
             )
@@ -101,7 +103,15 @@ class _StatsigLogger:
         secondary_exposures,
         evaluation_details: EvaluationDetails,
         is_manual_exposure=False,
+        aggregate=False,
     ):
+        if aggregate:
+            aggregated = self._aggregate_exposure(value, gate, rule_id)
+            if aggregated:
+                return
+            # even when the gate should only send aggregated exposures
+            # we send the first exposure for a given rule/evaluation
+            # so you get at least some diagnostic info
         event = StatsigEvent(user, _GATE_EXPOSURE_EVENT)
         event.metadata = {
             "gate": gate,
@@ -183,6 +193,20 @@ class _StatsigLogger:
 
         self.log(event)
 
+    def _aggregate_exposure(self, value, gate, rule_id):
+        key = f"{gate}::{rule_id}::{value}"
+        data = self._exposure_aggregation_data[key]
+        if not data.gate:
+            data.gate = gate
+        if not data.rule_id:
+            data.rule_id = rule_id
+        if not data.value:
+            data.value = value
+
+        data.count += 1
+
+        return data.count > 1
+
     def flush_in_background(self):
         event_count = len(self._events)
         if event_count == 0:
@@ -212,6 +236,7 @@ class _StatsigLogger:
 
     def flush(self):
         self._add_diagnostics_api_call_event()
+        self._flush_aggregated_data()
         event_count = len(self._events)
         if event_count == 0:
             return
@@ -255,14 +280,28 @@ class _StatsigLogger:
             except Exception as e:
                 self._error_boundary.log_exception("_periodic_flush", e)
 
-    def _periodic_dedupe_clear(self, shutdown_event):
+    def _periodic_exposure_reset(self, shutdown_event):
         while True:
             try:
                 if shutdown_event.wait(self._logging_interval):
                     break
+                self._flush_aggregated_data()
+                self._exposure_aggregation_data = collections.defaultdict(ExposureAggregationData)
                 self._deduper = set()
             except Exception as e:
-                self._error_boundary.log_exception("_periodic_dedupe_clear", e)
+                self._error_boundary.log_exception("_periodic_exposure_reset", e)
+
+    def _flush_aggregated_data(self):
+        for _key, data in self._exposure_aggregation_data.items():
+            # remove the offset for the first sampled exposure
+            data.count -= 1
+            if data.count == 0:
+                # nothing to see here - we never got enough exposures
+                # to aggregate anything
+                continue
+            event = StatsigEvent(None, "statsig::exposure_aggregation")
+            event.metadata = data.to_dict()
+            self.log(event)
 
     def _periodic_retry(self, shutdown_event):
         while True:

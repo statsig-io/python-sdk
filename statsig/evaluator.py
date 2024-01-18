@@ -201,18 +201,19 @@ class _Evaluator:
         exposures = []
         enabled = config.get("enabled", False)
         default_value = config.get("defaultValue", {})
+        aggregate_exposures = config.get("aggregateExposures", False)
         evaluation_details = self._create_evaluation_details(
             self._spec_store.init_reason)
         if not enabled:
             return _ConfigEvaluation(False, False, default_value, "disabled", exposures,
-                                     evaluation_details=evaluation_details)
+                                     evaluation_details=evaluation_details, aggregate_exposures=aggregate_exposures)
 
         for rule in config.get("rules", []):
             result = self.__evaluate_rule(user, rule)
             if result.unsupported:
                 return _ConfigEvaluation(True, False, default_value, "", exposures,
                                          evaluation_details=self._create_evaluation_details(
-                                             EvaluationReason.unsupported))
+                                             EvaluationReason.unsupported), aggregate_exposures=aggregate_exposures)
             if result.secondary_exposures is not None and len(
                     result.secondary_exposures) > 0:
                 exposures = exposures + result.secondary_exposures
@@ -231,11 +232,12 @@ class _Evaluator:
                     exposures,
                     is_experiment_group=result.is_experiment_group,
                     evaluation_details=evaluation_details,
-                    group_name=result.group_name
+                    group_name=result.group_name,
+                    aggregate_exposures=aggregate_exposures
                 )
 
         return _ConfigEvaluation(False, False, default_value, "default", exposures,
-                                 evaluation_details=evaluation_details)
+                                 evaluation_details=evaluation_details, aggregate_exposures=aggregate_exposures)
 
     def __evaluate_rule(self, user, rule):
         exposures = []
