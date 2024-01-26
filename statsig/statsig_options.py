@@ -32,7 +32,8 @@ class StatsigOptions:
         logging_interval: int = DEFAULT_LOGGING_INTERVAL,
         disable_diagnostics: bool = False,
         custom_logger: Optional[OutputLogger] = None,
-        enable_debug_logs=False,
+        enable_debug_logs = False,
+        disable_event_logging = False,
     ):
         self.data_store = data_store
         self._environment = None
@@ -65,6 +66,7 @@ class StatsigOptions:
         self.logging_interval = logging_interval
         self.custom_logger = custom_logger
         self.enable_debug_logs = enable_debug_logs
+        self.disable_event_logging = disable_event_logging
         self._set_logging_copy()
 
     def get_logging_copy(self):

@@ -45,6 +45,7 @@ class _StatsigLogger:
         self._net = net
         self._statsig_metadata = statsig_metadata
         self._local_mode = options.local_mode
+        self._disabled = options.disable_event_logging
         self._console_logger = globals.logger
         self._logging_interval = options.logging_interval
         self._retry_interval = options.logging_interval
@@ -88,7 +89,7 @@ class _StatsigLogger:
             )
 
     def log(self, event):
-        if self._local_mode:
+        if self._local_mode or self._disabled:
             return
         self._events.append(event.to_dict())
         if len(self._events) >= self._event_queue_size:
