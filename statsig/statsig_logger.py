@@ -45,7 +45,7 @@ class _StatsigLogger:
         self._net = net
         self._statsig_metadata = statsig_metadata
         self._local_mode = options.local_mode
-        self._disabled = options.disable_event_logging
+        self._disabled = options.disable_all_logging
         self._console_logger = globals.logger
         self._logging_interval = options.logging_interval
         self._retry_interval = options.logging_interval
