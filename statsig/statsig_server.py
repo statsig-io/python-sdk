@@ -15,6 +15,7 @@ from .statsig_logger import _StatsigLogger
 from .dynamic_config import DynamicConfig
 from .statsig_options import StatsigOptions
 from .diagnostics import Diagnostics
+from .utils import HashingAlgorithm
 from . import globals
 
 RULESETS_SYNC_INTERVAL = 10
@@ -329,11 +330,13 @@ class StatsigServer:
         )
 
     def get_client_initialize_response(
-        self, user: StatsigUser, client_sdk_key: Optional[str] = None
+        self, user: StatsigUser,
+        client_sdk_key: Optional[str] = None,
+        hash: Optional[HashingAlgorithm] = HashingAlgorithm.SHA256,
     ):
         def task():
             return self._evaluator.get_client_initialize_response(
-                self.__normalize_user(user), client_sdk_key
+                self.__normalize_user(user), hash or HashingAlgorithm.SHA256, client_sdk_key,
             )
 
         def recover():

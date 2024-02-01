@@ -6,6 +6,7 @@ from .statsig_options import StatsigOptions
 from .dynamic_config import DynamicConfig
 from .layer import Layer
 from .client_initialize_formatter import ClientInitializeResponse
+from .utils import HashingAlgorithm
 from . import globals
 
 __instance = StatsigServer()
@@ -266,7 +267,7 @@ def remove_all_overrides():
     __instance.remove_all_overrides()
 
 
-def get_client_initialize_response(user: StatsigUser, client_sdk_key: Optional[str] = None) -> ClientInitializeResponse:
+def get_client_initialize_response(user: StatsigUser, client_sdk_key: Optional[str] = None, hash: Optional[HashingAlgorithm] = 'sha256') -> ClientInitializeResponse:
     """
     Gets all evaluated values for the given user.
     These values can then be given to a Statsig Client SDK via bootstrapping.
@@ -276,7 +277,7 @@ def get_client_initialize_response(user: StatsigUser, client_sdk_key: Optional[s
     :param client_sdk_key: (Optional) The client sdk key to use for bootstrapping
     :return: An initialize response containing evaluated gates/configs/layers
     """
-    return __instance.get_client_initialize_response(user, client_sdk_key)
+    return __instance.get_client_initialize_response(user, client_sdk_key, hash)
 
 
 def evaluate_all(user: StatsigUser):

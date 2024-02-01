@@ -12,7 +12,7 @@ from .client_initialize_formatter import ClientInitializeResponseFormatter
 from .evaluation_details import EvaluationDetails, EvaluationReason
 from .spec_store import _SpecStore
 from .config_evaluation import _ConfigEvaluation
-
+from .utils import HashingAlgorithm
 
 class _Evaluator:
     def __init__(self, spec_store: _SpecStore):
@@ -73,12 +73,17 @@ class _Evaluator:
         self._config_overrides = {}
         self._layer_overrides = {}
 
-    def get_client_initialize_response(self, user: StatsigUser, client_sdk_key=None):
+    def get_client_initialize_response(
+            self,
+            user: StatsigUser,
+            hash: HashingAlgorithm,
+            client_sdk_key=None,
+        ):
         if not self._spec_store.is_ready_for_checks():
             return None
 
         return ClientInitializeResponseFormatter \
-            .get_formatted_response(self.__eval_config, user, self._spec_store, client_sdk_key)
+            .get_formatted_response(self.__eval_config, user, self._spec_store, hash, client_sdk_key)
 
     def _create_evaluation_details(self, reason: EvaluationReason):
         if reason == EvaluationReason.uninitialized:

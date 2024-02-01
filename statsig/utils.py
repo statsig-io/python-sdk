@@ -1,6 +1,10 @@
 from enum import Enum
 import json
 
+class HashingAlgorithm(Enum):
+    SHA256 = 'sha256'
+    DJB2 = 'djb2'
+    NONE = 'none'
 
 def str_or_none(field):
     return str(field) if field is not None else None
