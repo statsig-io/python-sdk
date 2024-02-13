@@ -60,7 +60,10 @@ class _StatsigErrorBoundary:
             if self._is_silent is False:
                 globals.logger.warning("[Statsig]: An unexpected error occurred.")
                 globals.logger.warning(traceback.format_exc())
-            if hasattr(self._options, 'disable_all_logging') and self._options.disable_all_logging:
+            if (
+                hasattr(self._options, "disable_all_logging")
+                and self._options.disable_all_logging
+            ):
                 return
 
             name = type(exception).__name__
@@ -75,9 +78,11 @@ class _StatsigErrorBoundary:
                     "statsigMetadata": self._metadata,
                     "tag": tag,
                     "extra": extra,
-                    "statsigOptions": self._options.get_logging_copy()
-                    if isinstance(self._options, StatsigOptions)
-                    else None,
+                    "statsigOptions": (
+                        self._options.get_logging_copy()
+                        if isinstance(self._options, StatsigOptions)
+                        else None
+                    ),
                 },
                 headers={
                     "Content-type": "application/json",
@@ -91,17 +96,25 @@ class _StatsigErrorBoundary:
             pass
 
     def _start_diagnostics(self, key, configName):
-        if key is None:
+        try:
+            if key is None:
+                return None
+            markerID = (
+                f"{key.value}_{Diagnostics.get_marker_count(Context.API_CALL.value)}"
+            )
+            Diagnostics.mark().api_call(key).start(
+                {"configName": configName, "markerID": markerID}
+            )
+            return markerID
+        except BaseException:
             return None
-        markerID = f"{key.value}_{Diagnostics.get_marker_count(Context.API_CALL.value)}"
-        Diagnostics.mark().api_call(key).start(
-            {"configName": configName, "markerID": markerID}
-        )
-        return markerID
 
     def _end_diagnostics(self, markerID, key, success, configName):
-        if markerID is None or key is None:
-            return
-        Diagnostics.mark().api_call(key).end(
-            {"markerID": markerID, "success": success, "configName": configName}
-        )
+        try:
+            if markerID is None or key is None:
+                return
+            Diagnostics.mark().api_call(key).end(
+                {"markerID": markerID, "success": success, "configName": configName}
+            )
+        except BaseException:
+            pass
