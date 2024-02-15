@@ -18,16 +18,15 @@ class TestBackgroundSync(unittest.TestCase):
     def tearDown(self):
         self._client.shutdown()
 
-    @patch('requests.post', side_effect=_network_stub.mock)
-    @patch('requests.get', side_effect=_network_stub.mock)
-    def test_sync_cycle(self, mock_post, mock_get):
+    @patch('requests.request', side_effect=_network_stub.mock)
+    def test_sync_cycle(self, mock_request):
         self.config_sync_count = 0
         self.idlist_sync_count = 0
         self.idlist_1_download_count = 0
         self.idlist_2_download_count = 0
         self.idlist_3_download_count = 0
 
-        def download_config_specs_callback(url: str, data: dict):
+        def download_config_specs_callback(url: str, **kwargs):
             self.config_sync_count = self.config_sync_count + 1
             return {
                 "dynamic_configs": [{"name": "config_1"}],
@@ -41,9 +40,9 @@ class TestBackgroundSync(unittest.TestCase):
             }
 
         self._network_stub.stub_request_with_function(
-            "download_config_specs", 200, download_config_specs_callback)
+            "download_config_specs/.*", 200, download_config_specs_callback)
 
-        def get_id_lists_callback(url: str, data: dict):
+        def get_id_lists_callback(url: str, **kwargs):
             self.idlist_sync_count = self.idlist_sync_count + 1
 
             if self.idlist_sync_count == 1:
@@ -114,7 +113,7 @@ class TestBackgroundSync(unittest.TestCase):
         self._network_stub.stub_request_with_function(
             "get_id_lists", 200, get_id_lists_callback)
 
-        def id_list_1_callback(url: str, data: dict):
+        def id_list_1_callback(url: str, **kwargs):
             self.idlist_1_download_count = self.idlist_1_download_count + 1
 
             if self.idlist_sync_count == 1:
@@ -136,14 +135,14 @@ class TestBackgroundSync(unittest.TestCase):
         self._network_stub.stub_request_with_function(
             "list_1", 200, id_list_1_callback)
 
-        def id_list_2_callback(url: str, data: dict):
+        def id_list_2_callback(url: str, **kwargs):
             self.idlist_2_download_count = self.idlist_2_download_count + 1
             return "+a\r"
 
         self._network_stub.stub_request_with_function(
             "list_2", 200, id_list_2_callback)
 
-        def id_list_3_callback(url: str, data: dict):
+        def id_list_3_callback(url: str, **kwargs):
             self.idlist_3_download_count = self.idlist_3_download_count + 1
             return "+0\r"
 
@@ -315,13 +314,12 @@ class TestBackgroundSync(unittest.TestCase):
         self.assertEqual(self.idlist_2_download_count, 1)
         self.assertEqual(self.idlist_3_download_count, 1)
 
-    @patch('requests.post', side_effect=_network_stub.mock)
-    @patch('requests.get', side_effect=_network_stub.mock)
-    def test_sync_cycle_no_idlist(self, mock_post, mock_get):
+    @patch('requests.request', side_effect=_network_stub.mock)
+    def test_sync_cycle_no_idlist(self, mock_request):
         self.config_sync_count = 0
         self.idlist_sync_count = 0
 
-        def download_config_specs_callback(url: str, data: dict):
+        def download_config_specs_callback(url: str, **kwargs):
             self.config_sync_count = self.config_sync_count + 1
             return {
                 "dynamic_configs": [{"name": "config_1"}],
@@ -332,9 +330,9 @@ class TestBackgroundSync(unittest.TestCase):
             }
 
         self._network_stub.stub_request_with_function(
-            "download_config_specs", 200, download_config_specs_callback)
+            "download_config_specs/.*", 200, download_config_specs_callback)
 
-        def get_id_lists_callback(url: str, data: dict):
+        def get_id_lists_callback(url: str, **kwargs):
             self.idlist_sync_count = self.idlist_sync_count + 1
 
         self._network_stub.stub_request_with_function(
@@ -362,13 +360,12 @@ class TestBackgroundSync(unittest.TestCase):
         self.assertEqual(self.config_sync_count, 2)
         self.assertEqual(self.idlist_sync_count, 2)
 
-    @patch('requests.post', side_effect=_network_stub.mock)
-    @patch('requests.get', side_effect=_network_stub.mock)
-    def test_dcs_retry(self, mock_post, mock_get):
+    @patch('requests.request', side_effect=_network_stub.mock)
+    def test_dcs_retry(self, mock_request):
         self.config_sync_count = 0
         self.idlist_sync_count = 0
 
-        def download_config_specs_response_callback(url: str, data: dict):
+        def download_config_specs_response_callback(url: str, **kwargs):
             self.config_sync_count += 1
             if self.config_sync_count == 1:
                 return "{}"
@@ -380,13 +377,13 @@ class TestBackgroundSync(unittest.TestCase):
                 "time": 1,
             }
 
-        def download_config_specs_code_callback(url: str, data: dict):
+        def download_config_specs_code_callback(url: str, **kwargs):
             if self.config_sync_count == 1:
                 return 500
             return 200
 
         self._network_stub.stub_request_with_function(
-            "download_config_specs",
+            "download_config_specs/.*",
             download_config_specs_code_callback,
             download_config_specs_response_callback
         )

@@ -15,15 +15,15 @@ with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), '../testdata/
 _network_stub = NetworkStub("http://test-retries")
 
 
-@patch('requests.post', side_effect=_network_stub.mock)
+@patch('requests.request', side_effect=_network_stub.mock)
 class TestLoggingRetries(unittest.TestCase):
 
     @classmethod
-    @patch('requests.post', side_effect=_network_stub.mock)
-    def setUpClass(cls, mock_post):
-        _network_stub.stub_request_with_value("download_config_specs", 200, json.loads(CONFIG_SPECS_RESPONSE))
+    @patch('requests.request', side_effect=_network_stub.mock)
+    def setUpClass(cls, mock_request):
+        _network_stub.stub_request_with_value("download_config_specs/.*", 200, json.loads(CONFIG_SPECS_RESPONSE))
 
-        def on_log(url: str, data: dict):
+        def on_log(url: str, **kwargs):
             raise ConnectionError
 
         _network_stub.stub_request_with_function("log_event", 202, on_log)
@@ -46,7 +46,7 @@ class TestLoggingRetries(unittest.TestCase):
     def tearDownClass(cls) -> None:
         statsig.shutdown()
 
-    def test_a_check_gate(self, mock_post):
+    def test_a_check_gate(self, mock_request):
         self.assertEqual(
             statsig.check_gate(self.statsig_user, "always_on_gate"),
             True

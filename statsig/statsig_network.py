@@ -11,6 +11,8 @@ from .statsig_error_boundary import _StatsigErrorBoundary
 from . import globals
 
 REQUEST_TIMEOUT = 20
+STATSIG_API = "https://statsigapi.net/v1/"
+STATSIG_CDN = "https://api.statsigcdn.com/v1/"
 
 
 class _StatsigNetwork:
@@ -25,42 +27,112 @@ class _StatsigNetwork:
         error_boundary: _StatsigErrorBoundary,
     ):
         self.__sdk_key = sdk_key
-        api = options.api
-        if not options.api.endswith("/"):
-            api = options.api + "/"
+        api = options.api or STATSIG_API
+        if not api.endswith("/"):
+            api = api + "/"
+        api_for_download_config_specs = options.api_for_download_config_specs or options.api or STATSIG_CDN
+        if not api_for_download_config_specs.endswith("/"):
+            api_for_download_config_specs = api_for_download_config_specs + "/"
 
         self.__api = api
+        self.__api_for_download_config_specs = api_for_download_config_specs
         self.__req_timeout = options.timeout or REQUEST_TIMEOUT
         self.__local_mode = options.local_mode
         self.__error_boundary = error_boundary
         self.__statsig_metadata = statsig_metadata
 
-    def post_request(self, endpoint, payload, log_on_exception=False, timeout=None):
-        create_marker = self._get_diagnostics_from_url(endpoint)
-        if create_marker is not None:
-            create_marker().start()
+    def download_config_specs(self, since_time=0, log_on_exception=False, timeout=None):
+        response = self._get_request(
+            url=f"{self.__api_for_download_config_specs}download_config_specs/{self.__sdk_key}.json?sinceTime={since_time}",
+            headers=None, log_on_exception=log_on_exception, timeout=timeout,
+            tag="download_config_specs")
+        if response is not None and self._is_success_code(response.status_code):
+            return response.json() or {}
+        return None
+
+    def get_id_lists(self, log_on_exception=False, timeout=None):
+        response = self._post_request(
+            url=f"{self.__api}get_id_lists",
+            headers=None,
+            payload={"statsigMetadata": self.__statsig_metadata},
+            log_on_exception=log_on_exception,
+            timeout=timeout,
+            tag="get_id_lists"
+        )
+        if response is not None and self._is_success_code(response.status_code):
+            return response.json() or {}
+        return None
+
+    def get_id_list(self, url, headers, log_on_exception=False):
+        return self._get_request(url, headers, log_on_exception, tag="get_id_list")
+
+    def retryable_log_event(self, payload, headers=None, log_on_exception=False, retry=0):
+        disable_compression = _SDKFlags.on("stop_log_event_compression")
+        additional_headers = {
+            'STATSIG-RETRY': str(retry),
+        }
+        if headers is not None:
+            additional_headers.update(headers)
+        response = self._request(
+            method='POST',
+            url=f"{self.__api}log_event",
+            headers=additional_headers,
+            payload=payload, log_on_exception=log_on_exception, timeout=None, zipped=not disable_compression,
+            tag="log_event")
+        if response is None or response.status_code in self.__RETRY_CODES:
+            return payload
+        return None
+
+    def _post_request(
+            self, url, headers, payload, log_on_exception=False, timeout=None, zipped=None,
+            tag=None):
+        return self._request('POST', url, headers, payload, log_on_exception, timeout, zipped, tag)
+
+    def _get_request(
+            self, url, headers, log_on_exception=False, timeout=None, zipped=None, tag=None):
+        return self._request('GET', url, headers, None, log_on_exception, timeout, zipped, tag)
+
+    def _request(self, method, url, headers=None, payload=None, log_on_exception=False,
+                 timeout=None, zipped=False, tag=None):
         if self.__local_mode:
             globals.logger.debug("Using local mode. Dropping network request")
             return None
 
-        headers = self._create_headers(
-            {
-                "STATSIG-RETRY": "0",
-            }
-        )
+        create_marker = self._get_diagnostics_from_url_or_tag(url, tag)
+        if create_marker is not None:
+            create_marker().start()
 
-        payload_data = self._verify_json_payload(payload, endpoint)
-        if payload_data is None:
-            return None
+        base_headers = {
+            "Content-type": "application/json",
+            "STATSIG-API-KEY": self.__sdk_key,
+            "STATSIG-CLIENT-TIME": str(round(time.time() * 1000)),
+            "STATSIG-SERVER-SESSION-ID": self.__statsig_metadata["sessionID"],
+            "STATSIG-SDK-TYPE": self.__statsig_metadata["sdkType"],
+            "STATSIG-SDK-VERSION": self.__statsig_metadata["sdkVersion"],
+            'STATSIG-RETRY': '0',
+        }
+        if zipped:
+            base_headers.update({"Content-Encoding": "gzip"})
+        if headers is not None:
+            base_headers.update(headers)
+        headers = base_headers
+
+        if payload is not None:
+            payload = self._verify_json_payload(payload, url)
+            if payload is None:
+                return None
+            if zipped:
+                payload = self._zip_payload(payload)
 
         response = None
         try:
             if timeout is None:
                 timeout = self.__req_timeout
 
-            response = requests.post(
-                self.__api + endpoint,
-                data=payload_data,
+            response = requests.request(
+                method,
+                url,
+                data=payload,
                 headers=headers,
                 timeout=timeout,
             )
@@ -74,10 +146,11 @@ class _StatsigNetwork:
                     }
                 )
 
-            if response.status_code == 200:
-                data = response.json()
-                return data if data else {}
-            return None
+            if response.status_code < 200 or response.status_code >= 300:
+                globals.logger.warning(
+                    "Request to %s failed with code %d", url, response.status_code)
+                globals.logger.warning(response.text)
+            return response
         except Exception as err:
             if create_marker is not None:
                 create_marker().end(
@@ -91,108 +164,11 @@ class _StatsigNetwork:
                 )
             if log_on_exception:
                 self.__error_boundary.log_exception(
-                    "post_request:" + endpoint, err, {"timeoutMs": timeout * 1000}
-                )
-                globals.logger.warning(
-                    "Network exception caught when making request to %s failed",
-                    endpoint,
-                )
-            if self._raise_on_error:
-                raise err
+                    "request:" + tag, err, {"timeoutMs": timeout * 1000, "httpMethod": method})
             return None
 
-    def retryable_request(
-        self,
-        endpoint,
-        payload,
-        log_on_exception=False,
-        retry=0,
-        additional_headers=None,
-    ):
-        if self.__local_mode:
-            return None
-
-        payload_data = self._verify_json_payload(payload, endpoint)
-        if payload_data is None:
-            return None
-
-        try:
-            disable_compression = _SDKFlags.on("stop_log_event_compression")
-
-            headers = self._create_headers(
-                {
-                    "STATSIG-RETRY": str(retry),
-                }
-            )
-
-            if additional_headers is not None:
-                headers.update(additional_headers)
-
-            if not disable_compression:
-                headers["Content-Encoding"] = "gzip"
-
-            response = requests.post(
-                self.__api + endpoint,
-                data=payload_data
-                if disable_compression
-                else self._zip_payload(payload_data),
-                headers=headers,
-                timeout=self.__req_timeout,
-            )
-
-            if response.status_code in self.__RETRY_CODES:
-                return payload
-
-            if response.status_code >= 300:
-                globals.logger.warning(
-                    "Request to %s failed with code %d", endpoint, response.status_code
-                )
-                globals.logger.warning(response.text)
-            return None
-        except Exception as err:
-            if log_on_exception:
-                template = "Network exception caught when making request to {0} - {1}. Arguments: {2!r}"
-                message = template.format(
-                    self.__api + endpoint, type(err).__name__, err.args
-                )
-                self.__error_boundary.log_exception("retryable_request", err)
-                globals.logger.warning(message)
-            if self._raise_on_error:
-                raise err
-            return payload
-
-    def get_request(self, url, headers, log_on_exception=False):
-        if self.__local_mode:
-            return None
-
-        response = None
-        error = None
-        try:
-            Diagnostics.mark().get_id_list().network_request().start({"url": url})
-            headers = self._create_headers(headers)
-            response = requests.get(url, headers=headers, timeout=self.__req_timeout)
-            if response.ok:
-                return response
-            return None
-        except Exception as localErr:
-            error = localErr
-            if log_on_exception:
-                self.__error_boundary.log_exception("get_request", localErr)
-                globals.logger.warning(
-                    "Network exception caught when making request to %s failed", url
-                )
-            if self._raise_on_error:
-                raise localErr
-            return None
-        finally:
-            Diagnostics.mark().get_id_list().network_request().end(
-                {
-                    "url": url,
-                    "success": (response.ok is True) if response else False,
-                    "statusCode": response.status_code if response else None,
-                    "error": Diagnostics.format_error(error),
-                }
-            )
+    def _is_success_code(self, status_code: int) -> bool:
+        return 200 <= status_code < 300
 
     def _zip_payload(self, payload: str) -> bytes:
         btsio = BytesIO()
@@ -200,14 +176,16 @@ class _StatsigNetwork:
             gz.write(payload.encode("utf-8"))
         return btsio.getvalue()
 
-    def _verify_json_payload(self, payload, endpoint):
+    def _verify_json_payload(self, payload, url):
         try:
+            if payload is None:
+                return None
             return json.dumps(payload)
         except TypeError as e:
             globals.logger.error(
                 "Dropping request to %s. Failed to json encode payload. Are you sure the input is json serializable? "
                 "%s %s",
-                endpoint,
+                url,
                 type(e).__name__,
                 e.args,
             )
@@ -215,21 +193,11 @@ class _StatsigNetwork:
                 raise e
             return None
 
-    def _get_diagnostics_from_url(self, url: str):
-        if "download_config_specs" in url:
-            return lambda: Diagnostics.mark().download_config_specs().network_request()
-        if "get_id_lists" in url:
-            return lambda: Diagnostics.mark().get_id_list_sources().network_request()
+    def _get_diagnostics_from_url_or_tag(self, url: str, tag: str):
+        if 'download_config_specs' in url or tag == "download_config_specs":
+            return lambda: Diagnostics.mark({'url': url}).download_config_specs().network_request()
+        if 'get_id_lists' in url or tag == "get_id_lists":
+            return lambda: Diagnostics.mark({'url': url}).get_id_list_sources().network_request()
+        if 'idliststorage' in url or tag == "get_id_list":
+            return lambda: Diagnostics.mark({'url': url}).get_id_list().network_request()
         return None
-
-    def _create_headers(self, headers: dict):
-        result = {
-            "Content-type": "application/json",
-            "STATSIG-API-KEY": self.__sdk_key,
-            "STATSIG-CLIENT-TIME": str(round(time.time() * 1000)),
-            "STATSIG-SERVER-SESSION-ID": self.__statsig_metadata["sessionID"],
-            "STATSIG-SDK-TYPE": self.__statsig_metadata["sdkType"],
-            "STATSIG-SDK-VERSION": self.__statsig_metadata["sdkVersion"],
-        }
-        result.update(headers)
-        return result

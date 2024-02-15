@@ -32,8 +32,8 @@ class LoggerTest(unittest.TestCase):
         self._network_stub.reset()
         self._events = []
 
-        def on_log(url: str, data: dict):
-            new_events = GzipHelpers.decode_body(data)["events"]
+        def on_log(url: str, **kwargs):
+            new_events = GzipHelpers.decode_body(kwargs)["events"]
             if(len(new_events) > 0):
                 self._events += new_events
                 self._didLog.set()
@@ -46,8 +46,8 @@ class LoggerTest(unittest.TestCase):
         ## clear diagnostics initialize log
         self._instance.flush()
 
-    @patch('requests.post', side_effect=_network_stub.mock)
-    def test_log_size(self, mock_post):
+    @patch('requests.request', side_effect=_network_stub.mock)
+    def test_log_size(self, mock_request):
         self._instance.check_gate(self._user, "a_gate")
         self._instance.check_gate(self._user, "b_gate")
 
@@ -64,8 +64,8 @@ class LoggerTest(unittest.TestCase):
         self._run_and_wait_for_logs(lambda: self._instance.check_gate(self._user, "f_gate"))
         self.assertEqual(len(self._events), 6)
 
-    @patch('requests.post', side_effect=_network_stub.mock)
-    def test_exposure_dedupe(self, mock_post):
+    @patch('requests.request', side_effect=_network_stub.mock)
+    def test_exposure_dedupe(self, mock_request):
         self._instance.check_gate(self._user, "a_gate")
         self._instance.check_gate(self._user, "a_gate")
 
@@ -115,8 +115,8 @@ class LoggerTest(unittest.TestCase):
         self._run_and_wait_for_logs(__get_experiments)
         self.assertEqual(len(self._events), 10)
 
-    @patch('requests.post', side_effect=_network_stub.mock)
-    def test_log_content(self, mock_post):
+    @patch('requests.request', side_effect=_network_stub.mock)
+    def test_log_content(self, mock_request):
         self._instance.check_gate(self._user, "a_gate")
         sleep(0.1)
         self._instance.get_config(self._user, "a_config")

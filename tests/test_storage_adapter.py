@@ -67,24 +67,24 @@ class TestStorageAdapter(unittest.TestCase):
         self._options = StatsigOptions(
             data_store=self._data_adapter, api=self._api_override, disable_diagnostics=True)
 
-        def download_config_specs_callback(url: str, data: dict):
+        def download_config_specs_callback(url: str, **kwargs):
             self._did_download_specs = True
             return CONFIG_SPECS_RESPONSE
 
         self._network_stub.stub_request_with_function(
-            "download_config_specs", 200, download_config_specs_callback)
+            "download_config_specs/.*", 200, download_config_specs_callback)
 
     def tearDown(self) -> None:
         statsig.shutdown()
 
-    @patch('requests.post', side_effect=_network_stub.mock)
-    def test_loading(self, mock_post):
+    @patch('requests.request', side_effect=_network_stub.mock)
+    def test_loading(self, mock_request):
         statsig.initialize("secret-key", self._options)
         result = statsig.check_gate(self._user, "gate_from_adapter")
-        self.assertEqual(True, result)
+        self.assertTrue(result)
 
-    @patch('requests.post', side_effect=_network_stub.mock)
-    def test_saving(self, mock_post):
+    @patch('requests.request', side_effect=_network_stub.mock)
+    def test_saving(self, mock_request):
         self._data_adapter.data = {}
         statsig.initialize("secret-key", self._options)
 
@@ -92,16 +92,16 @@ class TestStorageAdapter(unittest.TestCase):
         expected_string = json.dumps(CONFIG_SPECS_RESPONSE)
         self.assertEqual(stored_string, expected_string)
 
-    @patch('requests.post', side_effect=_network_stub.mock)
-    def test_calls_network_when_adapter_is_empty(self, mock_post):
+    @patch('requests.request', side_effect=_network_stub.mock)
+    def test_calls_network_when_adapter_is_empty(self, mock_request):
         self._data_adapter.data = {}
         statsig.initialize("secret-key", self._options)
-        self.assertEqual(True, self._did_download_specs)
+        self.assertTrue(self._did_download_specs)
 
-    @patch('requests.post', side_effect=_network_stub.mock)
-    def test_no_network_call_when_adapter_has_value(self, mock_post):
+    @patch('requests.request', side_effect=_network_stub.mock)
+    def test_no_network_call_when_adapter_has_value(self, mock_request):
         statsig.initialize("secret-key", self._options)
-        self.assertEqual(False, self._did_download_specs)
+        self.assertFalse(self._did_download_specs)
 
     def test_bootstrap_is_ignored_when_data_store_is_set(self):
         options = StatsigOptions(

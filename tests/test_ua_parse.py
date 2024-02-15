@@ -13,21 +13,19 @@ with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), '../testdata/
 _network_stub = NetworkStub("http://test-statsig-e2e")
 
 
-@patch('requests.post', side_effect=_network_stub.mock)
-@patch('requests.get', side_effect=_network_stub.mock)
+@patch('requests.request', side_effect=_network_stub.mock)
 class TestStatsigE2E(unittest.TestCase):
     _logs = {}
 
     @classmethod
-    @patch('requests.post', side_effect=_network_stub.mock)
-    @patch('requests.get', side_effect=_network_stub.mock)
-    def setUpClass(cls, mock_post, mock_get):
+    @patch('requests.request', side_effect=_network_stub.mock)
+    def setUpClass(cls, mock_request):
         _network_stub.stub_request_with_value(
-            "download_config_specs", 200, json.loads(CONFIG_SPECS_RESPONSE))
+            "download_config_specs/.*", 200, json.loads(CONFIG_SPECS_RESPONSE))
         _network_stub.stub_request_with_value("get_id_lists", 200, {})
 
-        def log_event_callback(url: str, data: dict):
-            cls._logs = data["json"]
+        def log_event_callback(url: str, **kwargs):
+            cls._logs = kwargs["json"]
 
         _network_stub.stub_request_with_function(
             "log_event", 202, log_event_callback)
@@ -41,7 +39,7 @@ class TestStatsigE2E(unittest.TestCase):
         statsig.initialize("secret-key", options)
         cls.initTime = round(time.time() * 1000)
 
-    def test_ua_parser(self, mock_post, mock_get):
+    def test_ua_parser(self, mock_request):
         user_agents = {
              # initial motivation, windows XP.  Should not throw
             'Mozilla/5.0 (Windows NT 5.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.5414.87 ADG/11.0.4060 Safari/537.36': False,

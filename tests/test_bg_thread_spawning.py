@@ -16,8 +16,8 @@ class TestBackgroundThreadSpawning(unittest.TestCase):
     _event = StatsigEvent(_user, "an_event")
     _actions: List[Callable]
 
-    @patch('requests.post', side_effect=_network_stub.mock)
-    def setUp(self, mock_post) -> None:
+    @patch('requests.request', side_effect=_network_stub.mock)
+    def setUp(self, mock_request) -> None:
         server = StatsigServer()
         options = StatsigOptions(
             api=_api_override,
@@ -27,7 +27,7 @@ class TestBackgroundThreadSpawning(unittest.TestCase):
         _network_stub.reset()
         _network_stub.stub_request_with_value("log_event", 202, "")
         _network_stub.stub_request_with_value(
-            "download_config_specs", 500, "{}")
+            "download_config_specs/.*", 500, "{}")
 
         server.initialize("secret-key", options)
         self._server = server
@@ -40,22 +40,22 @@ class TestBackgroundThreadSpawning(unittest.TestCase):
             lambda: self._server.log_event(self._event)
         ]
 
-    def test_logger_threads_restart(self, mock_post):
+    def test_logger_threads_restart(self, mock_request):
         self._logger_none_restart_test(self._actions)
 
-    def test_logger_local_mode_threads_restart(self, mock_post):
+    def test_logger_local_mode_threads_restart(self, mock_request):
         self._logger_local_mode_restart_test(self._actions)
 
-    def test_logger_ead_threads_restart(self, mock_post):
+    def test_logger_ead_threads_restart(self, mock_request):
         self._logger_dead_restart_test(self._actions)
 
-    def test_spec_store_threads_restart(self, mock_post):
+    def test_spec_store_threads_restart(self, mock_request):
         self._spec_store_none_restart_test(self._actions)
 
-    def test_spec_store_local_mode_threads_restart(self, mock_post):
+    def test_spec_store_local_mode_threads_restart(self, mock_request):
         self._spec_store_local_mode_restart_test(self._actions)
 
-    def test_spec_store_dead_threads_restart(self, mock_post):
+    def test_spec_store_dead_threads_restart(self, mock_request):
         self._spec_store_dead_restart_test(self._actions)
 
     def _logger_none_restart_test(self, actions: List[Callable]):

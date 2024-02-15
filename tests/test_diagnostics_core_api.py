@@ -21,14 +21,14 @@ _network_stub = NetworkStub(_api_override)
 
 
 @patch("time.time", return_value=123)
-@patch("requests.post", side_effect=_network_stub.mock)
+@patch("requests.request", side_effect=_network_stub.mock)
 class TestDiagnosticsCoreAPI(unittest.TestCase):
     _server: StatsigServer
     _evaluator: _Evaluator
     _user = StatsigUser(user_id="a-user")
 
-    @patch("requests.post", side_effect=_network_stub.mock)
-    def setUp(self, mock_post) -> None:
+    @patch("requests.request", side_effect=_network_stub.mock)
+    def setUp(self, mock_request) -> None:
         response = json.loads(CONFIG_SPECS_RESPONSE)
         response["diagnostics"] = {
             SamplingRate.DCS.value: 100,
@@ -45,12 +45,12 @@ class TestDiagnosticsCoreAPI(unittest.TestCase):
         _network_stub.reset()
         self._events = []
 
-        def on_log(url: str, data: dict):
-            self._events += GzipHelpers.decode_body(data, False)["events"]
+        def on_log(url: str, **kwargs):
+            self._events += GzipHelpers.decode_body(kwargs, False)["events"]
 
         _network_stub.stub_request_with_function("log_event", 202, on_log)
 
-        _network_stub.stub_request_with_value("download_config_specs", 200, response)
+        _network_stub.stub_request_with_value("download_config_specs/.*", 200, response)
 
         self.get_id_list_response = {}
 
@@ -77,7 +77,7 @@ class TestDiagnosticsCoreAPI(unittest.TestCase):
 
         self._assert_marker_equal = assert_marker_equal
 
-    def test_api_call(self, mock_post, mock_time):
+    def test_api_call(self, mock_request, mock_time):
         user = StatsigUser(user_id="user_id")
         self._server.initialize("secret-key", self._options)
         self._server.check_gate(user, "always_on_gate")
@@ -162,7 +162,7 @@ class TestDiagnosticsCoreAPI(unittest.TestCase):
             },
         )
 
-    def test_disable_diagnostics(self, mock_post, mock_time):
+    def test_disable_diagnostics(self, mock_request, mock_time):
         user = StatsigUser(user_id="user_id")
         self._options.disable_diagnostics = True
         self._server.initialize("secret-key", self._options)

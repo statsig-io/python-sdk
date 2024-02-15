@@ -207,8 +207,12 @@ class DiagnosticsImpl:
         self.logger = logger
         return self
 
-    def mark(self):
-        return Marker()
+    def mark(self, data=None):
+        marker = Marker()
+        if data is not None:
+            for key, value in data.items():
+                setattr(marker, key, value)
+        return marker
 
     def set_context(self, context: Context):
         self.context = context

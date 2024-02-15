@@ -1,3 +1,4 @@
+import re
 from typing import Callable, Union
 from urllib.parse import urlparse, ParseResult
 
@@ -49,7 +50,8 @@ class NetworkStub:
 
     def mock(*args, **kwargs):
         instance: NetworkStub = args[0]
-        url: ParseResult = urlparse(args[1])
+        method: str = args[1]
+        url: ParseResult = urlparse(args[2])
 
         if (url.scheme + "://" + url.hostname) != instance.host:
             return
@@ -57,11 +59,11 @@ class NetworkStub:
         paths = list(instance._stubs.keys())
         for path in paths:
             stub_data: dict = instance._stubs[path]
-
-            if url.path.endswith(path):
+            
+            if re.search(f".*{path}", url.path) is not None:
                 response_body = stub_data.get("response_body", None)
                 if stub_data.get("response_func", None) is not None:
-                    response_body = stub_data["response_func"](url, kwargs)
+                    response_body = stub_data["response_func"](url, **kwargs)
                 response_code = stub_data.get("response_code", None)
                 if callable(response_code):
                     response_code = response_code(url, kwargs)

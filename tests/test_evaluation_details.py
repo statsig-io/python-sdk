@@ -16,14 +16,14 @@ _network_stub = NetworkStub(_api_override)
 
 
 @patch('time.time', return_value=123)
-@patch('requests.post', side_effect=_network_stub.mock)
+@patch('requests.request', side_effect=_network_stub.mock)
 class TestEvaluationDetails(unittest.TestCase):
     _server: StatsigServer
     _evaluator: _Evaluator
     _user = StatsigUser(user_id="a-user")
 
-    @patch('requests.post', side_effect=_network_stub.mock)
-    def setUp(self, mock_post) -> None:
+    @patch('requests.request', side_effect=_network_stub.mock)
+    def setUp(self, mock_request) -> None:
         server = StatsigServer()
         options = StatsigOptions(
             api=_api_override,
@@ -33,13 +33,13 @@ class TestEvaluationDetails(unittest.TestCase):
         _network_stub.reset()
         self._events = []
 
-        def on_log(url: str, data: dict):
-            self._events += GzipHelpers.decode_body(data)["events"]
+        def on_log(url: str, **kwargs):
+            self._events += GzipHelpers.decode_body(kwargs)["events"]
 
         _network_stub.stub_request_with_function("log_event", 202, on_log)
 
         _network_stub.stub_request_with_value(
-            "download_config_specs", 200, json.loads(CONFIG_SPECS_RESPONSE))
+            "download_config_specs/.*", 200, json.loads(CONFIG_SPECS_RESPONSE))
 
         server.initialize("secret-key", options)
         self._server = server
@@ -61,7 +61,7 @@ class TestEvaluationDetails(unittest.TestCase):
 
         self._assert_event_equal = assert_event_equal
 
-    def test_uninitialized(self, mock_post, mock_time):
+    def test_uninitialized(self, mock_request, mock_time):
         self._evaluator._spec_store.init_reason = EvaluationReason.uninitialized
 
         self._server.check_gate(self._user, "always_on_gate")
@@ -85,7 +85,7 @@ class TestEvaluationDetails(unittest.TestCase):
             "reason": "Uninitialized"
         }, True)
 
-    def test_unrecognized(self, mock_post, mock_time):
+    def test_unrecognized(self, mock_request, mock_time):
         self._server.check_gate(self._user, "not_a_gate")
         self._server.get_config(self._user, "not_a_config")
         self._server.get_experiment(self._user, "not_an_experiment")
@@ -107,7 +107,7 @@ class TestEvaluationDetails(unittest.TestCase):
             "reason": "Unrecognized"
         })
 
-    def test_network(self, mock_post, mock_time):
+    def test_network(self, mock_request, mock_time):
         self._server.check_gate(self._user, "always_on_gate")
         self._server.get_config(self._user, "test_config")
         self._server.get_experiment(self._user, "sample_experiment")
@@ -129,7 +129,7 @@ class TestEvaluationDetails(unittest.TestCase):
             "reason": "Network"
         })
 
-    def test_local_override(self, mock_post, mock_time):
+    def test_local_override(self, mock_request, mock_time):
         self._server.override_gate("always_on_gate", False)
         self._server.override_config("sample_experiment", {})
 
@@ -147,7 +147,7 @@ class TestEvaluationDetails(unittest.TestCase):
             "reason": "LocalOverride",
         })
 
-    def test_bootstrap(self, mock_post, mock_time):
+    def test_bootstrap(self, mock_request, mock_time):
         opts = StatsigOptions(
             bootstrap_values=CONFIG_SPECS_RESPONSE, api=_api_override, disable_diagnostics=True)
         bootstrap_server = StatsigServer()
@@ -178,7 +178,7 @@ class TestEvaluationDetails(unittest.TestCase):
             "reason": "Bootstrap"
         })
 
-    def test_data_store(self, mock_post, mock_time):
+    def test_data_store(self, mock_request, mock_time):
         class _TestAdapter(IDataStore):
             def get(self, key: str):
                 return CONFIG_SPECS_RESPONSE
@@ -212,7 +212,7 @@ class TestEvaluationDetails(unittest.TestCase):
             "reason": "DataAdapter"
         })
 
-    def test_logging(self, mock_post, mock_time):
+    def test_logging(self, mock_request, mock_time):
         self._server.check_gate(self._user, "always_on_gate")
         self._server.get_config(self._user, "test_config")
         self._server.get_experiment(self._user, "sample_experiment")

@@ -17,8 +17,8 @@ class BaseStatsigE2ETestCase:
     _options: StatsigOptions
 
     @classmethod
-    @patch('requests.post', side_effect=_network_stub.mock)
-    def setUpClass(cls, mock_post):
+    @patch('requests.request', side_effect=_network_stub.mock)
+    def setUpClass(cls, mock_request):
         _network_stub.stub_request_with_function(
             "log_event", 202, cls.log_event_callback)
 
@@ -34,8 +34,8 @@ class BaseStatsigE2ETestCase:
         cls._options.rules_updated_callback = cls.callback
 
     @classmethod
-    def log_event_callback(cls, url: str, data: dict):
-        cls._logs = data["json"]
+    def log_event_callback(cls, url: str, **kwargs):
+        cls._logs = kwargs["json"]
 
     @classmethod
     def tearDownClass(cls):
@@ -50,7 +50,7 @@ class BaseStatsigE2ETestCase:
             cls._failure = True
             raise ValueError("invalid rules updated callback")
 
-    def test_check_gate(self, mock_post):
+    def test_check_gate(self, mock_request):
         self.assertEqual(
             statsig.check_gate(self.statsig_user, "always_on_gate"),
             True
@@ -64,7 +64,7 @@ class BaseStatsigE2ETestCase:
             False
         )
 
-    def test_dynamic_config(self, mock_post):
+    def test_dynamic_config(self, mock_request):
         config = statsig.get_config(self.statsig_user, "test_config")
         self.assertEqual(
             config.get_value(),
@@ -84,7 +84,7 @@ class BaseStatsigE2ETestCase:
             )
         )
 
-    def test_experiment(self, mock_post):
+    def test_experiment(self, mock_request):
         config = statsig.get_experiment(self.statsig_user, "sample_experiment")
         self.assertEqual(
             config.get_value(),
@@ -100,45 +100,45 @@ class BaseStatsigE2ETestCase:
             )
         )
 
-    def test_callback(self, mock_post):
+    def test_callback(self, mock_request):
         time.sleep(2)
 
 
-@patch('requests.post', side_effect=_network_stub.mock)
+@patch('requests.request', side_effect=_network_stub.mock)
 class TestStatsigE2EBootstrapped(BaseStatsigE2ETestCase, unittest.TestCase):
     @classmethod
-    @patch('requests.post', side_effect=_network_stub.mock)
-    def setUpClass(cls, mock_post):
+    @patch('requests.request', side_effect=_network_stub.mock)
+    def setUpClass(cls, mock_request):
         super().setUpClass()
         _network_stub.stub_request_with_value(
-            "download_config_specs", 200, json.loads(CONFIG_SPECS_RESPONSE))
+            "download_config_specs/.*", 200, json.loads(CONFIG_SPECS_RESPONSE))
 
         cls._options.bootstrap_values = CONFIG_SPECS_RESPONSE
         cls._options.rulesets_sync_interval = 1
         statsig.initialize("secret-key", cls._options)
 
 
-@patch('requests.post', side_effect=_network_stub.mock)
+@patch('requests.request', side_effect=_network_stub.mock)
 class TestBootstrapFailureFallBackToNetwork(BaseStatsigE2ETestCase, unittest.TestCase):
     _download_config_specs_count = 0
 
     @classmethod
-    @patch('requests.post', side_effect=_network_stub.mock)
-    def setUpClass(cls, mock_post):
+    @patch('requests.request', side_effect=_network_stub.mock)
+    def setUpClass(cls, mock_request):
         super().setUpClass()
 
-        def mock_dcs(url: str, data: dict):
+        def mock_dcs(url: str, **kwargs):
             cls._download_config_specs_count += 1
             return json.loads(CONFIG_SPECS_RESPONSE)
 
         _network_stub.stub_request_with_function(
-            "download_config_specs", 200, mock_dcs)
+            "download_config_specs/.*", 200, mock_dcs)
 
         cls._options.bootstrap_values = "{invalid_JSON}"
         cls._options.rulesets_sync_interval = 30
         statsig.initialize("secret-key", cls._options)
 
-    def test_download_config_specs_called(self, mock_post):
+    def test_download_config_specs_called(self, mock_request):
         self.assertEqual(self._download_config_specs_count, 1)
 
 

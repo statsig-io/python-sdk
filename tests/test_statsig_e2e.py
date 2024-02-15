@@ -14,17 +14,15 @@ with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), '../testdata/
 _network_stub = NetworkStub("http://test-statsig-e2e")
 
 
-@patch('requests.post', side_effect=_network_stub.mock)
-@patch('requests.get', side_effect=_network_stub.mock)
+@patch('requests.request', side_effect=_network_stub.mock)
 class TestStatsigE2E(unittest.TestCase):
     _logs = {}
 
     @classmethod
-    @patch('requests.post', side_effect=_network_stub.mock)
-    @patch('requests.get', side_effect=_network_stub.mock)
-    def setUpClass(cls, mock_post, mock_get):
+    @patch('requests.request', side_effect=_network_stub.mock)
+    def setUpClass(cls, mock_request):
         _network_stub.stub_request_with_value(
-            "download_config_specs", 200, json.loads(CONFIG_SPECS_RESPONSE))
+            "download_config_specs/.*", 200, json.loads(CONFIG_SPECS_RESPONSE))
         _network_stub.stub_request_with_value("list_1", 200, "+7/rrkvF6\n")
         _network_stub.stub_request_with_value("get_id_lists", 200, {"list_1": {
             "name": "list_1",
@@ -34,8 +32,8 @@ class TestStatsigE2E(unittest.TestCase):
             "fileID": "file_id_1",
         }})
 
-        def log_event_callback(url: str, data: dict):
-            cls._logs = GzipHelpers.decode_body(data)
+        def log_event_callback(url: str, **kwargs):
+            cls._logs = GzipHelpers.decode_body(kwargs)
 
         _network_stub.stub_request_with_function(
             "log_event", 202, log_event_callback)
@@ -57,7 +55,7 @@ class TestStatsigE2E(unittest.TestCase):
         statsig.shutdown()
 
     # hacky, yet effective. python runs tests in alphabetical order.
-    def test_a_check_gate(self, mock_post, mock_get):
+    def test_a_check_gate(self, mock_request):
         self.assertEqual(
             statsig.check_gate(self.statsig_user, "always_on_gate"),
             True
@@ -73,7 +71,7 @@ class TestStatsigE2E(unittest.TestCase):
         )
         self.assertIsNone(self.random_user._statsig_environment)
 
-    def test_b_dynamic_config(self, mock_post, mock_get):
+    def test_b_dynamic_config(self, mock_request):
         config = statsig.get_config(self.statsig_user, "test_config")
         self.assertEqual(
             config.get_value(),
@@ -95,7 +93,7 @@ class TestStatsigE2E(unittest.TestCase):
         )
         self.assertIsNone(config.group_name)
 
-    def test_c_experiment(self, mock_post, mock_get):
+    def test_c_experiment(self, mock_request):
         config = statsig.get_experiment(self.statsig_user, "sample_experiment")
         self.assertEqual(
             config.get_value(),
@@ -115,13 +113,13 @@ class TestStatsigE2E(unittest.TestCase):
             )
         )
 
-    def test_d_log_event(self, mock_post, mock_get):
+    def test_d_log_event(self, mock_request):
         event = StatsigEvent(self.statsig_user, "purchase", value="SKU_12345", metadata=dict(
             price="9.99", item_name="diet_coke_48_pack"))
         statsig.log_event(event)
         self.assertEqual(len([]), 0)
 
-    def test_e_evaluate_all(self, mock_post, mock_get):
+    def test_e_evaluate_all(self, mock_request):
         self.assertEqual(statsig.evaluate_all(self.statsig_user),
                          {
                              "feature_gates": {
@@ -160,7 +158,7 @@ class TestStatsigE2E(unittest.TestCase):
         )
 
     # test_z ensures this runs last
-    def test_z_logs(self, mock_post, mock_get):
+    def test_z_logs(self, mock_request):
         statsig.shutdown()
         events = self._logs["events"]
         self.assertEqual(len(events), 8)

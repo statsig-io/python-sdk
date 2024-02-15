@@ -3,6 +3,8 @@ import concurrent.futures
 import threading
 
 from typing import Optional, Union
+
+from .statsig_network import _StatsigNetwork
 from .retryable_logs import RetryableLogs
 from .evaluation_details import EvaluationDetails
 from .exposure_aggregation_data import ExposureAggregationData
@@ -38,7 +40,7 @@ class _StatsigLogger:
     _background_retry: Optional[threading.Thread]
     _background_exposure_handler: Optional[threading.Thread]
 
-    def __init__(self, net, shutdown_event, statsig_metadata, error_boundary, options):
+    def __init__(self, net: _StatsigNetwork, shutdown_event, statsig_metadata, error_boundary, options):
         self._events = []
         self._retry_logs = collections.deque(maxlen=10)
         self._deduper = set()
@@ -222,16 +224,10 @@ class _StatsigLogger:
     def _flush_to_server(self, events_copy, event_count):
         headers = {"STATSIG-EVENT-COUNT": str(event_count)}
 
-        res = self._net.retryable_request(
-            "log_event",
-            {
-                "events": events_copy,
-                "statsigMetadata": self._statsig_metadata,
-            },
-            log_on_exception=True,
-            additional_headers=headers,
-        )
-
+        res = self._net.retryable_log_event({
+            "events": events_copy,
+            "statsigMetadata": self._statsig_metadata,
+        }, log_on_exception=True, headers=headers)
         if res is not None:
             self._retry_logs.append(RetryableLogs(res, headers, event_count, 0))
 
@@ -316,12 +312,11 @@ class _StatsigLogger:
                 except IndexError:
                     break
 
-                res = self._net.retryable_request(
-                    "log_event",
+                res = self._net.retryable_log_event(
                     retry_logs.payload,
                     log_on_exception=True,
                     retry=retry_logs.retries,
-                    additional_headers=retry_logs.headers,
+                    headers=retry_logs.headers,
                 )
                 if res is not None:
                     if retry_logs.retries >= 10:

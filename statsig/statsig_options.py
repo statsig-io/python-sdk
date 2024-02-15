@@ -4,7 +4,6 @@ from .interface_data_store import IDataStore
 from .statsig_environment_tier import StatsigEnvironmentTier
 from .output_logger import OutputLogger
 
-DEFAULT_API = "https://statsigapi.net/v1/"
 DEFAULT_RULESET_SYNC_INTERVAL = 10
 DEFAULT_IDLIST_SYNC_INTERVAL = 60
 DEFAULT_EVENT_QUEUE_SIZE = 500
@@ -17,7 +16,8 @@ class StatsigOptions:
 
     def __init__(
         self,
-        api: str = DEFAULT_API,
+        api: Optional[str] = None,
+        api_for_download_config_specs: Optional[str] = None,
         tier: Union[str, StatsigEnvironmentTier, None] = None,
         init_timeout: Optional[int] = None,
         timeout: Optional[int] = None,
@@ -47,9 +47,8 @@ class StatsigOptions:
                 raise StatsigValueError(
                     "StatsigOptions.tier must be a str or StatsigEnvironmentTier"
                 )
-        if api is None:
-            api = "https://statsigapi.net/v1/"
         self.api = api
+        self.api_for_download_config_specs = api_for_download_config_specs
         self.timeout = timeout
         self.init_timeout = init_timeout
         self.rulesets_sync_interval = rulesets_sync_interval
@@ -82,7 +81,7 @@ class StatsigOptions:
 
     def _set_logging_copy(self):
         logging_copy = {}
-        if self.api != DEFAULT_API:
+        if self.api is not None:
             logging_copy["api"] = self.api
         if self._environment != {} and self._environment is not None:
             logging_copy["environment"] = self._environment

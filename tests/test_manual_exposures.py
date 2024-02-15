@@ -15,7 +15,7 @@ with open(os.path.join(os.path.abspath(os.path.dirname(__file__)),
 _network_stub = NetworkStub("http://test-manual-exposures")
 
 
-@patch('requests.post', side_effect=_network_stub.mock)
+@patch('requests.request', side_effect=_network_stub.mock)
 class TestManualExposures(TestCaseWithExtras):
     _user = StatsigUser("dloomb")
     _logs = {}
@@ -24,10 +24,10 @@ class TestManualExposures(TestCaseWithExtras):
     def setUpClass(cls):
         _network_stub.reset()
         _network_stub.stub_request_with_value(
-            "download_config_specs", 200, json.loads(CONFIG_SPECS_RESPONSE))
+            "download_config_specs/.*", 200, json.loads(CONFIG_SPECS_RESPONSE))
 
-        def log_event_callback(url: str, data: dict):
-            cls._logs = GzipHelpers.decode_body(data)
+        def log_event_callback(url: str, **kwargs):
+            cls._logs = GzipHelpers.decode_body(kwargs)
 
         _network_stub.stub_request_with_function(
             "log_event", 202, log_event_callback)
@@ -45,7 +45,7 @@ class TestManualExposures(TestCaseWithExtras):
     def tearDown(self) -> None:
         statsig.shutdown()
 
-    def test_api_with_exposure_logging_disabled(self, mock_post):
+    def test_api_with_exposure_logging_disabled(self, mock_request):
         statsig.check_gate_with_exposure_logging_disabled(self._user, 'always_on_gate')
         statsig.get_config_with_exposure_logging_disabled(self._user, 'test_config')
         statsig.get_experiment_with_exposure_logging_disabled(self._user, 'sample_experiment')
@@ -56,7 +56,7 @@ class TestManualExposures(TestCaseWithExtras):
         events = TestManualExposures._logs["events"]
         self.assertEqual(len(events), 0)
 
-    def test_manual_exposure_logging(self, mock_post):
+    def test_manual_exposure_logging(self, mock_request):
         statsig.manually_log_gate_exposure(self._user, 'always_on_gate')
         statsig.manually_log_config_exposure(self._user, 'test_config')
         statsig.manually_log_experiment_exposure(self._user, 'sample_experiment')

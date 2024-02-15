@@ -17,7 +17,7 @@ methods = ['get', 'get_typed']
 _network_stub = NetworkStub("http://test-layer-exposure")
 
 
-@patch('requests.post', side_effect=_network_stub.mock)
+@patch('requests.request', side_effect=_network_stub.mock)
 class TestLayerExposures(TestCaseWithExtras):
     _user = StatsigUser("dloomb")
     _logs = {}
@@ -26,10 +26,10 @@ class TestLayerExposures(TestCaseWithExtras):
     def setUpClass(cls):
         _network_stub.reset()
         _network_stub.stub_request_with_value(
-            "download_config_specs", 200, json.loads(CONFIG_SPECS_RESPONSE))
+            "download_config_specs/.*", 200, json.loads(CONFIG_SPECS_RESPONSE))
 
-        def log_event_callback(url: str, data: dict):
-            cls._logs = GzipHelpers.decode_body(data)
+        def log_event_callback(url: str, **kwargs):
+            cls._logs = GzipHelpers.decode_body(kwargs)
 
         _network_stub.stub_request_with_function(
             "log_event", 202, log_event_callback)
@@ -42,7 +42,7 @@ class TestLayerExposures(TestCaseWithExtras):
     def tearDown(self) -> None:
         statsig.shutdown()
 
-    def test_does_not_log_on_get_layer(self, mock_post):
+    def test_does_not_log_on_get_layer(self, mock_request):
         self._start()
         statsig.get_layer(self._user, 'unallocated_layer')
         statsig.shutdown()
@@ -50,7 +50,7 @@ class TestLayerExposures(TestCaseWithExtras):
         events = TestLayerExposures._logs["events"]
         self.assertEqual(len(events), 0)
 
-    def test_does_not_log_on_invalid_type(self, mock_post):
+    def test_does_not_log_on_invalid_type(self, mock_request):
         self._start()
         layer = statsig.get_layer(self._user, 'unallocated_layer')
         layer.get_typed('an_int', 'err')
@@ -59,7 +59,7 @@ class TestLayerExposures(TestCaseWithExtras):
         events = TestLayerExposures._logs["events"]
         self.assertEqual(len(events), 0)
 
-    def test_does_not_log_non_existent_keys(self, mock_post):
+    def test_does_not_log_non_existent_keys(self, mock_request):
         for method in methods:
             with self.subTest('with method ' + method, method=method):
                 self._start()
@@ -70,7 +70,7 @@ class TestLayerExposures(TestCaseWithExtras):
                 events = TestLayerExposures._logs["events"]
                 self.assertEqual(len(events), 0)
 
-    def test_unallocated_layer_logging(self, mock_post):
+    def test_unallocated_layer_logging(self, mock_request):
         for method in methods:
             with self.subTest('with method ' + method, method=method):
                 self._start()
@@ -89,7 +89,7 @@ class TestLayerExposures(TestCaseWithExtras):
                     'isExplicitParameter': 'false'
                 }, events[0].get('metadata', {}))
 
-    def test_explicit_vs_implicit_parameter_logging(self, mock_post):
+    def test_explicit_vs_implicit_parameter_logging(self, mock_request):
         for method in methods:
             with self.subTest('with method ' + method, method=method):
                 self._start()
@@ -118,7 +118,7 @@ class TestLayerExposures(TestCaseWithExtras):
                     'isExplicitParameter': 'false'
                 }, events[1].get('metadata', {}))
 
-    def test_different_object_type_logging(self, mock_post):
+    def test_different_object_type_logging(self, mock_request):
         for method in methods:
             with self.subTest('with method ' + method, method=method):
                 self._start()
@@ -151,7 +151,7 @@ class TestLayerExposures(TestCaseWithExtras):
                 self.assertEqual("an_object", events[6].get(
                     'metadata', {}).get('parameterName', ''))
 
-    def test_logs_user_and_event_name(self, mock_post):
+    def test_logs_user_and_event_name(self, mock_request):
         for method in methods:
             with self.subTest('with method ' + method, method=method):
                 self._start()

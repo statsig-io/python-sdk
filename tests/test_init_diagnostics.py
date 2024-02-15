@@ -19,15 +19,15 @@ _api_override = "http://evaluation-details-test"
 _network_stub = NetworkStub(_api_override)
 
 
-@patch("time.time", return_value=123)
-@patch("requests.post", side_effect=_network_stub.mock)
+@patch('time.time', return_value=123)
+@patch('requests.request', side_effect=_network_stub.mock)
 class TestDiagnostics(unittest.TestCase):
     _server: StatsigServer
     _evaluator: _Evaluator
     _user = StatsigUser(user_id="a-user")
 
-    @patch("requests.post", side_effect=_network_stub.mock)
-    def setUp(self, mock_post) -> None:
+    @patch('requests.request', side_effect=_network_stub.mock)
+    def setUp(self, mock_request) -> None:
         self._server = StatsigServer()
         self._options = StatsigOptions(
             api=_api_override,
@@ -36,13 +36,13 @@ class TestDiagnostics(unittest.TestCase):
         _network_stub.reset()
         self._events = []
 
-        def on_log(url: str, data: dict):
-            self._events += GzipHelpers.decode_body(data, False)["events"]
+        def on_log(url: str, **kwargs):
+            self._events += GzipHelpers.decode_body(kwargs, False)["events"]
 
         _network_stub.stub_request_with_function("log_event", 202, on_log)
 
         _network_stub.stub_request_with_value(
-            "download_config_specs", 200, json.loads(CONFIG_SPECS_RESPONSE)
+            "download_config_specs/.*", 200, json.loads(CONFIG_SPECS_RESPONSE)
         )
 
         self.get_id_list_response = {}
@@ -86,7 +86,7 @@ class TestDiagnostics(unittest.TestCase):
 
         self._assert_marker_equal = assert_marker_equal
 
-    def test_init_success(self, mock_post, mock_time):
+    def test_init_success(self, mock_request, mock_time):
         self._server.initialize("secret-key", self._options)
         self._server.shutdown()
         self.assertEqual(len(self._events), 1)
@@ -143,8 +143,8 @@ class TestDiagnostics(unittest.TestCase):
         self._assert_marker_equal(markers[9], "overall", "end", None, {"success": True})
         self.assertEqual(len(markers), 10)
 
-    def test_init_failure(self, mock_post, mock_time):
-        _network_stub.stub_request_with_value("download_config_specs", 500, "{}")
+    def test_init_failure(self, mock_request, mock_time):
+        _network_stub.stub_request_with_value("download_config_specs/.*", 500, "{}")
 
         self._server.initialize("secret-key", self._options)
         self._server.shutdown()
@@ -192,7 +192,7 @@ class TestDiagnostics(unittest.TestCase):
         self._assert_marker_equal(markers[7], "overall", "end", None, {"success": True})
         self.assertEqual(len(markers), 8)
 
-    def test_init_get_id_list(self, mock_post, mock_time):
+    def test_init_get_id_list(self, mock_request, mock_time):
         _network_stub.stub_request_with_value(
             "get_id_list_sources",
             200,
@@ -259,7 +259,7 @@ class TestDiagnostics(unittest.TestCase):
         self._assert_marker_equal(markers[9], "overall", "end")
         self.assertEqual(len(markers), 10)
 
-    def test_init_bootstrap(self, mock_post, mock_time):
+    def test_init_bootstrap(self, mock_request, mock_time):
         self._server.initialize(
             "secret-key",
             StatsigOptions(api=_api_override, bootstrap_values=CONFIG_SPECS_RESPONSE),

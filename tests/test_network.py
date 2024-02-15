@@ -29,8 +29,7 @@ class TestNetwork(unittest.TestCase):
         # request fails due to json serialization of user
         self.assertRaises(
             TypeError,
-            self.net.retryable_request,
-            "log_event",
+            self.net.retryable_log_event,
             {
                 'events':[
                     event.to_dict()
@@ -45,8 +44,7 @@ class TestNetwork(unittest.TestCase):
         # request fails due to json serialization of event
         self.assertRaises(
             TypeError,
-            self.net.retryable_request,
-            "log_event2",
+            self.net.retryable_log_event,
             {
                 'events':[
                     event.to_dict()
@@ -61,8 +59,9 @@ class TestNetwork(unittest.TestCase):
         # request fails due to json serialization of event
         self.assertRaises(
             TypeError,
-            self.net.post_request,
-            "log_event3",
+            self.net._post_request,
+            "http://statsigapi.net/v1/log_event3",
+            None,
             {
                 'events':[
                     event.to_dict()

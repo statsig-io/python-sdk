@@ -209,7 +209,8 @@ class _SpecStore:
             globals.logger.error(
                 'Failed to parse bootstrap_values')
         finally:
-            Diagnostics.mark().bootstrap().process().end({'success': self.init_reason is EvaluationReason.bootstrap})
+            Diagnostics.mark().bootstrap().process().end(
+                {'success': self.init_reason is EvaluationReason.bootstrap})
 
     def _spawn_bg_download_config_specs(self):
         interval = self._options.rulesets_sync_interval or RULESETS_SYNC_INTERVAL
@@ -234,10 +235,8 @@ class _SpecStore:
             self._sync_failure_count = 0
 
         try:
-            specs = self._network.post_request("download_config_specs", {
-                "statsigMetadata": self._statsig_metadata,
-                "sinceTime": self.last_update_time,
-            }, log_on_exception, timeout)
+            specs = self._network.download_config_specs(
+                self.last_update_time, log_on_exception, timeout)
 
             if specs is None:
                 self._sync_failure_count += 1
@@ -313,9 +312,7 @@ class _SpecStore:
             if for_initialize:
                 timeout = self._options.init_timeout
 
-            server_id_lists = self._network.post_request("get_id_lists", {
-                "statsigMetadata": self._statsig_metadata,
-            }, timeout=timeout)
+            server_id_lists = self._network.get_id_lists(timeout=timeout)
 
             if server_id_lists is None:
                 return
@@ -328,7 +325,8 @@ class _SpecStore:
     def _download_id_lists_process(self, server_id_lists):
         threw_error = False
         try:
-            Diagnostics.mark().get_id_list_sources().process().start({'idListCount': len(server_id_lists)})
+            Diagnostics.mark().get_id_list_sources().process().start(
+                {'idListCount': len(server_id_lists)})
             local_id_lists = self._id_lists
             workers = []
 
@@ -390,7 +388,7 @@ class _SpecStore:
 
     def _download_single_id_list(
             self, url, list_name, local_list, all_lists, start_index):
-        resp = self._network.get_request(
+        resp = self._network.get_id_list(
             url, headers={"Range": f"bytes={start_index}-"})
         if resp is None:
             return

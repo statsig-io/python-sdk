@@ -22,17 +22,16 @@ class TestStatsigConcurrency(unittest.TestCase):
     _event_count = 0
 
     @classmethod
-    @patch('requests.post', side_effect=_network_stub.mock)
-    @patch('requests.get', side_effect=_network_stub.mock)
-    def setUpClass(cls, mock_post, mock_get):
+    @patch('requests.request', side_effect=_network_stub.mock)
+    def setUpClass(cls, mock_request):
         cls._idlist_sync_count = 0
         cls._download_id_list_count = 0
         cls._event_count = 0
 
         cls._network_stub.stub_request_with_value(
-            "download_config_specs", 200, json.loads(CONFIG_SPECS_RESPONSE))
+            "download_config_specs/.*", 200, json.loads(CONFIG_SPECS_RESPONSE))
 
-        def id_lists_callback(url: str, data: dict):
+        def id_lists_callback(url: str, **kwargs):
             size = 10 + 3 * cls._idlist_sync_count
             cls._idlist_sync_count += 1
             return {
@@ -48,7 +47,7 @@ class TestStatsigConcurrency(unittest.TestCase):
         cls._network_stub.stub_request_with_function(
             "get_id_lists", 200, id_lists_callback)
 
-        def id_list_download_callback(url: str, data: dict):
+        def id_list_download_callback(url: str, **kwargs):
             cls._download_id_list_count += 1
             if cls._download_id_list_count == 1:
                 return "+7/rrkvF6\n"
@@ -57,8 +56,8 @@ class TestStatsigConcurrency(unittest.TestCase):
         cls._network_stub.stub_request_with_function(
             "list_1", 202, id_list_download_callback)
 
-        def log_event_callback(url: str, data: dict):
-            cls._event_count += len(GzipHelpers.decode_body(data)["events"])
+        def log_event_callback(url: str, **kwargs):
+            cls._event_count += len(GzipHelpers.decode_body(kwargs)["events"])
 
         cls._network_stub.stub_request_with_function(
             "log_event", 202, log_event_callback)
@@ -82,9 +81,8 @@ class TestStatsigConcurrency(unittest.TestCase):
     def tearDownClass(cls) -> None:
         statsig.shutdown()
 
-    @patch('requests.post', side_effect=_network_stub.mock)
-    @patch('requests.get', side_effect=_network_stub.mock)
-    def test_checking_and_updating_concurrently(self, mock_post, mock_get):
+    @patch('requests.request', side_effect=_network_stub.mock)
+    def test_checking_and_updating_concurrently(self, mock_request):
         self.threads = []
         for x in range(10):
             thread = threading.Thread(
