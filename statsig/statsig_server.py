@@ -1,6 +1,7 @@
 import dataclasses
 import threading
-from typing import Optional
+from typing import Optional, Union
+from .feature_gate import FeatureGate
 from .layer import Layer
 from .statsig_errors import StatsigNameError, StatsigRuntimeError, StatsigValueError
 from .statsig_event import StatsigEvent
@@ -110,9 +111,23 @@ class StatsigServer:
     def check_gate(self, user: StatsigUser, gate_name: str, log_exposure=True):
         def task():
             if not self._verify_inputs(user, gate_name):
+                feature_gate = FeatureGate(
+                    False,
+                    gate_name,
+                    "",
+                )
+                if not self._options.evaluation_callback is None:
+                    self._options.evaluation_callback(feature_gate)
                 return False
 
             result = self.__check_gate(user, gate_name, log_exposure)
+            feature_gate = FeatureGate(
+                result.boolean_value,
+                gate_name,
+                result.rule_id,
+                result.group_name,
+            )
+            self.safe_eval_callback(feature_gate)
             return result.boolean_value
 
         return self._errorBoundary.capture(
@@ -136,15 +151,20 @@ class StatsigServer:
     def get_config(self, user: StatsigUser, config_name: str, log_exposure=True):
         def task():
             if not self._verify_inputs(user, config_name):
-                return DynamicConfig({}, config_name, "")
+                dynamicConfig = DynamicConfig({}, config_name, "")
+                if not self._options.evaluation_callback is None:
+                    self._options.evaluation_callback(dynamicConfig)
+                return dynamicConfig
 
             result = self.__get_config(user, config_name, log_exposure)
-            return DynamicConfig(
+            dynamicConfig = DynamicConfig(
                 result.json_value,
                 config_name,
                 result.rule_id,
                 group_name=result.group_name,
             )
+            self.safe_eval_callback(dynamicConfig)
+            return dynamicConfig
 
         return self._errorBoundary.capture(
             "get_config",
@@ -170,14 +190,19 @@ class StatsigServer:
     ):
         def task():
             if not self._verify_inputs(user, experiment_name):
-                return DynamicConfig({}, experiment_name, "")
+                dynamicConfig = DynamicConfig({}, experiment_name, "")
+                if not self._options.evaluation_callback is None:
+                    self._options.evaluation_callback(dynamicConfig)
+                return dynamicConfig
             result = self.__get_config(user, experiment_name, log_exposure)
-            return DynamicConfig(
+            dynamicConfig = DynamicConfig(
                 result.json_value,
                 experiment_name,
                 result.rule_id,
                 group_name=result.group_name,
             )
+            self.safe_eval_callback(dynamicConfig)
+            return dynamicConfig
 
         return self._errorBoundary.capture(
             "get_experiment",
@@ -201,7 +226,10 @@ class StatsigServer:
     def get_layer(self, user: StatsigUser, layer_name: str, log_exposure=True) -> Layer:
         def task():
             if not self._verify_inputs(user, layer_name):
-                return Layer._create(layer_name, {}, "")
+                layer =  Layer._create(layer_name, {}, "")
+                if not self._options.evaluation_callback is None:
+                    self._options.evaluation_callback(layer)
+                return layer
 
             normal_user = self.__normalize_user(user)
             result = self._evaluator.get_layer(normal_user, layer_name)
@@ -212,7 +240,7 @@ class StatsigServer:
                         normal_user, layer, parameter_name, result
                     )
 
-            return Layer._create(
+            layer =  Layer._create(
                 layer_name,
                 result.json_value,
                 result.rule_id,
@@ -220,6 +248,8 @@ class StatsigServer:
                 result.allocated_experiment,
                 log_func,
             )
+            self.safe_eval_callback(layer)
+            return layer
 
         return self._errorBoundary.capture(
             "get_layer",
@@ -243,6 +273,10 @@ class StatsigServer:
         self._logger.log_layer_exposure(
             user, layer, parameter_name, result, is_manual_exposure=True
         )
+
+    def safe_eval_callback(self, config: Union[FeatureGate, DynamicConfig, Layer]):
+        if self._options.evaluation_callback is not None:
+            self._options.evaluation_callback(config)
 
     def log_event(self, event: StatsigEvent):
         def task():

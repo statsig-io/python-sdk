@@ -1,4 +1,8 @@
 from typing import Optional, Union, Callable
+
+from .layer import Layer
+from .dynamic_config import DynamicConfig
+from .feature_gate import FeatureGate
 from .statsig_errors import StatsigValueError
 from .interface_data_store import IDataStore
 from .statsig_environment_tier import StatsigEnvironmentTier
@@ -34,6 +38,7 @@ class StatsigOptions:
         custom_logger: Optional[OutputLogger] = None,
         enable_debug_logs = False,
         disable_all_logging = False,
+        evaluation_callback: Optional[Callable[[Union[Layer, DynamicConfig, FeatureGate]], None]] = None,
     ):
         self.data_store = data_store
         self._environment = None
@@ -66,6 +71,7 @@ class StatsigOptions:
         self.custom_logger = custom_logger
         self.enable_debug_logs = enable_debug_logs
         self.disable_all_logging = disable_all_logging
+        self.evaluation_callback = evaluation_callback
         self._set_logging_copy()
 
     def get_logging_copy(self):
