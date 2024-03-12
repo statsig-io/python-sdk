@@ -55,7 +55,13 @@ class _StatsigErrorBoundary:
 
         self.capture(tag, task, empty_recover)
 
-    def log_exception(self, tag: str, exception: Exception, extra: dict = None):
+    def log_exception(
+        self,
+        tag: str,
+        exception: Exception,
+        extra: dict = None,
+        bypass_dedupe: bool = False,
+    ):
         try:
             if self._is_silent is False:
                 globals.logger.warning("[Statsig]: An unexpected error occurred.")
@@ -67,7 +73,9 @@ class _StatsigErrorBoundary:
                 return
 
             name = type(exception).__name__
-            if self._api_key is None or name in self._seen:
+            if self._api_key is None:
+                return
+            if bypass_dedupe is False and name in self._seen:
                 return
             self._seen.add(name)
             requests.post(

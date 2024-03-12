@@ -327,6 +327,7 @@ class _StatsigLogger:
                             "statsig::log_event_failed",
                             Exception(message),
                             {"eventCount": retry_logs.event_count, "error": message},
+                            bypass_dedupe = True
                         )
                         self._console_logger.warning(message)
                         return
