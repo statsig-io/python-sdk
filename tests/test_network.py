@@ -6,6 +6,7 @@ from statsig.statsig_event import StatsigEvent
 from statsig.statsig_metadata import _StatsigMetadata
 from statsig.statsig_network import _StatsigNetwork
 from statsig.statsig_user import StatsigUser
+from statsig.diagnostics import Diagnostics
 from statsig import globals
 from statsig import StatsigOptions
 
@@ -16,7 +17,7 @@ class TestNetwork(unittest.TestCase):
         # This test logspews expected errors, but the test itself should pass
         globals.logger._disabled = False
         metadata = _StatsigMetadata.get()
-        cls.net = _StatsigNetwork("secret-test", StatsigOptions(disable_diagnostics=True), metadata, _StatsigErrorBoundary())
+        cls.net = _StatsigNetwork("secret-test", StatsigOptions(disable_diagnostics=True), metadata, _StatsigErrorBoundary(), Diagnostics())
         cls.net._raise_on_error = True
 
     @classmethod

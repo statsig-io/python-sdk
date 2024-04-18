@@ -3,7 +3,7 @@ import requests
 from .statsig_errors import StatsigNameError, StatsigRuntimeError, StatsigValueError
 
 from .statsig_options import StatsigOptions
-from .diagnostics import Diagnostics, Key, Context
+from .diagnostics import Diagnostics, Key, Context, Marker
 from . import globals
 
 REQUEST_TIMEOUT = 20
@@ -23,6 +23,9 @@ class _StatsigErrorBoundary:
     ):
         self._options = statsig_options
         self._metadata = statsig_metadata
+
+    def set_diagnostics(self, diagnostics: Diagnostics):
+        self._diagnostics = diagnostics
 
     def set_api_key(self, api_key):
         self._api_key = api_key
@@ -108,11 +111,11 @@ class _StatsigErrorBoundary:
             if key is None:
                 return None
             markerID = (
-                f"{key.value}_{Diagnostics.get_marker_count(Context.API_CALL.value)}"
+                f"{key.value}_{self._diagnostics.get_marker_count(Context.API_CALL.value)}"
             )
-            Diagnostics.mark().api_call(key).start(
+            self._diagnostics.add_marker(Marker().api_call(key).start(
                 {"configName": configName, "markerID": markerID}
-            )
+            ))
             return markerID
         except BaseException:
             return None
@@ -121,8 +124,8 @@ class _StatsigErrorBoundary:
         try:
             if markerID is None or key is None:
                 return
-            Diagnostics.mark().api_call(key).end(
+            self._diagnostics.add_marker(Marker().api_call(key).end(
                 {"markerID": markerID, "success": success, "configName": configName}
-            )
+            ))
         except BaseException:
             pass

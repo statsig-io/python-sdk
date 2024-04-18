@@ -15,7 +15,7 @@ from .statsig_network import _StatsigNetwork
 from .statsig_logger import _StatsigLogger
 from .dynamic_config import DynamicConfig
 from .statsig_options import StatsigOptions
-from .diagnostics import Diagnostics
+from .diagnostics import Diagnostics, Marker
 from .utils import HashingAlgorithm
 from . import globals
 
@@ -56,11 +56,11 @@ class StatsigServer:
     def _initialize_impl(self, sdk_key: str, options: StatsigOptions):
         threw_error = False
         try:
-            Diagnostics.initialize()
-            Diagnostics.mark().overall().start()
+            diagnostics = Diagnostics()
+            diagnostics.add_marker(Marker().overall().start())
 
             self._errorBoundary.set_api_key(sdk_key)
-
+            self._errorBoundary.set_diagnostics(diagnostics)
             if options is None:
                 options = StatsigOptions()
             self._options = options
@@ -70,7 +70,7 @@ class StatsigServer:
                 self._options, self.__statsig_metadata
             )
             self._network = _StatsigNetwork(
-                sdk_key, self._options, self.__statsig_metadata, self._errorBoundary
+                sdk_key, self._options, self.__statsig_metadata, self._errorBoundary, diagnostics
             )
             self._logger = _StatsigLogger(
                 self._network,
@@ -78,10 +78,11 @@ class StatsigServer:
                 self.__statsig_metadata,
                 self._errorBoundary,
                 self._options,
+                diagnostics
             )
-            Diagnostics.set_logger(self._logger)
-            Diagnostics.set_statsig_options(self._options)
-            Diagnostics.set_diagnostics_enabled(self._options.disable_diagnostics)
+            diagnostics.set_logger(self._logger)
+            diagnostics.set_statsig_options(self._options)
+            diagnostics.set_diagnostics_enabled(self._options.disable_diagnostics)
 
             self._spec_store = _SpecStore(
                 self._network,
@@ -90,6 +91,7 @@ class StatsigServer:
                 self._errorBoundary,
                 self.__shutdown_event,
                 sdk_key,
+                diagnostics
             )
             self._evaluator = _Evaluator(self._spec_store)
 
@@ -105,8 +107,8 @@ class StatsigServer:
             self._errorBoundary.log_exception("initialize", e)
             self._initialized = True
         finally:
-            Diagnostics.mark().overall().end({"success": not threw_error})
-            Diagnostics.log_diagnostics("initialize")
+            diagnostics.add_marker(Marker().overall().end({"success": not threw_error}))
+            diagnostics.log_diagnostics("initialize")
 
     def check_gate(self, user: StatsigUser, gate_name: str, log_exposure=True):
         def task():

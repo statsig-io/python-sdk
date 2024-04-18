@@ -3,7 +3,7 @@ import time
 from io import BytesIO
 import gzip
 import requests
-from .diagnostics import Diagnostics
+from .diagnostics import Diagnostics, Marker
 from .sdk_flags import _SDKFlags
 from .statsig_options import StatsigOptions
 from .statsig_error_boundary import _StatsigErrorBoundary
@@ -25,6 +25,7 @@ class _StatsigNetwork:
         options: StatsigOptions,
         statsig_metadata: dict,
         error_boundary: _StatsigErrorBoundary,
+        diagnostics: Diagnostics
     ):
         self.__sdk_key = sdk_key
         api = options.api or STATSIG_API
@@ -40,6 +41,7 @@ class _StatsigNetwork:
         self.__local_mode = options.local_mode
         self.__error_boundary = error_boundary
         self.__statsig_metadata = statsig_metadata
+        self.__diagnostics = diagnostics
 
     def download_config_specs(self, since_time=0, log_on_exception=False, timeout=None):
         response = self._get_request(
@@ -100,7 +102,7 @@ class _StatsigNetwork:
 
         create_marker = self._get_diagnostics_from_url_or_tag(url, tag)
         if create_marker is not None:
-            create_marker().start()
+            self.__diagnostics.add_marker(create_marker().start())
 
         base_headers = {
             "Content-type": "application/json",
@@ -138,13 +140,13 @@ class _StatsigNetwork:
             )
 
             if create_marker is not None:
-                create_marker().end(
+                self.__diagnostics.add_marker(create_marker().end(
                     {
                         "statusCode": response.status_code,
                         "success": response.ok,
                         "sdkRegion": response.headers.get("x-statsig-region"),
                     }
-                )
+                ))
 
             if response.status_code < 200 or response.status_code >= 300:
                 globals.logger.warning(
@@ -153,7 +155,7 @@ class _StatsigNetwork:
             return response
         except Exception as err:
             if create_marker is not None:
-                create_marker().end(
+                self.__diagnostics.add_marker(create_marker().end(
                     {
                         "statusCode": response.status_code
                         if response is not None
@@ -161,7 +163,7 @@ class _StatsigNetwork:
                         "success": False,
                         "error": Diagnostics.format_error(err),
                     }
-                )
+                ))
             if log_on_exception:
                 self.__error_boundary.log_exception(
                     "request:" + tag, err, {"timeoutMs": timeout * 1000, "httpMethod": method})
@@ -195,9 +197,9 @@ class _StatsigNetwork:
 
     def _get_diagnostics_from_url_or_tag(self, url: str, tag: str):
         if 'download_config_specs' in url or tag == "download_config_specs":
-            return lambda: Diagnostics.mark({'url': url}).download_config_specs().network_request()
+            return lambda: Marker(url = url).download_config_specs().network_request()
         if 'get_id_lists' in url or tag == "get_id_lists":
-            return lambda: Diagnostics.mark({'url': url}).get_id_list_sources().network_request()
+            return lambda: Marker(url = url).get_id_list_sources().network_request()
         if 'idliststorage' in url or tag == "get_id_list":
-            return lambda: Diagnostics.mark({'url': url}).get_id_list().network_request()
+            return lambda: Marker(url = url).get_id_list().network_request()
         return None

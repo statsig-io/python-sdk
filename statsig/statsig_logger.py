@@ -40,7 +40,7 @@ class _StatsigLogger:
     _background_retry: Optional[threading.Thread]
     _background_exposure_handler: Optional[threading.Thread]
 
-    def __init__(self, net: _StatsigNetwork, shutdown_event, statsig_metadata, error_boundary, options):
+    def __init__(self, net: _StatsigNetwork, shutdown_event, statsig_metadata, error_boundary, options, diagnostics: Diagnostics):
         self._events = []
         self._retry_logs = collections.deque(maxlen=10)
         self._deduper = set()
@@ -61,6 +61,7 @@ class _StatsigLogger:
         self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
         self._futures = collections.deque(maxlen=10)
         self._exposure_aggregation_data = collections.defaultdict(ExposureAggregationData)
+        self._diagnostics = diagnostics
 
     def spawn_bg_threads_if_needed(self):
         if self._local_mode:
@@ -374,10 +375,10 @@ class _StatsigLogger:
         return True
 
     def _add_diagnostics_api_call_event(self):
-        if self._local_mode or not Diagnostics.should_log_diagnostics(Context.API_CALL):
+        if self._local_mode or not self._diagnostics.should_log_diagnostics(Context.API_CALL):
             return
-        markers = Diagnostics.get_markers(Context.API_CALL.value)
-        Diagnostics.clear_context(Context.API_CALL.value)
+        markers = self._diagnostics.get_markers(Context.API_CALL.value)
+        self._diagnostics.clear_context(Context.API_CALL.value)
         if len(markers) == 0:
             return
         metadata = {

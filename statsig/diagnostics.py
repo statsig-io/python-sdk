@@ -125,14 +125,14 @@ class Marker:
         if data is not None:
             for key, value in data.items():
                 setattr(self, key, value)
-        return Diagnostics.add_marker(self)
+        return self
 
     def end(self, data=None):
         self.action = Action.END
         if data is not None:
             for key, value in data.items():
                 setattr(self, key, value)
-        return Diagnostics.add_marker(self)
+        return self
 
     # Select Step #
 
@@ -175,7 +175,7 @@ class Marker:
         return self
 
 
-class DiagnosticsImpl:
+class Diagnostics:
     def __init__(self, markers=None):
         self.context_to_markers = markers or {
             "initialize": [],
@@ -207,13 +207,6 @@ class DiagnosticsImpl:
         self.logger = logger
         return self
 
-    def mark(self, data=None):
-        marker = Marker()
-        if data is not None:
-            for key, value in data.items():
-                setattr(marker, key, value)
-        return marker
-
     def set_context(self, context: Context):
         self.context = context
         return self
@@ -242,10 +235,7 @@ class DiagnosticsImpl:
         self.context_to_markers[context] = []
 
     def log_diagnostics(self, context: Context, key: Key = None):
-        if (
-            self.logger is None
-            or len(self.context_to_markers[context]) == 0
-        ):
+        if self.logger is None or len(self.context_to_markers[context]) == 0:
             return
 
         metadata = {
@@ -300,29 +290,6 @@ class DiagnosticsImpl:
             return rand < self.sampling_rate.get(SamplingRate.DCS.value, 0)
         return rand < DEFAULT_SAMPLING_RATE  # error in code
 
-
-class Diagnostics:
-    instance = None
-
-    @staticmethod
-    def initialize():
-        Diagnostics.instance = DiagnosticsImpl()
-        Diagnostics.set_diagnostics_enabled = (
-            Diagnostics.instance.set_diagnostics_enabled
-        )
-        Diagnostics.set_logger = Diagnostics.instance.set_logger
-        Diagnostics.mark = Diagnostics.instance.mark
-        Diagnostics.add_marker = Diagnostics.instance.add_marker
-        Diagnostics.get_marker_count = Diagnostics.instance.get_marker_count
-        Diagnostics.get_markers = Diagnostics.instance.get_markers
-        Diagnostics.set_max_markers = Diagnostics.instance.set_max_markers
-        Diagnostics.set_context = Diagnostics.instance.set_context
-        Diagnostics.clear_context = Diagnostics.instance.clear_context
-        Diagnostics.log_diagnostics = Diagnostics.instance.log_diagnostics
-        Diagnostics.set_sampling_rate = Diagnostics.instance.set_sampling_rate
-        Diagnostics.set_statsig_options = Diagnostics.instance.set_statsig_options
-        Diagnostics.should_log_diagnostics = Diagnostics.instance.should_log_diagnostics
-
     @staticmethod
     def format_error(e: Exception):
         if e is None:
@@ -330,9 +297,3 @@ class Diagnostics:
         return {
             "name": type(e).__name__,
         }
-
-    @staticmethod
-    def _safe_get_field(data: dict, field: str) -> str:
-        if field in data:
-            return str(data[field])
-        return None

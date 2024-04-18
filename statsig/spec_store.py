@@ -12,7 +12,7 @@ from .statsig_errors import StatsigValueError, StatsigNameError
 from .statsig_network import _StatsigNetwork
 from .statsig_options import StatsigOptions
 from .thread_util import spawn_background_thread, THREAD_JOIN_TIMEOUT
-from .diagnostics import Context, Diagnostics
+from .diagnostics import Context, Diagnostics, Marker
 from . import globals
 
 RULESETS_SYNC_INTERVAL = 10
@@ -25,7 +25,7 @@ class _SpecStore:
     _background_download_id_lists: Optional[threading.Thread]
 
     def __init__(self, network: _StatsigNetwork, options: StatsigOptions, statsig_metadata: dict,
-                 error_boundary: _StatsigErrorBoundary, shutdown_event: threading.Event, sdk_key: str):
+                 error_boundary: _StatsigErrorBoundary, shutdown_event: threading.Event, sdk_key: str, diagnostics: Diagnostics):
         self.last_update_time = 0
         self.initial_update_time = 0
         self.init_reason = EvaluationReason.uninitialized
@@ -35,6 +35,7 @@ class _SpecStore:
         self._statsig_metadata = statsig_metadata
         self._error_boundary = error_boundary
         self._shutdown_event = shutdown_event
+        self._diagnostics = diagnostics
         self._executor = ThreadPoolExecutor(options.idlist_threadpool_size)
         self._background_download_configs = None
         self._background_download_id_lists = None
@@ -75,7 +76,7 @@ class _SpecStore:
     def spawn_bg_threads_if_needed(self):
         if self._options.local_mode:
             return
-        Diagnostics.set_context(Context.CONFIG_SYNC.value)
+        self._diagnostics.set_context(Context.CONFIG_SYNC.value)
 
         if self._background_download_configs is None or not self._background_download_configs.is_alive():
             self._spawn_bg_download_config_specs()
@@ -184,7 +185,7 @@ class _SpecStore:
         _SDKFlags.set_flags(flags)
 
         sampling_rate = specs_json.get("diagnostics", {})
-        Diagnostics.set_sampling_rate(sampling_rate)
+        self._diagnostics.set_sampling_rate(sampling_rate)
 
         if callable(self._options.rules_updated_callback):
             self._options.rules_updated_callback(json.dumps(specs_json))
@@ -193,7 +194,7 @@ class _SpecStore:
         return True
 
     def _bootstrap_config_specs(self):
-        Diagnostics.mark().bootstrap().process().start()
+        self._diagnostics.add_marker(Marker().bootstrap().process().start())
         if self._options.bootstrap_values is None:
             return
 
@@ -209,8 +210,8 @@ class _SpecStore:
             globals.logger.error(
                 'Failed to parse bootstrap_values')
         finally:
-            Diagnostics.mark().bootstrap().process().end(
-                {'success': self.init_reason is EvaluationReason.bootstrap})
+            self._diagnostics.add_marker(Marker().bootstrap().process().end(
+                {'success': self.init_reason is EvaluationReason.bootstrap}))
 
     def _spawn_bg_download_config_specs(self):
         interval = self._options.rulesets_sync_interval or RULESETS_SYNC_INTERVAL
@@ -246,11 +247,11 @@ class _SpecStore:
         except Exception as e:
             raise e
         finally:
-            Diagnostics.log_diagnostics("config_sync", "download_config_specs")
+            self._diagnostics.log_diagnostics("config_sync", "download_config_specs")
 
     def download_config_spec_process(self, specs):
         try:
-            Diagnostics.mark().download_config_specs().process().start()
+            self._diagnostics.add_marker(Marker().download_config_specs().process().start())
 
             self._log_process("Done loading specs")
             if self._process_specs(specs):
@@ -259,8 +260,8 @@ class _SpecStore:
         except Exception as e:
             raise e
         finally:
-            Diagnostics.mark().download_config_specs().process().end(
-                {'success': self.init_reason == EvaluationReason.network})
+            self._diagnostics.add_marker(Marker().download_config_specs().process().end(
+                {'success': self.init_reason == EvaluationReason.network}))
 
     def _save_to_storage_adapter(self, specs):
         if not self._is_specs_json_valid(specs):
@@ -320,13 +321,13 @@ class _SpecStore:
         except Exception as e:
             raise e
         finally:
-            Diagnostics.log_diagnostics("config_sync", "get_id_lists")
+            self._diagnostics.log_diagnostics("config_sync", "get_id_lists")
 
     def _download_id_lists_process(self, server_id_lists):
         threw_error = False
         try:
-            Diagnostics.mark().get_id_list_sources().process().start(
-                {'idListCount': len(server_id_lists)})
+            self._diagnostics.add_marker(Marker().get_id_list_sources().process().start(
+                {'idListCount': len(server_id_lists)}))
             local_id_lists = self._id_lists
             workers = []
 
@@ -384,7 +385,7 @@ class _SpecStore:
             threw_error = True
             self._error_boundary.log_exception("_download_id_lists_process", e)
         finally:
-            Diagnostics.mark().get_id_list_sources().process().end({'success': not threw_error})
+            self._diagnostics.add_marker(Marker().get_id_list_sources().process().end({'success': not threw_error}))
 
     def _download_single_id_list(
             self, url, list_name, local_list, all_lists, start_index):
@@ -394,7 +395,7 @@ class _SpecStore:
             return
         threw_error = False
         try:
-            Diagnostics.mark().get_id_list().process().start({'url': url})
+            self._diagnostics.add_marker(Marker().get_id_list().process().start({'url': url}))
             content_length_str = resp.headers.get('content-length')
             if content_length_str is None:
                 raise StatsigValueError("Content length invalid.")
@@ -421,10 +422,10 @@ class _SpecStore:
             threw_error = True
             self._error_boundary.log_exception("_download_single_id_list", e)
         finally:
-            Diagnostics.mark().get_id_list().process().end({
+            self._diagnostics.add_marker(Marker().get_id_list().process().end({
                 'url': url,
                 'success': not threw_error,
-            })
+            }))
 
     def _sync(self, sync_func, interval, fast_start=False):
         if fast_start:
