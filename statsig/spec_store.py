@@ -247,7 +247,7 @@ class _SpecStore:
         except Exception as e:
             raise e
         finally:
-            self._diagnostics.log_diagnostics("config_sync", "download_config_specs")
+            self._diagnostics.log_diagnostics(Context.CONFIG_SYNC, "download_config_specs")
 
     def download_config_spec_process(self, specs):
         try:
@@ -321,7 +321,7 @@ class _SpecStore:
         except Exception as e:
             raise e
         finally:
-            self._diagnostics.log_diagnostics("config_sync", "get_id_lists")
+            self._diagnostics.log_diagnostics(Context.CONFIG_SYNC, "get_id_lists")
 
     def _download_id_lists_process(self, server_id_lists):
         threw_error = False

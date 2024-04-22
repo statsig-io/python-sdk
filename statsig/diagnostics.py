@@ -79,6 +79,7 @@ class Marker:
         isRetry: bool = None,
         configName: str = None,
         error: dict = None,
+        payloadSize: int = None,
     ):
         self.key = key
         self.action = action
@@ -96,6 +97,7 @@ class Marker:
         self.isRetry = isRetry
         self.configName = configName
         self.error = error
+        self.payloadSize = payloadSize
 
     def to_dict(self) -> Dict:
         marker_dict = {
@@ -115,6 +117,7 @@ class Marker:
             "isRetry": self.isRetry,
             "configName": self.configName,
             "error": self.error,
+            "payloadSize": self.payloadSize,
         }
         return {k: v for k, v in marker_dict.items() if v is not None}
 
@@ -174,13 +177,17 @@ class Marker:
         self.key = key
         return self
 
+    def log_event(self):
+        self.context = Context.LOG_EVENT.value
+        return self
+
 
 class Diagnostics:
     def __init__(self, markers=None):
         self.context_to_markers = markers or {
             "initialize": [],
             "config_sync": [],
-            "event_logging": [],
+            "log_event": [],
             "api_call": [],
         }
         self.context = "initialize"
@@ -235,22 +242,22 @@ class Diagnostics:
         self.context_to_markers[context] = []
 
     def log_diagnostics(self, context: Context, key: Key = None):
-        if self.logger is None or len(self.context_to_markers[context]) == 0:
+        if self.logger is None or len(self.context_to_markers[context.value]) == 0:
             return
 
         metadata = {
             "markers": [
-                marker.to_dict() for marker in self.context_to_markers[context]
+                marker.to_dict() for marker in self.context_to_markers[context.value]
             ],
             "context": context,
         }
-        if context == Context.INITIALIZE.value:
+        if context == Context.INITIALIZE:
             metadata["statsigOptions"] = (
                 self.statsig_options.get_logging_copy()
                 if isinstance(self.statsig_options, StatsigOptions)
                 else None
             )
-        self.clear_context(context)
+        self.clear_context(context.value)
 
         if self.should_log_diagnostics(context, key):
             self.logger.log_diagnostics_event(metadata)
@@ -277,10 +284,9 @@ class Diagnostics:
 
     def should_log_diagnostics(self, context: Context, key: Key = None) -> bool:
         rand = random.random() * MAX_SAMPLING_RATE
-
-        if context == Context.LOG_EVENT.value:
+        if context == Context.LOG_EVENT:
             return rand < self.sampling_rate.get(SamplingRate.LOG_EVENT.value, 0)
-        if context == Context.INITIALIZE.value:
+        if context == Context.INITIALIZE:
             return rand < self.sampling_rate.get(SamplingRate.INITIALIZE.value, 0)
         if context == Context.API_CALL:
             return rand < self.sampling_rate.get(SamplingRate.API_CALL.value, 0)

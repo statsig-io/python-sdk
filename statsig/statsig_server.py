@@ -15,7 +15,7 @@ from .statsig_network import _StatsigNetwork
 from .statsig_logger import _StatsigLogger
 from .dynamic_config import DynamicConfig
 from .statsig_options import StatsigOptions
-from .diagnostics import Diagnostics, Marker
+from .diagnostics import Context, Diagnostics, Marker
 from .utils import HashingAlgorithm
 from . import globals
 
@@ -108,7 +108,7 @@ class StatsigServer:
             self._initialized = True
         finally:
             diagnostics.add_marker(Marker().overall().end({"success": not threw_error}))
-            diagnostics.log_diagnostics("initialize")
+            diagnostics.log_diagnostics(Context.INITIALIZE)
 
     def check_gate(self, user: StatsigUser, gate_name: str, log_exposure=True):
         def task():
@@ -405,9 +405,6 @@ class StatsigServer:
             return dict({"feature_gates": {}, "dynamic_configs": {}})
 
         return self._errorBoundary.capture("evaluate_all", task, recover)
-
-    def _log_diagnostics(self):
-        self._logger.log_diagnostics_event("initialize")
 
     def _verify_inputs(self, user: StatsigUser, variable_name: str):
         if not self._initialized:

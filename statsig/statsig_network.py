@@ -42,6 +42,7 @@ class _StatsigNetwork:
         self.__error_boundary = error_boundary
         self.__statsig_metadata = statsig_metadata
         self.__diagnostics = diagnostics
+        self.__request_count = 0
 
     def download_config_specs(self, since_time=0, log_on_exception=False, timeout=None):
         response = self._get_request(
@@ -101,8 +102,10 @@ class _StatsigNetwork:
             return None
 
         create_marker = self._get_diagnostics_from_url_or_tag(url, tag)
+        marker_id = str(self.__request_count) if(tag == 'log_event') else None
+        self.__request_count+=1
         if create_marker is not None:
-            self.__diagnostics.add_marker(create_marker().start())
+            self.__diagnostics.add_marker(create_marker().start({'markerID': marker_id}))
 
         base_headers = {
             "Content-type": "application/json",
@@ -127,6 +130,7 @@ class _StatsigNetwork:
                 payload = self._zip_payload(payload)
 
         response = None
+        payload_size = len(payload) if payload is not None else None
         try:
             if timeout is None:
                 timeout = self.__req_timeout
@@ -145,6 +149,8 @@ class _StatsigNetwork:
                         "statusCode": response.status_code,
                         "success": response.ok,
                         "sdkRegion": response.headers.get("x-statsig-region"),
+                        "payloadSize": payload_size,
+                        "markerID": marker_id
                     }
                 ))
 
@@ -162,6 +168,8 @@ class _StatsigNetwork:
                         else None,
                         "success": False,
                         "error": Diagnostics.format_error(err),
+                        "payloadSize": payload_size,
+                        "markerID": marker_id
                     }
                 ))
             if log_on_exception:
@@ -202,4 +210,6 @@ class _StatsigNetwork:
             return lambda: Marker(url = url).get_id_list_sources().network_request()
         if 'idliststorage' in url or tag == "get_id_list":
             return lambda: Marker(url = url).get_id_list().network_request()
+        if 'log_event' in url or tag == "log_event":
+            return lambda: Marker().log_event().network_request()
         return None

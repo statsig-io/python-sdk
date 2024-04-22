@@ -233,7 +233,8 @@ class _StatsigLogger:
             self._retry_logs.append(RetryableLogs(res, headers, event_count, 0))
 
     def flush(self):
-        self._add_diagnostics_api_call_event()
+        self._add_diagnostics_event(Context.API_CALL)
+        self._add_diagnostics_event(Context.LOG_EVENT)
         self._flush_aggregated_data()
         event_count = len(self._events)
         if event_count == 0:
@@ -374,16 +375,16 @@ class _StatsigLogger:
         self._deduper.add(key)
         return True
 
-    def _add_diagnostics_api_call_event(self):
-        if self._local_mode or not self._diagnostics.should_log_diagnostics(Context.API_CALL):
+    def _add_diagnostics_event(self, context: Context):
+        if self._local_mode or not self._diagnostics.should_log_diagnostics(context):
             return
-        markers = self._diagnostics.get_markers(Context.API_CALL.value)
-        self._diagnostics.clear_context(Context.API_CALL.value)
+        markers = self._diagnostics.get_markers(context.value)
+        self._diagnostics.clear_context(context.value)
         if len(markers) == 0:
             return
         metadata = {
             "markers": [marker.to_dict() for marker in markers],
-            "context": Context.API_CALL,
+            "context": context,
         }
         event = StatsigEvent(None, _DIAGNOSTICS_EVENT)
         event.metadata = metadata
