@@ -38,6 +38,13 @@ class TestLayer(unittest.TestCase):
         self.assertEqual(layer.get_typed("arr", 33), 33)
         self.assertEqual(layer.get_typed("nonexistent", "hello"), "hello")
 
+        self.assertDictEqual(layer.get_values(), {
+            "str": "string",
+            "num": 4,
+            "bool": True,
+            "arr": [17],
+        })
+
         # List types do not differentiate the type of the values in the list
         self.assertEqual(layer.get_typed("arr", ["str_arr"]), [17])
 

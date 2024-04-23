@@ -61,6 +61,10 @@ class Layer:
         """Returns the name of this Layer"""
         return self.name
 
+    def get_values(self):
+        """Returns all the values in this Layer but does not trigger an exposure log"""
+        return self.__value
+
     def _log_parameter_exposure(self, parameter_name):
         if self.__log_func is None:
             return
