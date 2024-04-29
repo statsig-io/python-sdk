@@ -42,6 +42,7 @@ class TestStatsigErrorBoundary(unittest.TestCase):
             called = True
 
         self._boundary.capture("", task, recover)
+        self._boundary.shutdown(True)
         self.assertTrue(called)
 
     def test_has_default_recovery_of_none(self, mock_post):
@@ -49,6 +50,7 @@ class TestStatsigErrorBoundary(unittest.TestCase):
             raise RuntimeError()
 
         res = self._boundary.swallow("", task)
+        self._boundary.shutdown(True)
         self.assertIsNone(res)
 
     def test_logging_to_correct_endpoint(self, mock_post):
@@ -164,6 +166,7 @@ class TestStatsigErrorBoundary(unittest.TestCase):
         return err
 
     def _get_requests(self):
+        self._boundary.shutdown(True)
         return TestStatsigErrorBoundary.requests
 
 

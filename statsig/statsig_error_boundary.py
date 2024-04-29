@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 import traceback
 import requests
 from .statsig_errors import StatsigNameError, StatsigRuntimeError, StatsigValueError
@@ -6,8 +7,7 @@ from .statsig_options import StatsigOptions
 from .diagnostics import Diagnostics, Key, Context
 from . import globals
 
-REQUEST_TIMEOUT = 20
-
+REQUEST_TIMEOUT = 5
 
 class _StatsigErrorBoundary:
     endpoint = "https://statsigapi.net/v1/sdk_exception"
@@ -17,6 +17,7 @@ class _StatsigErrorBoundary:
     def __init__(self, is_silent=False):
         self._seen = set()
         self._is_silent = is_silent
+        self._executor = ThreadPoolExecutor(max_workers=1)
 
     def set_statsig_options_and_metadata(
         self, statsig_options: StatsigOptions, statsig_metadata: dict
@@ -55,6 +56,9 @@ class _StatsigErrorBoundary:
 
         self.capture(tag, task, empty_recover)
 
+    def shutdown(self, wait=False):
+        self._executor.shutdown(wait)
+
     def log_exception(
         self,
         tag: str,
@@ -78,18 +82,30 @@ class _StatsigErrorBoundary:
             if bypass_dedupe is False and name in self._seen:
                 return
             self._seen.add(name)
+
+            self._executor.submit(
+                self._post_exception,
+                name,
+                traceback.format_exc(),
+                tag,
+                extra,
+            )
+        except BaseException:
+            # no-op, best effort
+            pass
+
+    def _post_exception(self, name, info, tag, extra):
+        try:
             requests.post(
                 self.endpoint,
                 json={
-                    "exception": type(exception).__name__,
-                    "info": traceback.format_exc(),
+                    "exception": name,
+                    "info": info,
                     "statsigMetadata": self._metadata,
                     "tag": tag,
                     "extra": extra,
                     "statsigOptions": (
-                        self._options.get_logging_copy()
-                        if isinstance(self._options, StatsigOptions)
-                        else None
+                        self._options.get_logging_copy() if isinstance(self._options, StatsigOptions) else None
                     ),
                 },
                 headers={
@@ -101,6 +117,7 @@ class _StatsigErrorBoundary:
                 timeout=REQUEST_TIMEOUT,
             )
         except BaseException:
+            # no-op, best effort
             pass
 
     def _start_diagnostics(self, key, configName):

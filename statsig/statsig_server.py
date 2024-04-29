@@ -301,6 +301,7 @@ class StatsigServer:
             self.__shutdown_event.set()
             self._logger.shutdown()
             self._spec_store.shutdown()
+            self._errorBoundary.shutdown()
             self._initialized = False
 
         self._errorBoundary.swallow("shutdown", task)
