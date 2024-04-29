@@ -10,3 +10,6 @@ class IDataStore:
 
     def shutdown(self):
         pass
+
+    def should_be_used_for_querying_updates(self, key: str) -> bool:
+        return False

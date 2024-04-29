@@ -217,11 +217,18 @@ class _SpecStore:
         interval = self._options.rulesets_sync_interval or RULESETS_SYNC_INTERVAL
         fast_start = self._sync_failure_count > 0
 
-        self._background_download_configs = spawn_background_thread(
-            "bg_download_config_specs",
-            self._sync,
-            (self._download_config_specs, interval, fast_start),
-            self._error_boundary)
+        if self._options.data_store is not None and self._options.data_store.should_be_used_for_querying_updates(STORAGE_ADAPTER_KEY):
+            self._background_download_configs = spawn_background_thread(
+                "bg_download_config_specs_from_storage_adapter",
+                self._sync,
+                (self._load_config_specs_from_storage_adapter, interval, fast_start),
+                self._error_boundary)
+        else:
+            self._background_download_configs = spawn_background_thread(
+                "bg_download_config_specs",
+                self._sync,
+                (self._download_config_specs, interval, fast_start),
+                self._error_boundary)
 
     def _download_config_specs(self, for_initialize=False):
         self._log_process("Loading specs from network...")
@@ -280,6 +287,8 @@ class _SpecStore:
         if self._options.data_store is None:
             return
 
+        self._diagnostics.add_marker(Marker().data_store_config_specs().process().start())
+
         cache_string = self._options.data_store.get(STORAGE_ADAPTER_KEY)
         if not isinstance(cache_string, str):
             return
@@ -297,6 +306,10 @@ class _SpecStore:
         self._log_process("Done loading specs")
         if self._process_specs(cache):
             self.init_reason = EvaluationReason.data_adapter
+
+        self._diagnostics.add_marker(Marker().data_store_config_specs().process().end(
+                {'success': self.init_reason == EvaluationReason.data_adapter}))
+        self._diagnostics.log_diagnostics(Context.CONFIG_SYNC, "data_store_config_specs")
 
     def _spawn_bg_download_id_lists(self):
 

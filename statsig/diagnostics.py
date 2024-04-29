@@ -14,6 +14,7 @@ class Context(Enum):
 
 class Key(Enum):
     DOWNLOAD_CONFIG_SPECS = "download_config_specs"
+    DATA_STORE_CONFIG_SPECS = "data_store_config_specs"
     BOOTSTRAP = "bootstrap"
     OVERALL = "overall"
     GET_ID_LIST = "get_id_list"
@@ -151,6 +152,10 @@ class Marker:
 
     def download_config_specs(self):
         self.key = Key.DOWNLOAD_CONFIG_SPECS
+        return self
+
+    def data_store_config_specs(self):
+        self.key = Key.DATA_STORE_CONFIG_SPECS
         return self
 
     def bootstrap(self):
