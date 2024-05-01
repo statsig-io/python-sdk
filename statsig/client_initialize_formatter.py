@@ -2,6 +2,7 @@ import base64
 from hashlib import sha256
 from typing import Any, Dict, Optional
 
+from .config_evaluation import _ConfigEvaluation
 from .statsig_user import StatsigUser
 from .spec_store import _SpecStore
 from .utils import HashingAlgorithm, djb2_hash
@@ -41,7 +42,8 @@ class ClientInitializeResponseFormatter:
             if target_app_id is not None and target_app_id not in config_target_apps:
                 return None
 
-            eval_result = eval_func(user, config_spec)
+            eval_result = _ConfigEvaluation()
+            eval_func(user, config_spec, eval_result)
             if eval_result is None:
                 return None
 
@@ -111,7 +113,8 @@ class ClientInitializeResponseFormatter:
 
             if delegate is not None and delegate != "":
                 delegate_spec = spec_store.get_config(delegate)
-                delegate_result = eval_func(user, delegate_spec)
+                delegate_result = _ConfigEvaluation()
+                eval_func(user, delegate_spec, delegate_result)
 
                 if delegate_spec is not None:
                     result["allocated_experiment_name"] = hash_name(delegate, hash_algo)

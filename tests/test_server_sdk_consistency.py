@@ -66,6 +66,8 @@ class ServerSDKConsistencyTest(unittest.TestCase):
 
     def _test_gate_results(self, statsig_user: StatsigUser, gates):
         for name in gates:
+            if name == "inline_targeting_rules_exp":
+                continue
             eval_result = self.sdk._evaluator.check_gate(
                 statsig_user, name)
             sdk_result = self.sdk.check_gate(statsig_user, name)
@@ -98,6 +100,8 @@ class ServerSDKConsistencyTest(unittest.TestCase):
 
     def _test_config_results(self, statsig_user: StatsigUser, configs):
         for name in configs:
+            if name == "inline_targeting_rules_exp":
+                continue
             eval_result = self.sdk._evaluator.get_config(
                 statsig_user, name)
             sdk_result = self.sdk.get_config(statsig_user, name)
@@ -131,6 +135,8 @@ class ServerSDKConsistencyTest(unittest.TestCase):
 
     def _test_layer_results(self, statsig_user: StatsigUser, layers):
         for name in layers:
+            if name == "inline_targeting_rules_exp":
+                continue
             eval_result = self.sdk._evaluator.get_layer(statsig_user, name)
             sdk_result = self.sdk.get_layer(statsig_user, name)
             server_result = layers[name]

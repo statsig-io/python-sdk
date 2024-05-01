@@ -100,9 +100,6 @@ class BaseStatsigE2ETestCase:
             )
         )
 
-    def test_callback(self, mock_request):
-        time.sleep(2)
-
 
 @patch('requests.request', side_effect=_network_stub.mock)
 class TestStatsigE2EBootstrapped(BaseStatsigE2ETestCase, unittest.TestCase):

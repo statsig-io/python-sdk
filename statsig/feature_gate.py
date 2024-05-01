@@ -12,4 +12,3 @@ class FeatureGate:
     def get_name(self):
         """Returns the name of this FeatureGate"""
         return self.name
-    

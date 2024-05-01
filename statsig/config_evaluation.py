@@ -1,4 +1,4 @@
-from statsig.evaluation_details import EvaluationDetails, EvaluationReason
+from .evaluation_details import EvaluationDetails, EvaluationReason
 
 
 class _ConfigEvaluation:

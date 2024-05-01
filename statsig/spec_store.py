@@ -3,6 +3,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, wait
 from typing import Optional
 
+from .constants import Const
 from .sdk_flags import _SDKFlags
 from .utils import djb2_hash
 
@@ -50,6 +51,7 @@ class _SpecStore:
         self._hashed_sdk_keys_to_app_ids = {}
 
         self._id_lists = {}
+        self.unsupported_configs = set()
 
     def _is_specs_json_valid(self, specs_json):
         if specs_json is None or specs_json.get("time") is None:
@@ -153,6 +155,9 @@ class _SpecStore:
         if not self._is_specs_json_valid(specs_json):
             self._log_process("Failed to process specs")
             return False
+        copy = json.dumps(specs_json)
+        if callable(self._options.rules_updated_callback):
+            self._options.rules_updated_callback(copy)
 
         def get_parsed_specs(key: str):
             parsed = {}
@@ -160,8 +165,34 @@ class _SpecStore:
                 spec_name = spec.get("name")
                 if spec_name is not None:
                     parsed[spec_name] = spec
+                parse_target_value_map_from_spec(spec, parsed)
             return parsed
 
+        def parse_target_value_map_from_spec(spec, parsed):
+            for rule in spec.get("rules", []):
+                for i, cond in enumerate(rule.get("conditions", [])):
+                    op = cond.get("operator", None)
+                    cond_type = cond.get("type", None)
+                    if op is not None:
+                        op = op.lower()
+                        if op not in Const.SUPPORTED_OPERATORS:
+                            self.unsupported_configs.add(spec.get("name"))
+                            del parsed[spec.get("name")]
+                    if cond_type is not None:
+                        cond_type = cond_type.lower()
+                        if cond_type not in Const.SUPPORTED_CONDITION_TYPES:
+                            self.unsupported_configs.add(spec.get("name"))
+                            del parsed[spec.get("name")]
+
+                    if op in ('any', 'none') and cond_type == "user_bucket":
+                        user_bucket_array = cond.get("targetValue", [])
+                        if len(user_bucket_array) == 0:
+                            return
+                        rule["conditions"][i]["user_bucket"] = {}
+                        for val in user_bucket_array:
+                            rule["conditions"][i]["user_bucket"][int(val)] = True
+
+        self.unsupported_configs.clear()
         new_gates = get_parsed_specs("feature_gates")
         new_configs = get_parsed_specs("dynamic_configs")
         new_layers = get_parsed_specs("layer_configs")
@@ -186,9 +217,6 @@ class _SpecStore:
 
         sampling_rate = specs_json.get("diagnostics", {})
         self._diagnostics.set_sampling_rate(sampling_rate)
-
-        if callable(self._options.rules_updated_callback):
-            self._options.rules_updated_callback(json.dumps(specs_json))
 
         self._log_process("Done processing specs")
         return True
