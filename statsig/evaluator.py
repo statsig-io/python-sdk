@@ -213,9 +213,16 @@ class _Evaluator:
             end_result.evaluation_details = self._create_evaluation_details(
                 EvaluationReason.unrecognized)
             return
-        self.__evaluate(user, config, end_result)
-        end_result.evaluation_details = self._create_evaluation_details(
-            self._spec_store.init_reason)
+        try:
+            self.__evaluate(user, config, end_result)
+            end_result.evaluation_details = self._create_evaluation_details(
+                self._spec_store.init_reason)
+        except RecursionError:
+            raise
+        except Exception:
+            end_result.evaluation_details = self._create_evaluation_details(
+                EvaluationReason.error)
+            end_result.rule_id = "error"
 
     def __check_id_in_list(self, id, list_name):
         curr_list = self._spec_store.get_id_list(list_name)

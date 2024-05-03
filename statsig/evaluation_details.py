@@ -10,6 +10,7 @@ class EvaluationReason(str, Enum):
     bootstrap = "Bootstrap"
     data_adapter = "DataAdapter"
     unsupported = "Unsupported"
+    error = "error"
 
 
 class EvaluationDetails:
