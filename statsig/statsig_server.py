@@ -147,7 +147,6 @@ class StatsigServer:
             result.secondary_exposures,
             result.evaluation_details,
             is_manual_exposure=True,
-            aggregate=result.aggregate_exposures,
         )
 
     def get_config(self, user: StatsigUser, config_name: str, log_exposure=True):
@@ -444,7 +443,6 @@ class StatsigServer:
                 result.rule_id,
                 result.secondary_exposures,
                 result.evaluation_details,
-                aggregate=result.aggregate_exposures,
             )
         return result
 

@@ -234,8 +234,6 @@ class _Evaluator:
         return hashed in ids
 
     def __evaluate(self, user, config, end_result):
-        aggregate_exposures = config.get("aggregateExposures", False)
-        end_result.aggregate_exposures = aggregate_exposures
         if not config.get("enabled", False):
             self.__finalize_eval_result(config, end_result, False, None)
             return

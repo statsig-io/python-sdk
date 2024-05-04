@@ -4,7 +4,6 @@ from .evaluation_details import EvaluationDetails, EvaluationReason
 class _ConfigEvaluation:
 
     def __init__(self,
-                 unsupported=False,
                  boolean_value=False,
                  json_value=None,
                  rule_id="",
@@ -13,9 +12,7 @@ class _ConfigEvaluation:
                  explicit_parameters=None,
                  is_experiment_group=False,
                  evaluation_details=None,
-                 group_name=None,
-                 aggregate_exposures=False):
-        self.unsupported = unsupported is True
+                 group_name=None):
         if boolean_value is None:
             boolean_value = False
         self.boolean_value = boolean_value
@@ -38,6 +35,3 @@ class _ConfigEvaluation:
             evaluation_details = EvaluationDetails(0, 0, EvaluationReason.unrecognized)
         self.evaluation_details = evaluation_details
         self.group_name = group_name
-        if aggregate_exposures is None:
-            aggregate_exposures = False
-        self.aggregate_exposures = aggregate_exposures
