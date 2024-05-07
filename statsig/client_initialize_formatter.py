@@ -2,10 +2,12 @@ import base64
 from hashlib import sha256
 from typing import Any, Dict, Optional
 
+from .statsig_metadata import _StatsigMetadata
 from .config_evaluation import _ConfigEvaluation
 from .statsig_user import StatsigUser
 from .spec_store import _SpecStore
 from .utils import HashingAlgorithm, djb2_hash
+
 
 def hash_name(name: str, algorithm: HashingAlgorithm):
     if algorithm == HashingAlgorithm.NONE:
@@ -14,6 +16,7 @@ def hash_name(name: str, algorithm: HashingAlgorithm):
         return djb2_hash(name)
     return base64.b64encode(
         sha256(name.encode('utf-8')).digest()).decode('utf-8')
+
 
 def clean_exposures(exposures):
     seen = {}
@@ -25,7 +28,9 @@ def clean_exposures(exposures):
             result.append(exposure)
     return result
 
+
 ClientInitializeResponse = Optional[Dict[str, Any]]
+
 
 class ClientInitializeResponseFormatter:
 
@@ -33,9 +38,11 @@ class ClientInitializeResponseFormatter:
     def get_formatted_response(
             eval_func, user: StatsigUser,
             spec_store: _SpecStore,
+            evaluator,
             hash_algo: HashingAlgorithm,
             client_sdk_key=None,
-        ) -> ClientInitializeResponse:
+            include_local_override=False
+    ) -> ClientInitializeResponse:
         def config_to_response(config_name, config_spec):
             target_app_id = spec_store.get_target_app_for_sdk_key(client_sdk_key)
             config_target_apps = config_spec.get("targetAppIDs", [])
@@ -43,7 +50,19 @@ class ClientInitializeResponseFormatter:
                 return None
 
             eval_result = _ConfigEvaluation()
-            eval_func(user, config_spec, eval_result)
+            local_override = None
+            category = config_spec["type"]
+            if include_local_override:
+                if category == "feature_gate":
+                    local_override = evaluator.lookup_gate_override(user, config_name)
+                if category == "dynamic_config":
+                    local_override = evaluator.lookup_config_override(user, config_name)
+
+            if local_override is not None:
+                eval_result = local_override
+            else:
+                eval_func(user, config_spec, eval_result)
+
             if eval_result is None:
                 return None
 
@@ -142,6 +161,8 @@ class ClientInitializeResponseFormatter:
         if user.custom_ids is not None:
             evaluated_keys["customIDs"] = user.custom_ids
 
+        meta = _StatsigMetadata.get()
+
         return {
             "feature_gates": filter_nones(map(map_fnc, spec_store.get_all_gates().items())),
             "dynamic_configs": filter_nones(map(map_fnc, spec_store.get_all_configs().items())),
@@ -150,7 +171,11 @@ class ClientInitializeResponseFormatter:
             "has_updates": True,
             "generator": "statsig-python-sdk",
             "evaluated_keys": evaluated_keys,
-            "time": 0,
-            "user_hash": user.to_hash_without_stable_id(),
-            "hash_used": hash_algo.value
+            "time": spec_store.last_update_time,
+            "user": user.to_dict(),
+            "hash_used": hash_algo.value,
+            "sdkInfo": {
+                "sdkType": meta["sdkType"],
+                "sdkVersion": meta["sdkVersion"],
+            }
         }

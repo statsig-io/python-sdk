@@ -73,6 +73,9 @@ class TestStatsigErrorBoundary(unittest.TestCase):
         self.assertEqual(body['info'], "".join(traceback.format_exception(
             type(err), err, err.__traceback__)))
         self.assertEqual(body['tag'], "_capture_error")
+        self.assertIsInstance(body['extra'], dict)
+        self.assertEqual(body['extra']['clientKey'], 'client-key')
+        self.assertEqual(body['extra']['hash'], 'djb2')
 
     def test_logging_statsig_metadata(self, mock_post):
         self._capture_error()
@@ -162,7 +165,7 @@ class TestStatsigErrorBoundary(unittest.TestCase):
         def recover():
             pass
 
-        self._boundary.capture("_capture_error", task, recover)
+        self._boundary.capture("_capture_error", task, recover, {'clientKey': 'client-key', 'hash': 'djb2'})
         return err
 
     def _get_requests(self):

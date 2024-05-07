@@ -79,12 +79,16 @@ class _Evaluator:
             user: StatsigUser,
             hash: HashingAlgorithm,
             client_sdk_key=None,
+            include_local_override=False,
     ):
         if not self._spec_store.is_ready_for_checks():
             return None
 
+        if self._spec_store.last_update_time == 0:
+            return None
+
         return ClientInitializeResponseFormatter \
-            .get_formatted_response(self.__eval_config, user, self._spec_store, hash, client_sdk_key)
+            .get_formatted_response(self.__eval_config, user, self._spec_store, self, hash, client_sdk_key, include_local_override)
 
     def _create_evaluation_details(self, reason: EvaluationReason):
         if reason == EvaluationReason.uninitialized:
@@ -112,6 +116,10 @@ class _Evaluator:
 
         return None
 
+
+    def lookup_gate_override(self, user, gate):
+        return self.__lookup_gate_override(user, gate)
+
     def __lookup_config_override(self, user, config):
         config_overrides = self._config_overrides.get(config)
         if config_overrides is None:
@@ -129,6 +137,10 @@ class _Evaluator:
             return _ConfigEvaluation(
                 json_value=all_override, rule_id="override", evaluation_details=eval_details)
         return None
+
+
+    def lookup_config_override(self, user, config):
+        return self.__lookup_config_override(user, config)
 
     def __lookup_layer_override(self, user, config):
         layer_overrides = self._layer_overrides.get(config)

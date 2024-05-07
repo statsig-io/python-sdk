@@ -369,17 +369,23 @@ class StatsigServer:
         self, user: StatsigUser,
         client_sdk_key: Optional[str] = None,
         hash: Optional[HashingAlgorithm] = HashingAlgorithm.SHA256,
+        include_local_overrides: Optional[bool] = False,
     ):
         def task():
-            return self._evaluator.get_client_initialize_response(
-                self.__normalize_user(user), hash or HashingAlgorithm.SHA256, client_sdk_key,
+            result = self._evaluator.get_client_initialize_response(
+                self.__normalize_user(user), hash or HashingAlgorithm.SHA256, client_sdk_key, include_local_overrides
             )
+            if result is None:
+                self._errorBoundary.log_exception("get_client_initialize_response",
+                                                  StatsigValueError("Failed to get client initialize response"),
+                                                  {'clientKey': client_sdk_key, 'hash': hash.value})
+            return result
 
         def recover():
             return None
 
         return self._errorBoundary.capture(
-            "get_client_initialize_response", task, recover
+            "get_client_initialize_response", task, recover, {'clientKey': client_sdk_key, 'hash': hash.value}
         )
 
     def evaluate_all(self, user: StatsigUser):
