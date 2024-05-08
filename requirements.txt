@@ -1,4 +1,4 @@
-ip3country==0.1.0
+ip3country==0.3.0
 requests==2.26.0
 semver==2.13.0
 setuptools==60.5.0
