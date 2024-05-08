@@ -20,14 +20,23 @@ jobs:
       - name: Install Deps
         run: |
           pip install pylint
+          pip install mypy
           pip install -r requirements.txt
           pip install .[test]
 
       - name: Run Linter
         run: pylint ./statsig --rcfile .pylintrc
 
+      - name: Run Type Checker
+        run: |
+          pip install types-requests
+          pip install types-redis
+          mypy ./statsig --ignore-missing-imports --check-untyped-defs --exclude ./build/lib
+
       - name: Run Tests
         run: python3 -m unittest discover -s ./tests --verbose
         env:
           test_api_key: ${{ secrets.SDK_CONSISTENCY_TEST_COMPANY_API_KEY }}
           test_client_key: ${{ secrets.KONG_CLIENT_SDK_KEY }}
+
+

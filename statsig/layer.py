@@ -14,7 +14,7 @@ class Layer:
     def __init__(self, create_key, name: str, value: dict, rule: str,
                  group_name: Optional[str],
                  allocated_experiment: Optional[str],
-                 param_log_func: Callable[[str], None]):
+                 param_log_func: Callable[['Layer', str], None]):
         assert (create_key == Layer.__create_key), \
             "Layers should only be created internally by Statsig"
 
@@ -65,7 +65,7 @@ class Layer:
         """Returns all the values in this Layer but does not trigger an exposure log"""
         return self.__value
 
-    def _log_parameter_exposure(self, parameter_name):
+    def _log_parameter_exposure(self, parameter_name: str):
         if self.__log_func is None:
             return
 

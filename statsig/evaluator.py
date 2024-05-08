@@ -4,6 +4,8 @@ from datetime import datetime
 import re
 from hashlib import sha256
 from struct import unpack
+from typing import Dict
+
 from ua_parser import user_agent_parser
 from ip3country import CountryLookup
 
@@ -20,9 +22,9 @@ class _Evaluator:
         self._spec_store = spec_store
 
         self._country_lookup = CountryLookup()
-        self._gate_overrides = {}
-        self._config_overrides = {}
-        self._layer_overrides = {}
+        self._gate_overrides: Dict[str, dict] = {}
+        self._config_overrides: Dict[str, dict] = {}
+        self._layer_overrides: Dict[str, dict] = {}
 
     def override_gate(self, gate, value, user_id=None):
         gate_overrides = self._gate_overrides.get(gate)
@@ -654,6 +656,6 @@ class _Evaluator:
 
         epoch = int(d)
         if len(str(d)) >= 11:
-            epoch /= 1000
+            epoch //= 1000
 
         return datetime.fromtimestamp(epoch)

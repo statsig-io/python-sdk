@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Optional, Dict
 import time
 import random
 from enum import Enum
@@ -64,23 +64,23 @@ class Marker:
 
     def __init__(
         self,
-        key: Key = None,
-        action: Action = None,
-        timestamp: float = None,
-        step: Step = None,
-        statusCode: int = None,
-        success: bool = None,
-        url: str = None,
-        idListCount: int = None,
-        reason: str = None,
-        sdkRegion: str = None,
-        markerID: str = None,
-        attempt: int = None,
-        retryLimit: int = None,
-        isRetry: bool = None,
-        configName: str = None,
-        error: dict = None,
-        payloadSize: int = None,
+        key: Optional[Key] = None,
+        action: Optional[Action] = None,
+        timestamp: Optional[float] = None,
+        step: Optional[Step] = None,
+        statusCode: Optional[int] = None,
+        success: Optional[bool] = None,
+        url: Optional[str] = None,
+        idListCount: Optional[int] = None,
+        reason: Optional[str] = None,
+        sdkRegion: Optional[str] = None,
+        markerID: Optional[str] = None,
+        attempt: Optional[int] = None,
+        retryLimit: Optional[int] = None,
+        isRetry: Optional[bool] = None,
+        configName: Optional[str] = None,
+        error: Optional[dict] = None,
+        payloadSize: Optional[int] = None,
     ):
         self.key = key
         self.action = action
@@ -164,7 +164,7 @@ class Marker:
 
     def overall(self):
         self.context = (
-            Context.INITIALIZE.value
+            Context.INITIALIZE
         )  # overall is only ever used in initialize
         self.key = Key.OVERALL
         return self
@@ -178,27 +178,27 @@ class Marker:
         return self
 
     def api_call(self, key: Key):
-        self.context = Context.API_CALL.value
+        self.context = Context.API_CALL
         self.key = key
         return self
 
     def log_event(self):
-        self.context = Context.LOG_EVENT.value
+        self.context = Context.LOG_EVENT
         return self
 
 
 class Diagnostics:
     def __init__(self, markers=None):
         self.context_to_markers = markers or {
-            "initialize": [],
-            "config_sync": [],
-            "log_event": [],
-            "api_call": [],
+            Context.INITIALIZE: [],
+            Context.CONFIG_SYNC: [],
+            Context.LOG_EVENT: [],
+            Context.API_CALL: [],
         }
-        self.context = "initialize"
+        self.context = Context.INITIALIZE
         self.default_max_markers = 50
         self.maxMarkers = {
-            context.value: self.default_max_markers for context in Context
+            context: self.default_max_markers for context in Context
         }
 
         self.sampling_rate = {
@@ -225,7 +225,7 @@ class Diagnostics:
 
     def add_marker(self, marker):
         context = marker.context if marker.context is not None else self.context
-        if self.disabled and context == Context.API_CALL.value:
+        if self.disabled and context == Context.API_CALL:
             return False
         max_markers = self.maxMarkers.get(context, self.default_max_markers)
         cur_length = len(self.context_to_markers[context])
@@ -246,13 +246,13 @@ class Diagnostics:
     def clear_context(self, context):
         self.context_to_markers[context] = []
 
-    def log_diagnostics(self, context: Context, key: Key = None):
-        if self.logger is None or len(self.context_to_markers[context.value]) == 0:
+    def log_diagnostics(self, context: Context, key: Optional[Key] = None):
+        if self.logger is None or len(self.context_to_markers[context]) == 0:
             return
 
         metadata = {
             "markers": [
-                marker.to_dict() for marker in self.context_to_markers[context.value]
+                marker.to_dict() for marker in self.context_to_markers[context]
             ],
             "context": context,
         }
@@ -262,7 +262,7 @@ class Diagnostics:
                 if isinstance(self.statsig_options, StatsigOptions)
                 else None
             )
-        self.clear_context(context.value)
+        self.clear_context(context)
 
         if self.should_log_diagnostics(context, key):
             self.logger.log_diagnostics_event(metadata)
@@ -279,7 +279,7 @@ class Diagnostics:
             elif value > MAX_SAMPLING_RATE:
                 self.sampling_rate[key] = MAX_SAMPLING_RATE
             else:
-                self.sampling_rate[key] = value
+                self.sampling_rate[key] = int(value)
 
         for samplingRateKey in SamplingRate:
             safe_set(samplingRateKey.value, obj.get(samplingRateKey.value))
@@ -287,7 +287,7 @@ class Diagnostics:
     def set_statsig_options(self, options: StatsigOptions):
         self.statsig_options = options
 
-    def should_log_diagnostics(self, context: Context, key: Key = None) -> bool:
+    def should_log_diagnostics(self, context: Context, key: Optional[Key] = None) -> bool:
         rand = random.random() * MAX_SAMPLING_RATE
         if context == Context.LOG_EVENT:
             return rand < self.sampling_rate.get(SamplingRate.LOG_EVENT.value, 0)

@@ -1,8 +1,9 @@
 import collections
 import concurrent.futures
 import threading
+from concurrent.futures import Future
 
-from typing import Optional, Union
+from typing import Optional, Union, Deque, Set, List
 
 from .statsig_network import _StatsigNetwork
 from .retryable_logs import RetryableLogs
@@ -40,9 +41,9 @@ class _StatsigLogger:
     _background_exposure_handler: Optional[threading.Thread]
 
     def __init__(self, net: _StatsigNetwork, shutdown_event, statsig_metadata, error_boundary, options, diagnostics: Diagnostics):
-        self._events = []
-        self._retry_logs = collections.deque(maxlen=10)
-        self._deduper = set()
+        self._events: List[StatsigEvent] = []
+        self._retry_logs: Deque[RetryableLogs] = collections.deque(maxlen=10)
+        self._deduper: Set[str] = set()
         self._net = net
         self._statsig_metadata = statsig_metadata
         self._local_mode = options.local_mode
@@ -58,7 +59,7 @@ class _StatsigLogger:
         self._background_exposure_handler = None
         self.spawn_bg_threads_if_needed()
         self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
-        self._futures = collections.deque(maxlen=10)
+        self._futures: Deque[Future] = collections.deque(maxlen=10)
         self._diagnostics = diagnostics
 
     def spawn_bg_threads_if_needed(self):
@@ -309,7 +310,7 @@ class _StatsigLogger:
         event.metadata = metadata
         self.log(event)
 
-    def _is_unique_exposure(self, user, eventName: str, metadata: dict or None) -> bool:
+    def _is_unique_exposure(self, user, eventName: str, metadata: Optional[dict]) -> bool:
         if user is None:
             return True
         if len(self._deduper) > 10000:
@@ -339,8 +340,8 @@ class _StatsigLogger:
     def _add_diagnostics_event(self, context: Context):
         if self._local_mode or not self._diagnostics.should_log_diagnostics(context):
             return
-        markers = self._diagnostics.get_markers(context.value)
-        self._diagnostics.clear_context(context.value)
+        markers = self._diagnostics.get_markers(context)
+        self._diagnostics.clear_context(context)
         if len(markers) == 0:
             return
         metadata = {

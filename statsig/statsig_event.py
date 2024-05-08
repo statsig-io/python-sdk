@@ -14,7 +14,7 @@ class StatsigEvent:
     (e.g. pass the product category with a purchase event to generate a purchase metric across categories)
     Pass additional event information as metadata
     """
-    user: StatsigUser
+    user: Optional[StatsigUser]
     event_name: str
     value: Union[str, int, None] = None
     metadata: Optional[dict] = None

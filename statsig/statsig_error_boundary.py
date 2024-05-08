@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
+from typing import Optional
 import traceback
 import requests
 from .statsig_errors import StatsigNameError, StatsigRuntimeError, StatsigValueError
@@ -31,7 +32,7 @@ class _StatsigErrorBoundary:
     def set_api_key(self, api_key):
         self._api_key = api_key
 
-    def capture(self, tag: str, task, recover, extra: dict = None):
+    def capture(self, tag: str, task, recover, extra: Optional[dict] = None):
         markerID = None
         key = None
         configName = None
@@ -41,7 +42,7 @@ class _StatsigErrorBoundary:
                 if extra is not None and "configName" in extra
                 else None
             )
-            key: Key = Key.fromStr(tag)
+            key = Key.fromStr(tag)
             markerID = self._start_diagnostics(key, configName)
             result = task()
             self._end_diagnostics(markerID, key, True, configName)
@@ -66,7 +67,7 @@ class _StatsigErrorBoundary:
         self,
         tag: str,
         exception: Exception,
-        extra: dict = None,
+        extra: Optional[dict] = None,
         bypass_dedupe: bool = False,
     ):
         try:
@@ -128,7 +129,7 @@ class _StatsigErrorBoundary:
             if key is None:
                 return None
             markerID = (
-                f"{key.value}_{self._diagnostics.get_marker_count(Context.API_CALL.value)}"
+                f"{key.value}_{self._diagnostics.get_marker_count(Context.API_CALL)}"
             )
             self._diagnostics.add_marker(Marker().api_call(key).start(
                 {"configName": configName, "markerID": markerID}

@@ -1,4 +1,4 @@
-from typing import Optional, Union, Callable
+from typing import Optional, Union, Callable, Dict, Any
 
 from .layer import Layer
 from .dynamic_config import DynamicConfig
@@ -41,7 +41,7 @@ class StatsigOptions:
         evaluation_callback: Optional[Callable[[Union[Layer, DynamicConfig, FeatureGate]], None]] = None,
     ):
         self.data_store = data_store
-        self._environment = None
+        self._environment: Union[None, dict] = None
         if tier is not None:
             if isinstance(tier, (str, StatsigEnvironmentTier)):
                 tier_str = (
@@ -86,7 +86,7 @@ class StatsigOptions:
         return self._environment
 
     def _set_logging_copy(self):
-        logging_copy = {}
+        logging_copy: Dict[str, Any] = {}
         if self.api is not None:
             logging_copy["api"] = self.api
         if self._environment != {} and self._environment is not None:

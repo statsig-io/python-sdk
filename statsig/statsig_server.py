@@ -28,13 +28,13 @@ class StatsigServer:
 
     _errorBoundary: _StatsigErrorBoundary
 
-    _options: Optional[StatsigOptions] = None
-    __shutdown_event: Optional[threading.Event] = None
-    __statsig_metadata: Optional[dict] = None
-    _network: Optional[_StatsigNetwork] = None
-    _logger: Optional[_StatsigLogger] = None
-    _spec_store: Optional[_SpecStore] = None
-    _evaluator: Optional[_Evaluator] = None
+    _options: StatsigOptions
+    __shutdown_event: threading.Event
+    __statsig_metadata: dict
+    _network: _StatsigNetwork
+    _logger: _StatsigLogger
+    _spec_store: _SpecStore
+    _evaluator: _Evaluator
 
     def __init__(self) -> None:
         self._initialized = False
@@ -53,7 +53,7 @@ class StatsigServer:
 
         self._initialize_impl(sdkKey, options)
 
-    def _initialize_impl(self, sdk_key: str, options: StatsigOptions):
+    def _initialize_impl(self, sdk_key: str, options: Optional[StatsigOptions]):
         threw_error = False
         try:
             diagnostics = Diagnostics()
@@ -371,6 +371,7 @@ class StatsigServer:
         hash: Optional[HashingAlgorithm] = HashingAlgorithm.SHA256,
         include_local_overrides: Optional[bool] = False,
     ):
+        hash_value = hash.value if hash is not None else HashingAlgorithm.SHA256.value
         def task():
             result = self._evaluator.get_client_initialize_response(
                 self.__normalize_user(user), hash or HashingAlgorithm.SHA256, client_sdk_key, include_local_overrides
@@ -378,14 +379,14 @@ class StatsigServer:
             if result is None:
                 self._errorBoundary.log_exception("get_client_initialize_response",
                                                   StatsigValueError("Failed to get client initialize response"),
-                                                  {'clientKey': client_sdk_key, 'hash': hash.value})
+                                                  {'clientKey': client_sdk_key, 'hash': hash_value})
             return result
 
         def recover():
             return None
 
         return self._errorBoundary.capture(
-            "get_client_initialize_response", task, recover, {'clientKey': client_sdk_key, 'hash': hash.value}
+            "get_client_initialize_response", task, recover, {'clientKey': client_sdk_key, 'hash': hash_value}
         )
 
     def evaluate_all(self, user: StatsigUser):

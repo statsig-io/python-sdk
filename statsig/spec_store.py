@@ -1,7 +1,7 @@
 import json
 import threading
 from concurrent.futures import ThreadPoolExecutor, wait
-from typing import Optional
+from typing import Optional, Dict, Set
 
 from .constants import Const
 from .sdk_flags import _SDKFlags
@@ -13,7 +13,7 @@ from .statsig_errors import StatsigValueError, StatsigNameError
 from .statsig_network import _StatsigNetwork
 from .statsig_options import StatsigOptions
 from .thread_util import spawn_background_thread, THREAD_JOIN_TIMEOUT
-from .diagnostics import Context, Diagnostics, Marker
+from .diagnostics import Context, Diagnostics, Marker, Key
 from . import globals
 
 RULESETS_SYNC_INTERVAL = 10
@@ -43,15 +43,15 @@ class _SpecStore:
         self._sync_failure_count = 0
         self._sdk_key = sdk_key
 
-        self._configs = {}
-        self._gates = {}
-        self._layers = {}
-        self._experiment_to_layer = {}
-        self._sdk_keys_to_app_ids = {}
-        self._hashed_sdk_keys_to_app_ids = {}
+        self._configs: Dict[str, Dict] = {}
+        self._gates: Dict[str, Dict] = {}
+        self._layers: Dict[str, Dict] = {}
+        self._experiment_to_layer: Dict[str, str] = {}
+        self._sdk_keys_to_app_ids: Dict[str, str] = {}
+        self._hashed_sdk_keys_to_app_ids: Dict[str, str] = {}
 
-        self._id_lists = {}
-        self.unsupported_configs = set()
+        self._id_lists: Dict[str, dict] = {}
+        self.unsupported_configs: Set[str] = set()
 
     def _is_specs_json_valid(self, specs_json):
         if specs_json is None or specs_json.get("time") is None:
@@ -78,7 +78,7 @@ class _SpecStore:
     def spawn_bg_threads_if_needed(self):
         if self._options.local_mode:
             return
-        self._diagnostics.set_context(Context.CONFIG_SYNC.value)
+        self._diagnostics.set_context(Context.CONFIG_SYNC)
 
         if self._background_download_configs is None or not self._background_download_configs.is_alive():
             self._spawn_bg_download_config_specs()
@@ -282,7 +282,7 @@ class _SpecStore:
         except Exception as e:
             raise e
         finally:
-            self._diagnostics.log_diagnostics(Context.CONFIG_SYNC, "download_config_specs")
+            self._diagnostics.log_diagnostics(Context.CONFIG_SYNC, Key.DOWNLOAD_CONFIG_SPECS)
 
     def download_config_spec_process(self, specs):
         try:
@@ -337,7 +337,7 @@ class _SpecStore:
 
         self._diagnostics.add_marker(Marker().data_store_config_specs().process().end(
                 {'success': self.init_reason == EvaluationReason.data_adapter}))
-        self._diagnostics.log_diagnostics(Context.CONFIG_SYNC, "data_store_config_specs")
+        self._diagnostics.log_diagnostics(Context.CONFIG_SYNC, Key.DATA_STORE_CONFIG_SPECS)
 
     def _spawn_bg_download_id_lists(self):
 
@@ -362,7 +362,7 @@ class _SpecStore:
         except Exception as e:
             raise e
         finally:
-            self._diagnostics.log_diagnostics(Context.CONFIG_SYNC, "get_id_lists")
+            self._diagnostics.log_diagnostics(Context.CONFIG_SYNC, Key.GET_ID_LIST)
 
     def _download_id_lists_process(self, server_id_lists):
         threw_error = False
@@ -376,7 +376,7 @@ class _SpecStore:
                 server_list = server_id_lists.get(list_name, {})
                 url = server_list.get("url", None)
                 size = server_list.get("size", 0)
-                local_list = local_id_lists.get(list_name, {})
+                local_list: dict = local_id_lists.get(list_name, {})
 
                 new_creation_time = server_list.get("creationTime", 0)
                 old_creation_time = local_list.get("creationTime", 0)
@@ -486,4 +486,4 @@ class _SpecStore:
         globals.logger.log_process(process, msg)
 
     def _get_current_context(self):
-        return "initialize" if not self._initialized else "config_sync"
+        return Context.INITIALIZE if not self._initialized else Context.CONFIG_SYNC

@@ -1,5 +1,8 @@
+from typing import Dict
+
+
 class _SDKFlags:
-    _flags = {}
+    _flags: Dict[str, bool] = {}
 
     @staticmethod
     def set_flags(new_flags):

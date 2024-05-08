@@ -1,5 +1,7 @@
 from enum import Enum
 import json
+from typing import Optional
+
 
 class HashingAlgorithm(Enum):
     SHA256 = 'sha256'
@@ -16,7 +18,7 @@ def to_raw_value(value):
     return value
 
 
-def to_raw_dict_or_none(field: dict):
+def to_raw_dict_or_none(field: Optional[dict]):
     return {k: to_raw_value(v) for k, v in field.items()} if field is not None else None
 
 def fasthash(value: str):

@@ -1,6 +1,6 @@
 import base64
 from hashlib import sha256
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 from .statsig_metadata import _StatsigMetadata
 from .config_evaluation import _ConfigEvaluation
@@ -19,7 +19,7 @@ def hash_name(name: str, algorithm: HashingAlgorithm):
 
 
 def clean_exposures(exposures):
-    seen = {}
+    seen: Dict[str, bool] = {}
     result = []
     for exposure in exposures:
         key = f"{exposure['gate']}|{exposure['gateValue']}|{exposure['ruleID']}"
@@ -154,7 +154,7 @@ class ClientInitializeResponseFormatter:
             spec = entry[1]
             return config_to_response(name, spec)
 
-        evaluated_keys = {}
+        evaluated_keys: Dict[str, Union[str, Dict[str, str]]] = {}
         if user.user_id is not None:
             evaluated_keys["userID"] = user.user_id
 

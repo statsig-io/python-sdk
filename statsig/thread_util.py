@@ -7,7 +7,7 @@ THREAD_JOIN_TIMEOUT = 10.0
 
 
 def spawn_background_thread(name: str,
-                            task: Callable[[], None],
+                            task: Callable[..., None],
                             args: tuple,
                             error_boundary: Optional[_StatsigErrorBoundary] = None):
     try:
