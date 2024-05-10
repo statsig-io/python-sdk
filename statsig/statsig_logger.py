@@ -285,7 +285,7 @@ class _StatsigLogger:
                 if res is not None:
                     if retry_logs.retries >= 10:
                         message = (
-                            "Failed to post logs after 10 retries, dropping the request"
+                            f"Failed to post {retry_logs.event_count} logs after 10 retries, dropping the request"
                         )
                         self._error_boundary.log_exception(
                             "statsig::log_event_failed",
