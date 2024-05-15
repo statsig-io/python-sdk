@@ -314,13 +314,13 @@ class _Evaluator:
         if type in ("FAIL_GATE", "PASS_GATE"):
             self.check_gate(user, target, end_result)
 
-            new_exposure = {
-                "gate": target,
-                "gateValue": "true" if end_result.boolean_value else "false",
-                "ruleID": end_result.rule_id
-            }
-
-            end_result.secondary_exposures.append(new_exposure)
+            if not target.startswith("segment:"):
+                new_exposure = {
+                    "gate": target,
+                    "gateValue": "true" if end_result.boolean_value else "false",
+                    "ruleID": end_result.rule_id
+                }
+                end_result.secondary_exposures.append(new_exposure)
 
             pass_gate = end_result.boolean_value if type == "PASS_GATE" else not end_result.boolean_value
             return pass_gate
@@ -331,12 +331,13 @@ class _Evaluator:
             for gate in target:
                 other_result = self.check_gate(user, gate)
 
-                new_exposure = {
-                    "gate": gate,
-                    "gateValue": "true" if other_result.boolean_value else "false",
-                    "ruleID": other_result.rule_id
-                }
-                end_result.secondary_exposures.append(new_exposure)
+                if not gate.startswith("segment:"):
+                    new_exposure = {
+                        "gate": gate,
+                        "gateValue": "true" if other_result.boolean_value else "false",
+                        "ruleID": other_result.rule_id
+                    }
+                    end_result.secondary_exposures.append(new_exposure)
 
                 pass_gate = pass_gate or other_result.boolean_value if type == "MULTI_PASS_GATE" else pass_gate or not other_result.boolean_value
                 if pass_gate:
