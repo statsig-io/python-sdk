@@ -58,21 +58,11 @@ class ServerSDKConsistencyTest(unittest.TestCase):
             for val in self.data[entry]:
                 statsig_user = _construct_statsig_user(val["user"])
 
-                gates = self.remove_segments_from_exposure(val["feature_gates_v2"])
-
-                self._test_gate_results(statsig_user, gates)
+                self._test_gate_results(statsig_user, val["feature_gates_v2"])
                 self._test_config_results(statsig_user, val["dynamic_configs"])
                 self._test_layer_results(statsig_user, val["layer_configs"])
 
         print("[end]")
-
-    def remove_segments_from_exposure(self, gates):
-        for name, gate in gates.items():
-            if "secondary_exposures" in gate:
-                gate["secondary_exposures"] = [exposure for exposure in gate["secondary_exposures"] if
-                                               not exposure["gate"].startswith("segment:")]
-
-        return gates
 
     def _test_gate_results(self, statsig_user: StatsigUser, gates):
         for name in gates:
