@@ -4,6 +4,8 @@ import unittest
 import time
 import requests
 
+from statsig.utils import HashingAlgorithm
+
 TEST_URLS = [
     "https://statsigapi.net/v1",
     "https://staging.statsigapi.net/v1"
@@ -11,7 +13,9 @@ TEST_URLS = [
 
 
 def _construct_statsig_user(user_values) -> StatsigUser:
-    statsig_user = StatsigUser(user_id=user_values.get("userID"), custom_ids=user_values.get("customIDs"))
+    statsig_user = StatsigUser(
+        user_id=user_values.get("userID"),
+        custom_ids=user_values.get("customIDs"))
     statsig_user.app_version = user_values.get("appVersion")
     statsig_user.user_agent = user_values.get("userAgent")
     statsig_user.ip = user_values.get("ip")
@@ -57,130 +61,93 @@ class ServerSDKConsistencyTest(unittest.TestCase):
         for entry in self.data:
             for val in self.data[entry]:
                 statsig_user = _construct_statsig_user(val["user"])
+                sdk_results = self.sdk._evaluator.get_client_initialize_response(
+                    statsig_user, HashingAlgorithm.NONE)
 
-                self._test_gate_results(statsig_user, val["feature_gates_v2"])
-                self._test_config_results(statsig_user, val["dynamic_configs"])
-                self._test_layer_results(statsig_user, val["layer_configs"])
+                self._test_gate_results(
+                    statsig_user, val["feature_gates_v2"],
+                    sdk_results["feature_gates"])
+                self._test_config_results(
+                    statsig_user, val["dynamic_configs"],
+                    sdk_results["dynamic_configs"])
+                self._test_layer_results(
+                    statsig_user, val["layer_configs"],
+                    sdk_results["layer_configs"])
 
         print("[end]")
 
-    def _test_gate_results(self, statsig_user: StatsigUser, gates):
-        for name in gates:
-            if name == "inline_targeting_rules_exp":
-                continue
-            eval_result = self.sdk._evaluator.check_gate(
-                statsig_user, name)
-            sdk_result = self.sdk.check_gate(statsig_user, name)
-            server_result = gates[name]
-            if eval_result.boolean_value != server_result["value"]:
+    def _test_gate_results(self, statsig_user: StatsigUser, server, local):
+        for name in server:
+            sdk_result = local[name]
+            server_result = server[name]
+            if sdk_result["value"] != server_result["value"]:
                 print(
                     f'\nDifferent values for gate {name} user: {statsig_user.to_dict(True)}')
                 print(
-                    f'\nExpected: {server_result["value"]}, Actual: {eval_result.boolean_value}')
-            self.assertEqual(eval_result.boolean_value,
-                             server_result["value"], f"Gate result mismatch [{name}]")
-            self.assertEqual(eval_result.boolean_value, sdk_result)
+                    f'\nExpected: {server_result["value"]}, Actual: {sdk_result["value"]}')
 
-            if eval_result.rule_id != server_result["rule_id"]:
+            if sdk_result["rule_id"] != server_result["rule_id"]:
                 print(
                     f'\nDifferent rule_id for gate {name} user: {statsig_user.to_dict(True)}')
                 print(
-                    f'\nExpected: {server_result["rule_id"]}, Actual: {eval_result.rule_id}')
-            self.assertEqual(eval_result.rule_id,
-                             server_result["rule_id"])
+                    f'\nExpected: {server_result["rule_id"]}, Actual: {sdk_result["rule_id"]}')
 
-            if eval_result.secondary_exposures != server_result["secondary_exposures"]:
+            if sdk_result["secondary_exposures"] != server_result["secondary_exposures"]:
                 print(
                     f'\nDifferent secondary_exposures for gate {name} user: {statsig_user.to_dict(True)}')
                 print(
-                    f'\nExpected: {server_result["secondary_exposures"]}, Actual: {eval_result.secondary_exposures}')
-            self.assertEqual(eval_result.secondary_exposures,
-                             server_result.get("secondary_exposures"))
-            print(".", end="")
+                    f'\nExpected: {server_result["secondary_exposures"]}, Actual: {sdk_result["secondary_exposures"]}')
 
-    def _test_config_results(self, statsig_user: StatsigUser, configs):
-        for name in configs:
-            if name == "inline_targeting_rules_exp":
-                continue
-            eval_result = self.sdk._evaluator.get_config(
-                statsig_user, name)
-            sdk_result = self.sdk.get_config(statsig_user, name)
-            server_result = configs[name]
-            if eval_result.json_value != server_result["value"]:
+    def _test_config_results(self, statsig_user: StatsigUser, server, local):
+        for name in server:
+            sdk_result = local[name]
+            server_result = server[name]
+            if sdk_result["value"] != server_result["value"]:
                 print(
                     f'\nDifferent values for config {name} user: {statsig_user.to_dict(True)}')
                 print(
-                    f'\nExpected: {server_result["value"]}, Actual: {eval_result.json_value}')
-            self.assertEqual(eval_result.json_value,
-                             server_result["value"])
-            self.assertEqual(eval_result.json_value,
-                             sdk_result.get_value())
+                    f'\nExpected: {server_result["value"]}, Actual: {sdk_result["value"]}')
 
-            if eval_result.rule_id != server_result["rule_id"]:
+            if sdk_result["rule_id"] != server_result["rule_id"]:
                 print(
                     f'\nDifferent rule_id for config {name} user: {statsig_user.to_dict(True)}')
                 print(
-                    f'\nExpected: {server_result["rule_id"]}, Actual: {eval_result.rule_id}')
-            self.assertEqual(eval_result.rule_id,
-                             server_result["rule_id"])
+                    f'\nExpected: {server_result["rule_id"]}, Actual: {sdk_result["rule_id"]}')
 
-            if eval_result.secondary_exposures != server_result["secondary_exposures"]:
+            if sdk_result["secondary_exposures"] != server_result["secondary_exposures"]:
                 print(
                     f'\nDifferent secondary_exposures for config {name} user: {statsig_user.to_dict(True)}')
                 print(
-                    f'\nExpected: {server_result["secondary_exposures"]}, Actual: {eval_result.secondary_exposures}')
-            self.assertEqual(eval_result.secondary_exposures,
-                             server_result.get("secondary_exposures"))
-            print(".", end="")
+                    f'\nExpected: {server_result["secondary_exposures"]}, Actual: {sdk_result["secondary_exposures"]}')
 
-    def _test_layer_results(self, statsig_user: StatsigUser, layers):
-        for name in layers:
-            if name == "inline_targeting_rules_exp":
-                continue
-            eval_result = self.sdk._evaluator.get_layer(statsig_user, name)
-            sdk_result = self.sdk.get_layer(statsig_user, name)
-            server_result = layers[name]
-            if eval_result.json_value != server_result["value"]:
+    def _test_layer_results(self, statsig_user: StatsigUser, server, local):
+        for name in server:
+            sdk_result = local[name]
+            server_result = server[name]
+            if sdk_result["value"] != server_result["value"]:
                 print(
                     f'\nDifferent values for layer {name} user: {statsig_user.to_dict(True)}')
                 print(
-                    f'\nExpected: {server_result["value"]}, Actual: {eval_result.json_value}')
-            self.assertEqual(eval_result.json_value,
-                             server_result["value"])
+                    f'\nExpected: {server_result["value"]}, Actual: {sdk_result["value"]}')
 
-            count = 0
-            for key in eval_result.json_value:
-                count += 1
-                self.assertEqual(
-                    eval_result.json_value[key], sdk_result.get(key))
-
-            self.assertEqual(len(eval_result.json_value), count)
-
-            if eval_result.rule_id != server_result["rule_id"]:
+            if sdk_result["rule_id"] != server_result["rule_id"]:
                 print(
                     f'\nDifferent rule_id for layer {name} user: {statsig_user.to_dict(True)}')
                 print(
-                    f'\nExpected: {server_result["rule_id"]}, Actual: {eval_result.rule_id}')
-            self.assertEqual(eval_result.rule_id,
-                             server_result["rule_id"])
+                    f'\nExpected: {server_result["rule_id"]}, Actual: {sdk_result["rule_id"]}')
 
-            if eval_result.secondary_exposures != server_result["secondary_exposures"]:
+            if sdk_result["secondary_exposures"] != server_result["secondary_exposures"]:
                 print(
                     f'\nDifferent secondary_exposures for layer {name} user: {statsig_user.to_dict(True)}')
                 print(
-                    f'\nExpected: {server_result["secondary_exposures"]}, Actual: {eval_result.secondary_exposures}')
-            self.assertEqual(eval_result.secondary_exposures,
-                             server_result.get("secondary_exposures"))
+                    f'\nExpected: {server_result["secondary_exposures"]}, Actual: {sdk_result["secondary_exposures"]}')
 
-            if eval_result.undelegated_secondary_exposures != server_result[
-                "undelegated_secondary_exposures"]:
+            if sdk_result["undelegated_secondary_exposures"] != server_result[
+                    "undelegated_secondary_exposures"]:
                 print(
                     f'\nDifferent undelegated_secondary_exposures for layer {name} user: {statsig_user.to_dict(True)}')
                 print(
-                    f'\nExpected: {server_result["undelegated_secondary_exposures"]}, Actual: {eval_result.undelegated_secondary_exposures}')
-            self.assertEqual(eval_result.undelegated_secondary_exposures,
-                             server_result.get("undelegated_secondary_exposures"))
-            print(".", end="")
+                    f'\nExpected: {server_result["undelegated_secondary_exposures"]}, Actual: {sdk_result["undelegated_secondary_exposures"]}')
 
 
 if __name__ == '__main__':

@@ -22,6 +22,8 @@ def clean_exposures(exposures):
     seen: Dict[str, bool] = {}
     result = []
     for exposure in exposures:
+        if exposure['gate'].startswith('segment:'):
+            continue
         key = f"{exposure['gate']}|{exposure['gateValue']}|{exposure['ruleID']}"
         if not seen.get(key, False):
             seen[key] = True
