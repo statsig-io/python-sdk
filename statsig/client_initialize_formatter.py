@@ -18,19 +18,6 @@ def hash_name(name: str, algorithm: HashingAlgorithm):
         sha256(name.encode('utf-8')).digest()).decode('utf-8')
 
 
-def clean_exposures(exposures):
-    seen: Dict[str, bool] = {}
-    result = []
-    for exposure in exposures:
-        if exposure['gate'].startswith('segment:'):
-            continue
-        key = f"{exposure['gate']}|{exposure['gateValue']}|{exposure['ruleID']}"
-        if not seen.get(key, False):
-            seen[key] = True
-            result.append(exposure)
-    return result
-
-
 ClientInitializeResponse = Optional[Dict[str, Any]]
 
 
@@ -72,7 +59,7 @@ class ClientInitializeResponseFormatter:
             result = {
                 "name": hashed_name,
                 "rule_id": eval_result.rule_id,
-                "secondary_exposures": clean_exposures(eval_result.secondary_exposures),
+                "secondary_exposures": eval_result.secondary_exposures,
                 "value": False
             }
 
@@ -145,8 +132,7 @@ class ClientInitializeResponseFormatter:
                     result["explicit_parameters"] = delegate_spec.get(
                         "explicitParameters", [])
 
-            result["undelegated_secondary_exposures"] = clean_exposures(
-                eval_result.undelegated_secondary_exposures or [])
+            result["undelegated_secondary_exposures"] = eval_result.undelegated_secondary_exposures or []
 
         def filter_nones(arr):
             return dict([i for i in arr if i is not None])

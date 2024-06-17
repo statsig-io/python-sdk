@@ -76,6 +76,18 @@ class _Evaluator:
         self._config_overrides = {}
         self._layer_overrides = {}
 
+    def clean_exposures(self, exposures):
+        seen: Dict[str, bool] = {}
+        result = []
+        for exposure in exposures:
+            if exposure['gate'].startswith('segment:'):
+                continue
+            key = f"{exposure['gate']}|{exposure['gateValue']}|{exposure['ruleID']}"
+            if not seen.get(key, False):
+                seen[key] = True
+                result.append(exposure)
+        return result
+
     def get_client_initialize_response(
             self,
             user: StatsigUser,
@@ -171,7 +183,7 @@ class _Evaluator:
                 evaluation_details=self._create_evaluation_details(
                     EvaluationReason.unrecognized))
 
-    def check_gate(self, user, gate, end_result=None):
+    def check_gate(self, user, gate, end_result=None, is_nested=False):
         override = self.__lookup_gate_override(user, gate)
         if override is not None:
             return override
@@ -185,7 +197,7 @@ class _Evaluator:
             return self.unsupported_or_unrecognized(gate)
         if end_result is None:
             end_result = _ConfigEvaluation()
-        self.__eval_config(user, eval_gate, end_result)
+        self.__eval_config(user, eval_gate, end_result, is_nested)
         return end_result
 
     def get_config(self, user, config):
@@ -222,13 +234,13 @@ class _Evaluator:
         self.__eval_config(user, eval_layer, result)
         return result
 
-    def __eval_config(self, user, config, end_result):
+    def __eval_config(self, user, config, end_result, is_nested=False):
         if config is None:
             end_result.evaluation_details = self._create_evaluation_details(
                 EvaluationReason.unrecognized)
             return
         try:
-            self.__evaluate(user, config, end_result)
+            self.__evaluate(user, config, end_result, is_nested)
             end_result.evaluation_details = self._create_evaluation_details(
                 self._spec_store.init_reason)
         except RecursionError:
@@ -247,24 +259,25 @@ class _Evaluator:
             sha256(str(id).encode('utf-8')).digest()).decode('utf-8')[0:8]
         return hashed in ids
 
-    def __evaluate(self, user, config, end_result):
+    def __evaluate(self, user, config, end_result, is_nested=False):
         if not config.get("enabled", False):
-            self.__finalize_eval_result(config, end_result, False, None)
+            self.__finalize_eval_result(config, end_result, False, None, is_nested)
             return
 
         for rule in config.get("rules", []):
             self.__evaluate_rule(user, rule, end_result)
             if end_result.boolean_value:
                 if self.__evaluate_delegate(user, rule, end_result) is not None:
+                    self.__finalize_exposures(end_result)
                     return
 
                 user_passes = self.__eval_pass_percentage(user, rule, config)
-                self.__finalize_eval_result(config, end_result, user_passes, rule)
+                self.__finalize_eval_result(config, end_result, user_passes, rule, is_nested)
                 return
 
-        self.__finalize_eval_result(config, end_result, False, None)
+        self.__finalize_eval_result(config, end_result, False, None, is_nested)
 
-    def __finalize_eval_result(self, config, end_result, did_pass, rule):
+    def __finalize_eval_result(self, config, end_result, did_pass, rule, is_nested=False):
         end_result.boolean_value = did_pass
 
         if rule is None:
@@ -277,6 +290,13 @@ class _Evaluator:
             end_result.group_name = rule.get("groupName", None)
             end_result.is_experiment_group = rule.get("isExperimentGroup", False)
             end_result.rule_id = rule.get("id", "")
+
+        if not is_nested:
+            self.__finalize_exposures(end_result)
+
+    def __finalize_exposures(self, end_result):
+        end_result.secondary_exposures = self.clean_exposures(end_result.secondary_exposures)
+        end_result.undelegated_secondary_exposures = self.clean_exposures(end_result.undelegated_secondary_exposures)
 
     def __evaluate_rule(self, user, rule, end_result):
         total_eval_result = True
@@ -297,7 +317,7 @@ class _Evaluator:
 
         end_result.undelegated_secondary_exposures = end_result.secondary_exposures[:]
 
-        self.__evaluate(user, config, end_result)
+        self.__evaluate(user, config, end_result, True)
         end_result.explicit_parameters = config.get(
             "explicitParameters", [])
         end_result.allocated_experiment = config_delegate
@@ -312,7 +332,7 @@ class _Evaluator:
         if type == "PUBLIC":
             return True
         if type in ("FAIL_GATE", "PASS_GATE"):
-            self.check_gate(user, target, end_result)
+            self.check_gate(user, target, end_result, True)
 
             new_exposure = {
                 "gate": target,
