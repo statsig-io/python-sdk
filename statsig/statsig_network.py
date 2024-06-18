@@ -155,8 +155,9 @@ class _StatsigNetwork:
                 ))
 
             if response.status_code < 200 or response.status_code >= 300:
+                clean_url = url.replace(self.__sdk_key, "********")
                 globals.logger.warning(
-                    "Request to %s failed with code %d", url, response.status_code)
+                    "Request to %s failed with code %d", clean_url, response.status_code)
                 globals.logger.warning(response.text)
             return response
         except Exception as err:

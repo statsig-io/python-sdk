@@ -73,7 +73,8 @@ class _StatsigErrorBoundary:
         try:
             if self._is_silent is False:
                 globals.logger.warning("[Statsig]: An unexpected error occurred.")
-                globals.logger.warning(traceback.format_exc())
+                stack_trace = traceback.format_exc().replace(self._api_key, "********")
+                globals.logger.warning(stack_trace)
             if (
                 hasattr(self._options, "disable_all_logging")
                 and self._options.disable_all_logging
