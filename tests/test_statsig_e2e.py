@@ -7,9 +7,11 @@ from unittest.mock import patch
 from gzip_helpers import GzipHelpers
 from network_stub import NetworkStub
 from statsig import statsig, StatsigUser, StatsigOptions, StatsigEvent, StatsigEnvironmentTier
+from statsig.evaluation_details import EvaluationReason
 
 with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), '../testdata/download_config_specs.json')) as r:
     CONFIG_SPECS_RESPONSE = r.read()
+PARSED_CONFIG_SPEC = json.loads(CONFIG_SPECS_RESPONSE)
 
 _network_stub = NetworkStub("http://test-statsig-e2e")
 
@@ -22,7 +24,7 @@ class TestStatsigE2E(unittest.TestCase):
     @patch('requests.request', side_effect=_network_stub.mock)
     def setUpClass(cls, mock_request):
         _network_stub.stub_request_with_value(
-            "download_config_specs/.*", 200, json.loads(CONFIG_SPECS_RESPONSE))
+            "download_config_specs/.*", 200, PARSED_CONFIG_SPEC)
         _network_stub.stub_request_with_value("list_1", 200, "+7/rrkvF6\n")
         _network_stub.stub_request_with_value("get_id_lists", 200, {"list_1": {
             "name": "list_1",
@@ -71,6 +73,13 @@ class TestStatsigE2E(unittest.TestCase):
         )
         self.assertIsNone(self.random_user._statsig_environment)
 
+    def test_a_get_feature_gate(self, mock_request):
+        gate = statsig.get_feature_gate(self.statsig_user, "always_on_gate")
+        self.assertEqual(gate.get_value(), True)
+        self.assertEqual(gate.get_name(), "always_on_gate")
+        self.assertEqual(gate.get_evaluation_details().reason, EvaluationReason.network)
+        self.assertEqual(gate.get_evaluation_details().config_sync_time, PARSED_CONFIG_SPEC['time'])
+
     def test_b_dynamic_config(self, mock_request):
         config = statsig.get_config(self.statsig_user, "test_config")
         self.assertEqual(
@@ -82,6 +91,8 @@ class TestStatsigE2E(unittest.TestCase):
             )
         )
         self.assertEqual(config.group_name, "statsig email")
+        self.assertEqual(config.get_evaluation_details().reason, EvaluationReason.network)
+        self.assertEqual(config.get_evaluation_details().config_sync_time, PARSED_CONFIG_SPEC['time'])
         config = statsig.get_config(self.random_user, "test_config")
         self.assertEqual(
             config.get_value(),
@@ -92,6 +103,8 @@ class TestStatsigE2E(unittest.TestCase):
             )
         )
         self.assertIsNone(config.group_name)
+        self.assertEqual(config.get_evaluation_details().reason, EvaluationReason.network)
+        self.assertEqual(config.get_evaluation_details().config_sync_time, PARSED_CONFIG_SPEC['time'])
 
     def test_c_experiment(self, mock_request):
         config = statsig.get_experiment(self.statsig_user, "sample_experiment")

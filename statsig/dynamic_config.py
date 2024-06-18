@@ -1,5 +1,5 @@
 class DynamicConfig:
-    def __init__(self, data, name, rule, group_name=None):
+    def __init__(self, data, name, rule, group_name=None, evaluation_details=None):
         if data is None:
             data = {}
         self.value = data
@@ -10,6 +10,7 @@ class DynamicConfig:
             rule = ""
         self.rule_id = rule
         self.group_name = group_name
+        self.evaluation_details = evaluation_details
 
     def get(self, key, default=None):
         """Returns the value of the config at the given key
@@ -36,3 +37,7 @@ class DynamicConfig:
     def get_name(self):
         """Returns the name of this DynamicConfig"""
         return self.name
+
+    def get_evaluation_details(self):
+        """Returns the evaluation detail of this DynamicConfig"""
+        return self.evaluation_details

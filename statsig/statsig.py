@@ -7,7 +7,7 @@ from .dynamic_config import DynamicConfig
 from .layer import Layer
 from .client_initialize_formatter import ClientInitializeResponse
 from .utils import HashingAlgorithm
-from . import globals
+from . import globals, FeatureGate
 
 __instance = StatsigServer()
 
@@ -45,6 +45,17 @@ def check_gate(user: StatsigUser, gate: str) -> bool:
     :return: True if user passes the gate, False otherwise
     """
     return __instance.check_gate(user, gate)
+
+
+def get_feature_gate(user: StatsigUser, gate: str) -> FeatureGate:
+    """
+    Gets the FeatureGate object for the given user
+
+    :param user: The StatsigUser object used for the evaluation
+    :param gate: The name of the gate
+    :return: A FeatureGate object
+    """
+    return __instance.get_feature_gate(user, gate)
 
 
 def check_gate_with_exposure_logging_disabled(user: StatsigUser, gate: str) -> bool:
@@ -267,7 +278,9 @@ def remove_all_overrides():
     __instance.remove_all_overrides()
 
 
-def get_client_initialize_response(user: StatsigUser, client_sdk_key: Optional[str] = None, hash: Optional[HashingAlgorithm] = HashingAlgorithm.SHA256, include_local_overrides: Optional[bool] = False) -> ClientInitializeResponse:
+def get_client_initialize_response(user: StatsigUser, client_sdk_key: Optional[str] = None,
+                                   hash: Optional[HashingAlgorithm] = HashingAlgorithm.SHA256,
+                                   include_local_overrides: Optional[bool] = False) -> ClientInitializeResponse:
     """
     Gets all evaluated values for the given user.
     These values can then be given to a Statsig Client SDK via bootstrapping.

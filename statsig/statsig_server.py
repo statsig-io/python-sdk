@@ -110,7 +110,7 @@ class StatsigServer:
             diagnostics.add_marker(Marker().overall().end({"success": not threw_error}))
             diagnostics.log_diagnostics(Context.INITIALIZE)
 
-    def check_gate(self, user: StatsigUser, gate_name: str, log_exposure=True):
+    def get_feature_gate(self, user: StatsigUser, gate_name: str, log_exposure=True):
         def task():
             if not self._verify_inputs(user, gate_name):
                 feature_gate = FeatureGate(
@@ -128,9 +128,19 @@ class StatsigServer:
                 gate_name,
                 result.rule_id,
                 result.group_name,
+                result.evaluation_details
             )
             self.safe_eval_callback(feature_gate)
-            return result.boolean_value
+            return feature_gate
+
+        return self._errorBoundary.capture(
+            "get_feature_gate", task, lambda: False, {"configName": gate_name}
+        )
+
+    def check_gate(self, user: StatsigUser, gate_name: str, log_exposure=True):
+        def task():
+            result = self.get_feature_gate(user, gate_name, log_exposure)
+            return result.value
 
         return self._errorBoundary.capture(
             "check_gate", task, lambda: False, {"configName": gate_name}
@@ -163,6 +173,7 @@ class StatsigServer:
                 config_name,
                 result.rule_id,
                 group_name=result.group_name,
+                evaluation_details=result.evaluation_details
             )
             self.safe_eval_callback(dynamicConfig)
             return dynamicConfig
@@ -201,6 +212,7 @@ class StatsigServer:
                 experiment_name,
                 result.rule_id,
                 group_name=result.group_name,
+                evaluation_details=result.evaluation_details
             )
             self.safe_eval_callback(dynamicConfig)
             return dynamicConfig
@@ -248,6 +260,7 @@ class StatsigServer:
                 result.group_name,
                 result.allocated_experiment,
                 log_func,
+                evaluation_details=result.evaluation_details
             )
             self.safe_eval_callback(layer)
             return layer

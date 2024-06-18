@@ -6,15 +6,16 @@ class Layer:
 
     @classmethod
     def _create(cls, name: str, value: dict, rule: str, group_name=None,
-                allocated_experiment=None, param_log_func=None):
+                allocated_experiment=None, param_log_func=None, evaluation_details=None):
         return Layer(
             cls.__create_key, name, value, rule, group_name, allocated_experiment,
-            param_log_func)
+            param_log_func, evaluation_details=evaluation_details)
 
     def __init__(self, create_key, name: str, value: dict, rule: str,
                  group_name: Optional[str],
                  allocated_experiment: Optional[str],
-                 param_log_func: Callable[['Layer', str], None]):
+                 param_log_func: Callable[['Layer', str], None],
+                 evaluation_details=None):
         assert (create_key == Layer.__create_key), \
             "Layers should only be created internally by Statsig"
 
@@ -30,6 +31,7 @@ class Layer:
         self.rule_id = rule
         self.group_name = group_name
         self.allocated_experiment = allocated_experiment
+        self.evaluation_details = evaluation_details
 
     def get(self, key, default=None):
         """Returns the value of the layer at the given key
@@ -70,3 +72,7 @@ class Layer:
             return
 
         self.__log_func(self, parameter_name)
+
+    def get_evaluation_details(self):
+        """Returns the evaluation detail of this Layer"""
+        return self.evaluation_details

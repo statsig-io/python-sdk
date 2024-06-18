@@ -1,6 +1,7 @@
 import unittest
 
 from statsig import Layer
+from statsig.evaluation_details import EvaluationDetails, EvaluationReason
 
 
 class TestLayer(unittest.TestCase):
@@ -47,6 +48,47 @@ class TestLayer(unittest.TestCase):
 
         # List types do not differentiate the type of the values in the list
         self.assertEqual(layer.get_typed("arr", ["str_arr"]), [17])
+
+    def test_evaluation_details(self):
+        layer = Layer._create('network', {
+            "str": "string",
+            "num": 4,
+            "bool": True,
+            "arr": [17],
+        }, "default", evaluation_details=EvaluationDetails(123, 123,
+                                                           EvaluationReason.network))
+
+        self.assertEqual(layer.get_evaluation_details().config_sync_time, 123)
+        self.assertEqual(layer.get_evaluation_details().reason, EvaluationReason.network)
+
+        layer = Layer._create('no_eval', {
+            "str": "string",
+            "num": 4,
+            "bool": True,
+            "arr": [17],
+        }, "default", evaluation_details=None)
+
+        self.assertEqual(layer.get_evaluation_details(), None)
+
+        layer = Layer._create('uninitialized', {
+            "str": "string",
+            "num": 4,
+            "bool": True,
+            "arr": [17],
+        }, "default", evaluation_details=EvaluationDetails(123, 123, EvaluationReason.uninitialized))
+
+        self.assertEqual(layer.get_evaluation_details().config_sync_time, 123)
+        self.assertEqual(layer.get_evaluation_details().reason, EvaluationReason.uninitialized)
+
+        layer = Layer._create('error', {
+            "str": "string",
+            "num": 4,
+            "bool": True,
+            "arr": [17],
+        }, "default", evaluation_details=EvaluationDetails(123, 123, EvaluationReason.error))
+
+        self.assertEqual(layer.get_evaluation_details().config_sync_time, 123)
+        self.assertEqual(layer.get_evaluation_details().reason, EvaluationReason.error)
 
 
 if __name__ == '__main__':
