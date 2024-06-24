@@ -59,7 +59,7 @@ class ClientInitializeResponseFormatter:
             result = {
                 "name": hashed_name,
                 "rule_id": eval_result.rule_id,
-                "secondary_exposures": hash_exposures(eval_result.secondary_exposures, hash_algo),
+                "secondary_exposures": eval_result.secondary_exposures,
                 "value": False
             }
 
@@ -133,11 +133,6 @@ class ClientInitializeResponseFormatter:
                         "explicitParameters", [])
 
             result["undelegated_secondary_exposures"] = eval_result.undelegated_secondary_exposures or []
-
-        def hash_exposures(exposures: list, algo: HashingAlgorithm):
-            for exposure in exposures:
-                exposure['gate'] = hash_name(exposure['gate'], algo)
-            return exposures
 
         def filter_nones(arr):
             return dict([i for i in arr if i is not None])
