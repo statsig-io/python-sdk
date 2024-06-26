@@ -102,7 +102,8 @@ class _Evaluator:
             return None
 
         return ClientInitializeResponseFormatter \
-            .get_formatted_response(self.__eval_config, user, self._spec_store, self, hash, client_sdk_key, include_local_override)
+            .get_formatted_response(self.__eval_config, user, self._spec_store, self, hash, client_sdk_key,
+                                    include_local_override)
 
     def _create_evaluation_details(self, reason: EvaluationReason):
         if reason == EvaluationReason.uninitialized:
@@ -118,7 +119,7 @@ class _Evaluator:
 
         eval_details = self._create_evaluation_details(
             EvaluationReason.local_override)
-        override = gate_overrides.get(user.user_id)
+        override = self.__lookup_override(gate_overrides, user)
         if override is not None:
             return _ConfigEvaluation(boolean_value=override, rule_id="override",
                                      evaluation_details=eval_details)
@@ -130,7 +131,6 @@ class _Evaluator:
 
         return None
 
-
     def lookup_gate_override(self, user, gate):
         return self.__lookup_gate_override(user, gate)
 
@@ -141,7 +141,7 @@ class _Evaluator:
 
         eval_details = self._create_evaluation_details(
             EvaluationReason.local_override)
-        override = config_overrides.get(user.user_id)
+        override = self.__lookup_override(config_overrides, user)
         if override is not None:
             return _ConfigEvaluation(json_value=override, rule_id="override",
                                      evaluation_details=eval_details)
@@ -151,7 +151,6 @@ class _Evaluator:
             return _ConfigEvaluation(
                 json_value=all_override, rule_id="override", evaluation_details=eval_details)
         return None
-
 
     def lookup_config_override(self, user, config):
         return self.__lookup_config_override(user, config)
@@ -163,7 +162,7 @@ class _Evaluator:
 
         eval_details = self._create_evaluation_details(
             EvaluationReason.local_override)
-        override = layer_overrides.get(user.user_id)
+        override = self.__lookup_override(layer_overrides, user)
         if override is not None:
             return _ConfigEvaluation(json_value=override, rule_id="override",
                                      evaluation_details=eval_details)
@@ -174,14 +173,23 @@ class _Evaluator:
                 json_value=all_override, rule_id="override", evaluation_details=eval_details)
         return None
 
+    def __lookup_override(self, config_overrides, user):
+        override = config_overrides.get(user.user_id)
+        if override is None and user.custom_ids is not None:
+            for id_name in user.custom_ids:
+                override = config_overrides.get(user.custom_ids[id_name])
+                if override is not None:
+                    break
+        return override
+
     def unsupported_or_unrecognized(self, config_name):
         if config_name in self._spec_store.unsupported_configs:
             return _ConfigEvaluation(
                 evaluation_details=self._create_evaluation_details(
                     EvaluationReason.unsupported))
         return _ConfigEvaluation(
-                evaluation_details=self._create_evaluation_details(
-                    EvaluationReason.unrecognized))
+            evaluation_details=self._create_evaluation_details(
+                EvaluationReason.unrecognized))
 
     def check_gate(self, user, gate, end_result=None, is_nested=False):
         override = self.__lookup_gate_override(user, gate)
