@@ -155,6 +155,8 @@ class _SpecStore:
         if not self._is_specs_json_valid(specs_json):
             self._log_process("Failed to process specs")
             return False
+        if specs_json.get("time", 0) <= self.last_update_time:
+            return False
         copy = json.dumps(specs_json)
         if callable(self._options.rules_updated_callback):
             self._options.rules_updated_callback(copy)
