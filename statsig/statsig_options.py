@@ -22,6 +22,7 @@ class StatsigOptions:
         self,
         api: Optional[str] = None,
         api_for_download_config_specs: Optional[str] = None,
+        api_for_log_event: Optional[str] = None,
         tier: Union[str, StatsigEnvironmentTier, None] = None,
         init_timeout: Optional[int] = None,
         timeout: Optional[int] = None,
@@ -54,6 +55,7 @@ class StatsigOptions:
                 )
         self.api = api
         self.api_for_download_config_specs = api_for_download_config_specs
+        self.api_for_log_event = api_for_log_event
         self.timeout = timeout
         self.init_timeout = init_timeout
         self.rulesets_sync_interval = rulesets_sync_interval

@@ -35,8 +35,13 @@ class _StatsigNetwork:
         if not api_for_download_config_specs.endswith("/"):
             api_for_download_config_specs = api_for_download_config_specs + "/"
 
+        api_for_log_event = options.api_for_log_event or options.api or STATSIG_API
+        if not api_for_log_event.endswith("/"):
+            api_for_log_event = api_for_log_event + "/"
+
         self.__api = api
         self.__api_for_download_config_specs = api_for_download_config_specs
+        self.__api_for_log_event = api_for_log_event
         self.__req_timeout = options.timeout or REQUEST_TIMEOUT
         self.__local_mode = options.local_mode
         self.__error_boundary = error_boundary
@@ -78,7 +83,7 @@ class _StatsigNetwork:
             additional_headers.update(headers)
         response = self._request(
             method='POST',
-            url=f"{self.__api}log_event",
+            url=f"{self.__api_for_log_event}log_event",
             headers=additional_headers,
             payload=payload, log_on_exception=log_on_exception, timeout=None, zipped=not disable_compression,
             tag="log_event")
