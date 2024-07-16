@@ -28,19 +28,20 @@ class _StatsigNetwork:
         diagnostics: Diagnostics
     ):
         self.__sdk_key = sdk_key
-        api = options.api or STATSIG_API
-        if not api.endswith("/"):
-            api = api + "/"
         api_for_download_config_specs = options.api_for_download_config_specs or options.api or STATSIG_CDN
         if not api_for_download_config_specs.endswith("/"):
             api_for_download_config_specs = api_for_download_config_specs + "/"
+
+        api_for_get_id_lists = options.api_for_get_id_lists or options.api or STATSIG_API
+        if not api_for_get_id_lists.endswith("/"):
+            api_for_get_id_lists = api_for_get_id_lists + "/"
 
         api_for_log_event = options.api_for_log_event or options.api or STATSIG_API
         if not api_for_log_event.endswith("/"):
             api_for_log_event = api_for_log_event + "/"
 
-        self.__api = api
         self.__api_for_download_config_specs = api_for_download_config_specs
+        self.__api_for_get_id_lists = api_for_get_id_lists
         self.__api_for_log_event = api_for_log_event
         self.__req_timeout = options.timeout or REQUEST_TIMEOUT
         self.__local_mode = options.local_mode
@@ -60,7 +61,7 @@ class _StatsigNetwork:
 
     def get_id_lists(self, log_on_exception=False, timeout=None):
         response = self._post_request(
-            url=f"{self.__api}get_id_lists",
+            url=f"{self.__api_for_get_id_lists}get_id_lists",
             headers=None,
             payload={"statsigMetadata": self.__statsig_metadata},
             log_on_exception=log_on_exception,
@@ -82,11 +83,9 @@ class _StatsigNetwork:
         if headers is not None:
             additional_headers.update(headers)
         response = self._request(
-            method='POST',
-            url=f"{self.__api_for_log_event}log_event",
-            headers=additional_headers,
-            payload=payload, log_on_exception=log_on_exception, timeout=None, zipped=not disable_compression,
-            tag="log_event")
+            method='POST', url=f"{self.__api_for_log_event}log_event", headers=additional_headers,
+            payload=payload, log_on_exception=log_on_exception, timeout=None,
+            zipped=not disable_compression, tag="log_event")
         if response is None or response.status_code in self.__RETRY_CODES:
             return payload
         return None
@@ -107,8 +106,8 @@ class _StatsigNetwork:
             return None
 
         create_marker = self._get_diagnostics_from_url_or_tag(url, tag)
-        marker_id = str(self.__request_count) if(tag == 'log_event') else None
-        self.__request_count+=1
+        marker_id = str(self.__request_count) if (tag == 'log_event') else None
+        self.__request_count += 1
         if create_marker is not None:
             self.__diagnostics.add_marker(create_marker().start({'markerID': marker_id}))
 
@@ -211,11 +210,11 @@ class _StatsigNetwork:
 
     def _get_diagnostics_from_url_or_tag(self, url: str, tag: str):
         if 'download_config_specs' in url or tag == "download_config_specs":
-            return lambda: Marker(url = url).download_config_specs().network_request()
+            return lambda: Marker(url=url).download_config_specs().network_request()
         if 'get_id_lists' in url or tag == "get_id_lists":
-            return lambda: Marker(url = url).get_id_list_sources().network_request()
+            return lambda: Marker(url=url).get_id_list_sources().network_request()
         if 'idliststorage' in url or tag == "get_id_list":
-            return lambda: Marker(url = url).get_id_list().network_request()
+            return lambda: Marker(url=url).get_id_list().network_request()
         if 'log_event' in url or tag == "log_event":
             return lambda: Marker().log_event().network_request()
         return None

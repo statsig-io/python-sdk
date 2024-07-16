@@ -22,6 +22,7 @@ class StatsigOptions:
         self,
         api: Optional[str] = None,
         api_for_download_config_specs: Optional[str] = None,
+        api_for_get_id_lists: Optional[str] = None,
         api_for_log_event: Optional[str] = None,
         tier: Union[str, StatsigEnvironmentTier, None] = None,
         init_timeout: Optional[int] = None,
@@ -55,6 +56,7 @@ class StatsigOptions:
                 )
         self.api = api
         self.api_for_download_config_specs = api_for_download_config_specs
+        self.api_for_get_id_lists = api_for_get_id_lists
         self.api_for_log_event = api_for_log_event
         self.timeout = timeout
         self.init_timeout = init_timeout
@@ -91,6 +93,12 @@ class StatsigOptions:
         logging_copy: Dict[str, Any] = {}
         if self.api is not None:
             logging_copy["api"] = self.api
+        if self.api_for_download_config_specs is not None:
+            logging_copy["api_for_download_config_specs"] = self.api_for_download_config_specs
+        if self.api_for_get_id_lists is not None:
+            logging_copy["api_for_get_id_lists"] = self.api_for_get_id_lists
+        if self.api_for_log_event is not None:
+            logging_copy["api_for_log_event"] = self.api_for_log_event
         if self._environment != {} and self._environment is not None:
             logging_copy["environment"] = self._environment
         if self.init_timeout:
