@@ -443,19 +443,19 @@ class _Evaluator:
         if op == "any":
             if user_bucket is not None:
                 return self.__lookup_user_bucket(value, user_bucket)
-            return self.__match_string_in_array(
-                value, target, lambda a, b: a.upper().lower() == b.upper().lower())
+            return self.__find_string_in_array(
+                value, condition)
         if op == "none":
             if user_bucket is not None:
                 return not self.__lookup_user_bucket(value, user_bucket)
-            return not self.__match_string_in_array(
-                value, target, lambda a, b: a.upper().lower() == b.upper().lower())
+            return not self.__find_string_in_array(
+                value, condition)
         if op == "any_case_sensitive":
-            return self.__match_string_in_array(
-                value, target, lambda a, b: a == b)
+            return self.__find_string_in_array(
+                value, condition)
         if op == "none_case_sensitive":
-            return not self.__match_string_in_array(
-                value, target, lambda a, b: a == b)
+            return not self.__find_string_in_array(
+                value, condition)
         if op == "str_starts_with_any":
             return self.__match_string_in_array(
                 value, target, lambda a, b: a.upper().lower().startswith(
@@ -570,6 +570,16 @@ class _Evaluator:
             if compare(str_value, str_match):
                 return True
         return False
+
+    def __find_string_in_array(self, value, condition):
+        str_value = self.__get_value_as_string(value)
+        target = condition.get("fast_target_value")
+        op = condition.get("operator")
+        if str_value is None or target is None:
+            return False
+        if op in ('any', 'none'):
+            return str_value.upper().lower() in target
+        return str_value in target
 
     def __lookup_user_bucket(self, val, lookup):
         if isinstance(val, int):

@@ -21,12 +21,14 @@ IDLISTS_SYNC_INTERVAL = 60
 STORAGE_ADAPTER_KEY = "statsig.cache"
 SYNC_OUTDATED_MAX_S = 120
 
+
 class _SpecStore:
     _background_download_configs: Optional[threading.Thread]
     _background_download_id_lists: Optional[threading.Thread]
 
     def __init__(self, network: _StatsigNetwork, options: StatsigOptions, statsig_metadata: dict,
-                 error_boundary: _StatsigErrorBoundary, shutdown_event: threading.Event, sdk_key: str, diagnostics: Diagnostics):
+                 error_boundary: _StatsigErrorBoundary, shutdown_event: threading.Event, sdk_key: str,
+                 diagnostics: Diagnostics):
         self.last_update_time = 0
         self.initial_update_time = 0
         self.init_reason = EvaluationReason.uninitialized
@@ -175,6 +177,7 @@ class _SpecStore:
                 for i, cond in enumerate(rule.get("conditions", [])):
                     op = cond.get("operator", None)
                     cond_type = cond.get("type", None)
+                    target_value = cond.get("targetValue", [])
                     if op is not None:
                         op = op.lower()
                         if op not in Const.SUPPORTED_OPERATORS:
@@ -187,12 +190,17 @@ class _SpecStore:
                             del parsed[spec.get("name")]
 
                     if op in ('any', 'none') and cond_type == "user_bucket":
-                        user_bucket_array = cond.get("targetValue", [])
-                        if len(user_bucket_array) == 0:
-                            return
                         rule["conditions"][i]["user_bucket"] = {}
-                        for val in user_bucket_array:
+                        for val in target_value:
                             rule["conditions"][i]["user_bucket"][int(val)] = True
+                    elif op in ('any', 'none') and isinstance(target_value, list):
+                        rule["conditions"][i]["fast_target_value"] = {}
+                        for val in target_value:
+                            rule["conditions"][i]["fast_target_value"][str(val).upper().lower()] = True
+                    elif op in ("any_case_sensitive", "none_case_sensitive") and isinstance(target_value, list):
+                        rule["conditions"][i]["fast_target_value"] = {}
+                        for val in target_value:
+                            rule["conditions"][i]["fast_target_value"][str(val)] = True
 
         self.unsupported_configs.clear()
         new_gates = get_parsed_specs("feature_gates")
@@ -247,7 +255,8 @@ class _SpecStore:
         interval = self._options.rulesets_sync_interval or RULESETS_SYNC_INTERVAL
         fast_start = self._sync_failure_count > 0
 
-        if self._options.data_store is not None and self._options.data_store.should_be_used_for_querying_updates(STORAGE_ADAPTER_KEY):
+        if self._options.data_store is not None and self._options.data_store.should_be_used_for_querying_updates(
+                STORAGE_ADAPTER_KEY):
             self._background_download_configs = spawn_background_thread(
                 "bg_download_config_specs_from_storage_adapter",
                 self._sync,
@@ -338,7 +347,7 @@ class _SpecStore:
             self.init_reason = EvaluationReason.data_adapter
 
         self._diagnostics.add_marker(Marker().data_store_config_specs().process().end(
-                {'success': self.init_reason == EvaluationReason.data_adapter}))
+            {'success': self.init_reason == EvaluationReason.data_adapter}))
         self._diagnostics.log_diagnostics(Context.CONFIG_SYNC, Key.DATA_STORE_CONFIG_SPECS)
 
     def _spawn_bg_download_id_lists(self):
