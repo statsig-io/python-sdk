@@ -15,6 +15,7 @@ DEFAULT_IDLIST_SYNC_INTERVAL = 60
 DEFAULT_EVENT_QUEUE_SIZE = 500
 DEFAULT_IDLISTS_THREAD_LIMIT = 3
 DEFAULT_LOGGING_INTERVAL = 60
+DEFAULT_RETRY_QUEUE_SIZE = 10
 
 STATSIG_API = "https://statsigapi.net/v1/"
 STATSIG_CDN = "https://api.statsigcdn.com/v1/"
@@ -75,14 +76,13 @@ class StatsigOptions:
         event_queue_size: Optional[int] = DEFAULT_EVENT_QUEUE_SIZE,
         data_store: Optional[IDataStore] = None,
         idlists_thread_limit: int = DEFAULT_IDLISTS_THREAD_LIMIT,
-        logging_interval: int = DEFAULT_LOGGING_INTERVAL,
+        logging_interval: int = DEFAULT_LOGGING_INTERVAL, #deprecated
         disable_diagnostics: bool = False,
         custom_logger: Optional[OutputLogger] = None,
-        enable_debug_logs=False,
-        disable_all_logging=False,
-        evaluation_callback: Optional[
-            Callable[[Union[Layer, DynamicConfig, FeatureGate]], None]
-        ] = None,
+        enable_debug_logs = False,
+        disable_all_logging = False,
+        evaluation_callback: Optional[Callable[[Union[Layer, DynamicConfig, FeatureGate]], None]] = None,
+        retry_queue_size: int = DEFAULT_RETRY_QUEUE_SIZE,
         proxy_configs: Optional[Dict[NetworkEndpoint, ProxyConfig]] = None,
         fallback_to_statsig_api: Optional[bool] = False,
         initialize_sources: Optional[List[DataSource]] = None,
@@ -122,6 +122,7 @@ class StatsigOptions:
         self.enable_debug_logs = enable_debug_logs
         self.disable_all_logging = disable_all_logging
         self.evaluation_callback = evaluation_callback
+        self.retry_queue_size = retry_queue_size
         self.fallback_to_statsig_api = fallback_to_statsig_api
         self._set_logging_copy()
         if proxy_configs is None:
@@ -178,4 +179,6 @@ class StatsigOptions:
             logging_copy["disable_diagnostics"] = self.disable_diagnostics
         if self.event_queue_size != DEFAULT_EVENT_QUEUE_SIZE:
             logging_copy["event_queue_size"] = self.event_queue_size
+        if self.retry_queue_size != DEFAULT_RETRY_QUEUE_SIZE:
+            logging_copy["retry_queue_size"] = self.retry_queue_size
         self.logging_copy = logging_copy

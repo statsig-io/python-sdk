@@ -60,13 +60,11 @@ class TestBackgroundThreadSpawning(unittest.TestCase):
 
     def _logger_none_restart_test(self, actions: List[Callable]):
         for action in actions:
-            self._server._logger._background_flush = None
-            self._server._logger._background_retry = None
+            self._server._logger._logger_worker.worker_thread = None
 
             action()
 
-            self.assertIsNotNone(self._server._logger._background_flush)
-            self.assertIsNotNone(self._server._logger._background_retry)
+            self.assertIsNotNone(self._server._logger._logger_worker.worker_thread)
 
     def _logger_local_mode_restart_test(self, actions: List[Callable]):
         for action in actions:
@@ -84,13 +82,11 @@ class TestBackgroundThreadSpawning(unittest.TestCase):
             return False
 
         for action in actions:
-            self._server._logger._background_flush.is_alive = always_false
-            self._server._logger._background_retry.is_alive = always_false
+            self._server._logger._logger_worker.worker_thread.is_alive = always_false
 
             action()
 
-            self.assertTrue(self._server._logger._background_flush.is_alive())
-            self.assertTrue(self._server._logger._background_retry.is_alive())
+            self.assertTrue(self._server._logger._logger_worker.worker_thread.is_alive())
 
     def _spec_store_none_restart_test(self, actions: List[Callable]):
         for action in actions:

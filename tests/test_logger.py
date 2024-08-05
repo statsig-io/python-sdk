@@ -3,6 +3,7 @@ import unittest
 from unittest.mock import patch
 
 from gzip_helpers import GzipHelpers
+from statsig import globals
 from statsig.statsig_event import StatsigEvent
 from statsig.statsig_options import StatsigOptions
 from statsig.statsig_server import StatsigServer
@@ -40,10 +41,19 @@ class LoggerTest(unittest.TestCase):
 
         self._network_stub.stub_request_with_function("log_event", 202, on_log)
 
+        globals.STATSIG_LOGGING_INTERVAL_SECONDS = 1
         self._instance.initialize("secret-key", options)
         self._user = StatsigUser("dloomb")
         
         ## clear diagnostics initialize log
+        self.flush()
+
+    def tearDown(self):
+        globals.STATSIG_LOGGING_INTERVAL_SECONDS = 5.0
+        self._instance.shutdown()
+
+    @patch('requests.request', side_effect=_network_stub.mock)
+    def flush(self, mock_request):
         self._instance.flush()
 
     @patch('requests.request', side_effect=_network_stub.mock)
@@ -145,7 +155,7 @@ class LoggerTest(unittest.TestCase):
     def _run_and_wait_for_logs(self, task):
         self._didLog = threading.Event()
         task()
-        self._didLog.wait(1)
+        self._didLog.wait(2)
 
 
 if __name__ == '__main__':
