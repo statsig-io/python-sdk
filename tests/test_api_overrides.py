@@ -1,3 +1,5 @@
+import json
+import os
 import unittest
 from unittest.mock import patch
 from urllib.parse import urlparse
@@ -11,6 +13,15 @@ _api_stubs = {
     "log_event": NetworkStub("http://test-log-event"),
     "api": NetworkStub("http://test-api")
 }
+
+with open(
+        os.path.join(
+            os.path.abspath(os.path.dirname(__file__)),
+            "../testdata/download_config_specs.json",
+        )
+) as r:
+    CONFIG_SPECS_RESPONSE = r.read()
+
 
 def mock_apis(*args, **kwargs):
     url = urlparse(args[1])
@@ -36,8 +47,10 @@ class TestApiOverrides(unittest.TestCase):
                 cls.log_event_override = True
             if url.hostname == "test-dcs":
                 cls.dcs_override = True
+                return json.loads(CONFIG_SPECS_RESPONSE)
             if url.hostname == "test-get-id-lists":
                 cls.get_id_lists_override = True
+                return {}
 
         _api_stubs["api"].stub_request_with_function(".*", 202, on_log)
         _api_stubs["download_config_specs"].stub_request_with_function(".*", 202, on_log)

@@ -31,7 +31,8 @@ jobs:
         run: |
           pip install types-requests
           pip install types-redis
-          mypy ./statsig --ignore-missing-imports --check-untyped-defs --exclude ./build/lib
+          pip install types-protobuf
+          mypy ./statsig --ignore-missing-imports --check-untyped-defs --exclude ./build/lib,./statsig/grpc
 
       - name: Run Tests
         run: python3 -m unittest discover -s ./tests --verbose

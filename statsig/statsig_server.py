@@ -70,7 +70,7 @@ class StatsigServer:
                 self._options, self.__statsig_metadata
             )
             self._network = _StatsigNetwork(
-                sdk_key, self._options, self.__statsig_metadata, self._errorBoundary, diagnostics
+                sdk_key, self._options, self.__statsig_metadata, self._errorBoundary, diagnostics, self.__shutdown_event
             )
             self._logger = _StatsigLogger(
                 self._network,
@@ -315,6 +315,7 @@ class StatsigServer:
             self.__shutdown_event.set()
             self._logger.shutdown()
             self._spec_store.shutdown()
+            self._network.shutdown()
             self._errorBoundary.shutdown()
             self._initialized = False
 
@@ -450,7 +451,7 @@ class StatsigServer:
             self._logger.spawn_bg_threads_if_needed()
 
         if self._spec_store is not None:
-            self._spec_store.spawn_bg_threads_if_needed()
+            self._spec_store.spec_updater.start_background_threads()
 
     def __check_gate(self, user: StatsigUser, gate_name: str, log_exposure=True):
         user = self.__normalize_user(user)

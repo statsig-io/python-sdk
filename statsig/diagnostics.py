@@ -2,6 +2,8 @@ from typing import Optional, Dict
 import time
 import random
 from enum import Enum
+
+from .interface_network import NetworkProtocol
 from .statsig_options import StatsigOptions
 
 
@@ -81,6 +83,7 @@ class Marker:
         configName: Optional[str] = None,
         error: Optional[dict] = None,
         payloadSize: Optional[int] = None,
+        networkProtocol: Optional[NetworkProtocol] = None,
     ):
         self.key = key
         self.action = action
@@ -99,6 +102,7 @@ class Marker:
         self.configName = configName
         self.error = error
         self.payloadSize = payloadSize
+        self.networkProtocol = networkProtocol
 
     def to_dict(self) -> Dict:
         marker_dict = {
@@ -119,6 +123,7 @@ class Marker:
             "configName": self.configName,
             "error": self.error,
             "payloadSize": self.payloadSize,
+            "networkProtocol": self.networkProtocol.value if self.networkProtocol is not None else None,
         }
         return {k: v for k, v in marker_dict.items() if v is not None}
 
@@ -302,7 +307,7 @@ class Diagnostics:
         return rand < DEFAULT_SAMPLING_RATE  # error in code
 
     @staticmethod
-    def format_error(e: Exception):
+    def format_error(e: Optional[Exception]):
         if e is None:
             return None
         return {

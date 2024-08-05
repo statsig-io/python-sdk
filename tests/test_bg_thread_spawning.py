@@ -100,9 +100,9 @@ class TestBackgroundThreadSpawning(unittest.TestCase):
             action()
 
             self.assertIsNotNone(
-                self._server._spec_store._background_download_configs)
+                self._server._spec_store.spec_updater._background_download_configs)
             self.assertIsNotNone(
-                self._server._spec_store._background_download_id_lists)
+                self._server._spec_store.spec_updater._background_download_id_lists)
 
     def _spec_store_local_mode_restart_test(self, actions: List[Callable]):
         for action in actions:
@@ -122,15 +122,15 @@ class TestBackgroundThreadSpawning(unittest.TestCase):
             return False
 
         for action in actions:
-            self._server._spec_store._background_download_configs.is_alive = always_false
-            self._server._spec_store._background_download_id_lists.is_alive = always_false
+            self._server._spec_store.spec_updater._background_download_configs.is_alive = always_false
+            self._server._spec_store.spec_updater._background_download_id_lists.is_alive = always_false
 
             action()
 
             self.assertTrue(
-                self._server._spec_store._background_download_configs.is_alive())
+                self._server._spec_store.spec_updater._background_download_configs.is_alive())
             self.assertTrue(
-                self._server._spec_store._background_download_id_lists.is_alive())
+                self._server._spec_store.spec_updater._background_download_id_lists.is_alive())
 
 
 if __name__ == '__main__':

@@ -1,5 +1,7 @@
-from typing import Optional, Union, Callable, Dict, Any
+from enum import Enum
+from typing import List, Optional, Union, Callable, Dict, Any
 
+from .interface_network import NetworkProtocol, NetworkEndpoint
 from .layer import Layer
 from .dynamic_config import DynamicConfig
 from .feature_gate import FeatureGate
@@ -13,6 +15,44 @@ DEFAULT_IDLIST_SYNC_INTERVAL = 60
 DEFAULT_EVENT_QUEUE_SIZE = 500
 DEFAULT_IDLISTS_THREAD_LIMIT = 3
 DEFAULT_LOGGING_INTERVAL = 60
+
+STATSIG_API = "https://statsigapi.net/v1/"
+STATSIG_CDN = "https://api.statsigcdn.com/v1/"
+
+
+class ProxyConfig:
+    def __init__(
+        self,
+        protocol: NetworkProtocol,
+        proxy_address: str,
+        # Failover config
+        max_retry_attempt: Optional[int] = None,
+        retry_backoff_multiplier: Optional[int] = None,
+        retry_backoff_base_ms: Optional[int] = None,
+        # Push worker failback to polling threshold, fallback immediate set 0,
+        # n means fallback after n retry failed
+        push_worker_failover_threshold: Optional[int] = None,
+    ):
+        self.proxy_address = proxy_address
+        self.protocol = protocol
+        self.max_retry_attempt = max_retry_attempt
+        self.retry_backoff_multiplier = retry_backoff_multiplier
+        self.retry_backoff_base_ms = retry_backoff_base_ms
+        self.push_worker_failover_threshold = push_worker_failover_threshold
+
+
+class DataSource(str, Enum):
+    DATASTORE = "datastore"
+    BOOTSTRAP = "bootstrap"
+    NETWORK = "network"
+    STATSIG_NETWORK = "statsig_network"
+
+
+DEFAULT_PROXY_CONFIG = {
+    NetworkEndpoint.ALL: ProxyConfig(
+        proxy_address=STATSIG_API, protocol=NetworkProtocol.HTTP
+    ),
+}
 
 
 class StatsigOptions:
@@ -38,9 +78,15 @@ class StatsigOptions:
         logging_interval: int = DEFAULT_LOGGING_INTERVAL,
         disable_diagnostics: bool = False,
         custom_logger: Optional[OutputLogger] = None,
-        enable_debug_logs = False,
-        disable_all_logging = False,
-        evaluation_callback: Optional[Callable[[Union[Layer, DynamicConfig, FeatureGate]], None]] = None,
+        enable_debug_logs=False,
+        disable_all_logging=False,
+        evaluation_callback: Optional[
+            Callable[[Union[Layer, DynamicConfig, FeatureGate]], None]
+        ] = None,
+        proxy_configs: Optional[Dict[NetworkEndpoint, ProxyConfig]] = None,
+        fallback_to_statsig_api: Optional[bool] = False,
+        initialize_sources: Optional[List[DataSource]] = None,
+        config_sync_sources: Optional[List[DataSource]] = None,
     ):
         self.data_store = data_store
         self._environment: Union[None, dict] = None
@@ -76,7 +122,14 @@ class StatsigOptions:
         self.enable_debug_logs = enable_debug_logs
         self.disable_all_logging = disable_all_logging
         self.evaluation_callback = evaluation_callback
+        self.fallback_to_statsig_api = fallback_to_statsig_api
         self._set_logging_copy()
+        if proxy_configs is None:
+            self.proxy_configs = DEFAULT_PROXY_CONFIG
+        else:
+            self.proxy_configs = proxy_configs
+        self.initialize_sources = initialize_sources
+        self.config_sync_sources = config_sync_sources
 
     def get_logging_copy(self):
         return self.logging_copy
@@ -94,7 +147,9 @@ class StatsigOptions:
         if self.api is not None:
             logging_copy["api"] = self.api
         if self.api_for_download_config_specs is not None:
-            logging_copy["api_for_download_config_specs"] = self.api_for_download_config_specs
+            logging_copy["api_for_download_config_specs"] = (
+                self.api_for_download_config_specs
+            )
         if self.api_for_get_id_lists is not None:
             logging_copy["api_for_get_id_lists"] = self.api_for_get_id_lists
         if self.api_for_log_event is not None:

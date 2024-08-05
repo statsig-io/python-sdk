@@ -164,7 +164,7 @@ class ClientInitializeResponseFormatter:
             "has_updates": True,
             "generator": "statsig-python-sdk",
             "evaluated_keys": evaluated_keys,
-            "time": spec_store.last_update_time,
+            "time": spec_store.last_update_time(),
             "user": user.to_dict(),
             "hash_used": hash_algo.value,
             "sdkInfo": {

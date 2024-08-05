@@ -98,7 +98,7 @@ class _Evaluator:
         if not self._spec_store.is_ready_for_checks():
             return None
 
-        if self._spec_store.last_update_time == 0:
+        if self._spec_store.last_update_time() == 0:
             return None
 
         return ClientInitializeResponseFormatter \
@@ -110,7 +110,7 @@ class _Evaluator:
             return EvaluationDetails(0, 0, reason)
 
         return EvaluationDetails(
-            self._spec_store.last_update_time, self._spec_store.initial_update_time, reason)
+            self._spec_store.last_update_time(), self._spec_store.initial_update_time, reason)
 
     def __lookup_gate_override(self, user, gate):
         gate_overrides = self._gate_overrides.get(gate)

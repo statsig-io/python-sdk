@@ -202,7 +202,7 @@ class _StatsigLogger:
     def _flush_to_server(self, events_copy, event_count):
         headers = {"STATSIG-EVENT-COUNT": str(event_count)}
 
-        res = self._net.retryable_log_event({
+        res = self._net.log_events({
             "events": events_copy,
             "statsigMetadata": self._statsig_metadata,
         }, log_on_exception=True, headers=headers)
@@ -276,7 +276,7 @@ class _StatsigLogger:
                 except IndexError:
                     break
 
-                res = self._net.retryable_log_event(
+                res = self._net.log_events(
                     retry_logs.payload,
                     log_on_exception=True,
                     retry=retry_logs.retries,

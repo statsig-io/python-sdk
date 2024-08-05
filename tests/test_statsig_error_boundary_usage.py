@@ -2,6 +2,7 @@ import unittest
 
 from statsig.dynamic_config import DynamicConfig
 from statsig.layer import Layer
+from statsig.spec_updater import SpecUpdater
 from statsig.statsig_event import StatsigEvent
 from statsig.statsig_server import StatsigServer
 from statsig.statsig_user import StatsigUser
@@ -33,7 +34,19 @@ class TestStatsigErrorBoundaryUsage(unittest.TestCase):
         self._instance.initialize("secret-key")
         self._user = StatsigUser("dloomb")
 
+        class FakeSpecUpdater:
+            def register_process_network_id_lists_listener(self, listener):
+                pass
+
+            def register_process_dcs_listener(self, listener):
+                pass
+
+            def start_background_threads(self):
+                pass
+
         class FakeWithSpawnMethod:
+            spec_updater = FakeSpecUpdater()
+
             def spawn_bg_threads_if_needed(self):
                 pass
 
@@ -51,7 +64,6 @@ class TestStatsigErrorBoundaryUsage(unittest.TestCase):
         statsig = StatsigServer()
         TestStatsigErrorBoundaryUsage.requests = []
         statsig.initialize("secret-key", "_BAD_OPTIONS_")
-        
 
         self.assertEqual(len(_get_requests(statsig)), 1)
         trace = _get_requests(self._instance)[0]['body']['info']

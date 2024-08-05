@@ -1,5 +1,5 @@
 import os
-from setuptools import setup
+from setuptools import setup, find_packages
 
 with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), 'statsig', 'version.py'), encoding='utf-8') as f:
     exec(f.read())
@@ -37,10 +37,12 @@ setup(
         'requests',
         'ua_parser',
         'ip3country',
+        'grpcio',
+        'protobuf',
     ],
     tests_require=test_deps,
     extras_require=extras,
     include_package_data=True,
-    packages=['statsig'],
+    packages=find_packages(include=['statsig', 'statsig.grpc', 'statsig.grpc.generated']),
     python_requires='>=3.5',
 )

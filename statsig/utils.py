@@ -1,6 +1,6 @@
 from enum import Enum
 import json
-from typing import Optional
+from typing import Any, Optional
 
 
 class HashingAlgorithm(Enum):
@@ -41,3 +41,9 @@ def djb2_hash_for_dict(object: dict):
 
 def get_sorted_dict(object: dict):
     return {k: get_sorted_dict(object[k]) if isinstance(object[k], dict) else object[k] for k in sorted(object.keys())}
+
+
+def get_or_default(val: Optional[Any], default: Any):
+    if val is None:
+        return default
+    return val
