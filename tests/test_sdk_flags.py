@@ -1,20 +1,20 @@
 import unittest
 
-from statsig import _SDKFlags
+from statsig import _SDK_Configs
 
 
 class TestSDKFlags(unittest.TestCase):
 
     def test_empty(self):
-        self.assertEqual(_SDKFlags.on("not_a_flag"), False)
+        self.assertEqual(_SDK_Configs.on("not_a_flag"), False)
 
     def test_malformed(self):
-        _SDKFlags.set_flags({"bad_flag": 1})
-        self.assertEqual(_SDKFlags.on("bad_flag"), False)
+        _SDK_Configs.set_flags({"bad_flag": 1})
+        self.assertEqual(_SDK_Configs.on("bad_flag"), False)
 
     def test_flag_set(self):
-        _SDKFlags.set_flags({"a_flag": True})
-        self.assertEqual(_SDKFlags.on("a_flag"), True)
+        _SDK_Configs.set_flags({"a_flag": True})
+        self.assertEqual(_SDK_Configs.on("a_flag"), True)
 
 
 if __name__ == '__main__':

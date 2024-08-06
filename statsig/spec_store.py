@@ -4,7 +4,7 @@ from concurrent.futures import wait, ThreadPoolExecutor
 from typing import List, Optional, Dict, Set
 
 from .constants import Const
-from .sdk_flags import _SDKFlags
+from .sdk_configs import _SDK_Configs
 from .spec_updater import SpecUpdater
 from .utils import djb2_hash
 
@@ -59,6 +59,7 @@ class _SpecStore:
             statsig_metadata,
             shutdown_event,
         )
+
         self.spec_updater.register_process_network_id_lists_listener(
             lambda id_lists: self._process_download_id_lists(id_lists)
         )
@@ -217,7 +218,9 @@ class _SpecStore:
         self.init_reason = reason
 
         flags = specs_json.get("sdk_flags", {})
-        _SDKFlags.set_flags(flags)
+        _SDK_Configs.set_flags(flags)
+        configs = specs_json.get("sdk_configs", {})
+        _SDK_Configs.set_configs(configs)
 
         sampling_rate = specs_json.get("diagnostics", {})
         self._diagnostics.set_sampling_rate(sampling_rate)

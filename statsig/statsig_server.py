@@ -93,6 +93,7 @@ class StatsigServer:
                 sdk_key,
                 diagnostics
             )
+
             self._evaluator = _Evaluator(self._spec_store)
 
             self._spec_store.initialize()

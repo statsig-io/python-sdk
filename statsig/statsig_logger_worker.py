@@ -1,6 +1,7 @@
 import concurrent.futures
 
 from . import globals
+from .sdk_configs import _SDK_Configs
 from .statsig_network import _StatsigNetwork
 from .statsig_options import StatsigOptions
 from .batch_event_queue import EventBatchProcessor, BatchEventLogs
@@ -21,7 +22,8 @@ class LoggerWorker:
         self._log_interval = globals.STATSIG_LOGGING_INTERVAL_SECONDS
         self.backoff_interval = globals.STATSIG_LOGGING_INTERVAL_SECONDS
         self.max_failure_backoff_interval = MAX_FAILURE_BACKOFF_INTERVAL_SECONDS
-        self.min_success_backoff_interval = min(MIN_SUCCESS_BACKOFF_INTERVAL_SECONDS, globals.STATSIG_LOGGING_INTERVAL_SECONDS)
+        self.min_success_backoff_interval = min(MIN_SUCCESS_BACKOFF_INTERVAL_SECONDS,
+                                                globals.STATSIG_LOGGING_INTERVAL_SECONDS)
         self._local_mode = options.local_mode
         self._error_boundary = error_boundary
         self._diagnostics = diagnostics
@@ -55,12 +57,12 @@ class LoggerWorker:
             self._flush_to_server(batched_events)
 
     def shutdown(self):
-        self.event_batch_processor.shutdown()
         event_batches = self.event_batch_processor.get_all_batched_events()
         for batch in event_batches:
             self._flush_to_server(batch)
         if self.worker_thread is not None:
             self.worker_thread.join(THREAD_JOIN_TIMEOUT)
+        self.event_batch_processor.shutdown()
         self._executor.shutdown()
 
     def _process_queue(self, shutdown_event):
@@ -76,7 +78,7 @@ class LoggerWorker:
         if self._local_mode:
             return
         res = self._net.log_events(batched_events.payload, retry=batched_events.retries,
-                                            log_on_exception=True, headers=batched_events.headers)
+                                   log_on_exception=True, headers=batched_events.headers)
         if res is not None:
             if batched_events.retries >= 10:
                 message = (
@@ -105,15 +107,26 @@ class LoggerWorker:
             self._success_backoff()
 
     def _failure_backoff(self):
+        if self._check_override_interval():
+            return
         self.backoff_interval = min(self.backoff_interval * BACKOFF_MULTIPLIER,
                                     self.max_failure_backoff_interval)
         self._log_interval = self.backoff_interval
         globals.logger.info(f"Log event failure, backing off for {self._log_interval} seconds")
 
     def _success_backoff(self):
+        if self._check_override_interval():
+            return
         if self._log_interval == globals.STATSIG_LOGGING_INTERVAL_SECONDS:
             return
         self.backoff_interval = max(self.backoff_interval / BACKOFF_MULTIPLIER,
                                     self.min_success_backoff_interval)
         self._log_interval = self.backoff_interval
         globals.logger.info(f"Log event success, decreasing backoff to {self._log_interval} seconds")
+
+    def _check_override_interval(self):
+        override_interval = _SDK_Configs.get_config_num_value("log_event_interval")
+        if override_interval is not None and override_interval > 0:
+            self._log_interval = float(override_interval)
+            return True
+        return False

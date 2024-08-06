@@ -7,7 +7,7 @@ from typing import Optional, Callable
 import requests
 from .diagnostics import Diagnostics, Marker
 from .interface_network import IStatsigNetworkWorker, NetworkProtocol
-from .sdk_flags import _SDKFlags
+from .sdk_configs import _SDK_Configs
 from .statsig_options import StatsigOptions, STATSIG_API, STATSIG_CDN
 from .statsig_error_boundary import _StatsigErrorBoundary
 
@@ -105,7 +105,7 @@ class HttpWorker(IStatsigNetworkWorker):
         on_complete(resp)
 
     def log_events(self, payload, headers=None, log_on_exception=False, retry=0):
-        disable_compression = _SDKFlags.on("stop_log_event_compression")
+        disable_compression = _SDK_Configs.on("stop_log_event_compression")
         additional_headers = {
             'STATSIG-RETRY': str(retry),
         }

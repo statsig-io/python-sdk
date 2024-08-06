@@ -11,6 +11,6 @@ from .statsig_server import StatsigServer
 from .statsig_environment_tier import StatsigEnvironmentTier
 from .evaluator import _Evaluator
 from .interface_data_store import IDataStore
-from .sdk_flags import _SDKFlags
+from .sdk_configs import _SDK_Configs
 from .utils import HashingAlgorithm
 from .version import __version__

@@ -4,9 +4,10 @@ from dataclasses import dataclass
 from typing import Dict, List, Deque
 
 from . import globals
+from .sdk_configs import _SDK_Configs
 from .statsig_event import StatsigEvent
 from .diagnostics import Context
-from .statsig_options import StatsigOptions
+from .statsig_options import StatsigOptions, DEFAULT_EVENT_QUEUE_SIZE
 from .thread_util import spawn_background_thread, THREAD_JOIN_TIMEOUT
 
 
@@ -94,7 +95,8 @@ class EventBatchProcessor:
         batched_event = None
         with self._lock:
             self._event_array.append(event)
-            if len(self._event_array) >= self._batch_size:
+            batch_size = self._check_batch_array_size_interval() or self._batch_size
+            if len(self._event_array) >= batch_size:
                 should_batch = True
                 batched_event = BatchEventLogs(
                     payload={
@@ -111,12 +113,13 @@ class EventBatchProcessor:
             self.add_to_batched_events_queue(batched_event)
 
     def get_all_batched_events(self):
+        self.batch_events()
         with self._lock:
             copy_events = list(self._batched_events_queue)
             return copy_events
 
     def shutdown(self):
-        self.batch_events()
+        self._send_and_reset_dropped_events_count()
         if self._batching_thread is not None:
             self._batching_thread.join(THREAD_JOIN_TIMEOUT)
         if self._dropped_events_count_logging_thread is not None:
@@ -141,19 +144,20 @@ class EventBatchProcessor:
                 self._error_boundary.log_exception("_send_and_reset_dropped_events_count", e)
 
     def _send_and_reset_dropped_events_count(self):
-        if self._dropped_events_count > 0:
-            dropped_event_count = self._dropped_events_count
-            message = (
-                f"Dropped {dropped_event_count} events due to log_event service outage"
-            )
-            self._error_boundary.log_exception(
-                "statsig::log_event_dropped_event_count",
-                Exception(message),
-                {"eventCount": self._dropped_events_count, "error": message},
-                bypass_dedupe=True
-            )
-            globals.logger.warning(message)
-            self._dropped_events_count = 0
+        with self._lock:
+            if self._dropped_events_count > 0:
+                dropped_event_count = self._dropped_events_count
+                message = (
+                    f"Dropped {dropped_event_count} events due to log_event service outage"
+                )
+                self._error_boundary.log_exception(
+                    "statsig::log_event_dropped_event_count",
+                    Exception(message),
+                    {"eventCount": self._dropped_events_count, "error": message},
+                    bypass_dedupe=True
+                )
+                globals.logger.warning(message)
+                self._dropped_events_count = 0
 
     def _add_diagnostics_event(self, context: Context):
         if self._local_mode or not self._diagnostics.should_log_diagnostics(context):
@@ -169,3 +173,11 @@ class EventBatchProcessor:
         event = StatsigEvent(None, _DIAGNOSTICS_EVENT)
         event.metadata = metadata
         self.add_event(event.to_dict())
+
+    def _check_batch_array_size_interval(self):
+        override_queue_size = _SDK_Configs.get_config_num_value("event_queue_size")
+        if override_queue_size is not None:
+            override_queue_size = int(override_queue_size)
+            if override_queue_size > 0 and override_queue_size != DEFAULT_EVENT_QUEUE_SIZE:
+                return override_queue_size
+        return None
