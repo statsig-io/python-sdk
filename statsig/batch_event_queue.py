@@ -175,9 +175,12 @@ class EventBatchProcessor:
         self.add_event(event.to_dict())
 
     def _check_batch_array_size_interval(self):
-        override_queue_size = _SDK_Configs.get_config_num_value("event_queue_size")
-        if override_queue_size is not None:
-            override_queue_size = int(override_queue_size)
-            if override_queue_size > 0 and override_queue_size != DEFAULT_EVENT_QUEUE_SIZE:
-                return override_queue_size
-        return None
+        try:
+            override_queue_size = _SDK_Configs.get_config_num_value("event_queue_size")
+            if override_queue_size is not None:
+                override_queue_size = int(override_queue_size)
+                if override_queue_size > 0 and override_queue_size != DEFAULT_EVENT_QUEUE_SIZE:
+                    return override_queue_size
+            return None
+        except Exception:
+            return None
