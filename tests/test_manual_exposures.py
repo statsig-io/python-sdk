@@ -46,6 +46,7 @@ class TestManualExposures(TestCaseWithExtras):
         statsig.shutdown()
 
     def test_api_with_exposure_logging_disabled(self, mock_request):
+        statsig.get_feature_gate(self._user, 'always_on_gate', log_exposure=False)
         statsig.check_gate_with_exposure_logging_disabled(self._user, 'always_on_gate')
         statsig.get_config_with_exposure_logging_disabled(self._user, 'test_config')
         statsig.get_experiment_with_exposure_logging_disabled(self._user, 'sample_experiment')

@@ -47,15 +47,16 @@ def check_gate(user: StatsigUser, gate: str) -> bool:
     return __instance.check_gate(user, gate)
 
 
-def get_feature_gate(user: StatsigUser, gate: str) -> FeatureGate:
+def get_feature_gate(user: StatsigUser, gate: str, log_exposure=True) -> FeatureGate:
     """
     Gets the FeatureGate object for the given user
 
     :param user: The StatsigUser object used for the evaluation
     :param gate: The name of the gate
+    :param log_exposure: Boolean flag to optionally disable exposure logging (Default: True)
     :return: A FeatureGate object
     """
-    return __instance.get_feature_gate(user, gate)
+    return __instance.get_feature_gate(user, gate, log_exposure)
 
 
 def check_gate_with_exposure_logging_disabled(user: StatsigUser, gate: str) -> bool:
