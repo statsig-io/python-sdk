@@ -1,8 +1,8 @@
 ip3country==0.3.0
-requests==2.32.0
-semver==2.13.0
-setuptools==60.5.0
+setuptools==65.5.1
 ua_parser==0.10.0
 user_agents==2.2.0
-grpcio == 1.64.0
-protobuf == 5.27.0
+grpcio==1.62.3
+protobuf==4.24.4
+requests
+semver
