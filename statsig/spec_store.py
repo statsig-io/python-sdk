@@ -194,6 +194,11 @@ class _SpecStore:
                         for val in target_value:
                             rule["conditions"][i]["fast_target_value"][str(val)] = True
 
+                    if op in ("array_contains_any", "array_contains_none") and isinstance(target_value, list):
+                        rule["conditions"][i]["fast_target_value"] = {}
+                        for val in target_value:
+                            rule["conditions"][i]["fast_target_value"][str(val)] = True
+
         self.unsupported_configs.clear()
         new_gates = get_parsed_specs("feature_gates")
         new_configs = get_parsed_specs("dynamic_configs")

@@ -491,6 +491,14 @@ class _Evaluator:
         if op in ("in_segment_list", "not_in_segment_list"):
             in_list = self.__check_id_in_list(value, target)
             return in_list if op == "in_segment_list" else not in_list
+        if op == "array_contains_any":
+            if not isinstance(value, list):
+                return False
+            return self.__arrays_have_common_value(value, condition)
+        if op == "array_contains_none":
+            if not isinstance(value, list):
+                return False
+            return not self.__arrays_have_common_value(value, condition)
 
         return True
 
@@ -580,6 +588,22 @@ class _Evaluator:
         if op in ('any', 'none'):
             return str_value.upper().lower() in target
         return str_value in target
+
+    def __arrays_have_common_value(self, value, condition):
+        fast_target = condition.get("fast_target_value")
+        for target_val in fast_target:
+            int_target_val = self.safe_parse_int(target_val)
+            if int_target_val and int_target_val in value:
+                return True
+            if target_val in value:
+                return True
+        return False
+
+    def safe_parse_int(self, value):
+        try:
+            return int(value)
+        except (ValueError, TypeError):
+            return None
 
     def __lookup_user_bucket(self, val, lookup):
         if isinstance(val, int):
