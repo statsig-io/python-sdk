@@ -16,7 +16,7 @@ class StatsigEvent:
     """
     user: Optional[StatsigUser]
     event_name: str
-    value: Union[str, int, None] = None
+    value: Union[str, int, float, None] = None
     metadata: Optional[dict] = None
     _secondary_exposures: Optional[list] = None
     _time: int = field(default_factory=lambda: round(time.time() * 1000))
