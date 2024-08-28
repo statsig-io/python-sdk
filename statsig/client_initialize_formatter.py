@@ -83,6 +83,8 @@ class ClientInitializeResponseFormatter:
                         config_name, config_spec, eval_result, result)
                 elif entity_type == "layer":
                     populate_layer_fields(config_spec, eval_result, result, hash_algo)
+                elif entity_type == "autotune":
+                    result["group_name"] = eval_result.group_name
 
             else:
                 return None
@@ -94,6 +96,8 @@ class ClientInitializeResponseFormatter:
             result["is_user_in_experiment"] = eval_result.is_experiment_group
             result["is_experiment_active"] = config_spec.get(
                 'isActive', False) is True
+            if eval_result.group_name is not None:
+                result["group_name"] = eval_result.group_name
 
             if not config_spec.get('hasSharedParams', False):
                 return
@@ -131,6 +135,8 @@ class ClientInitializeResponseFormatter:
                         "isActive", False) is True
                     result["explicit_parameters"] = delegate_spec.get(
                         "explicitParameters", [])
+                    if delegate_result.group_name is not None:
+                        result["group_name"] = delegate_result.group_name
 
             result["undelegated_secondary_exposures"] = eval_result.undelegated_secondary_exposures or []
 
