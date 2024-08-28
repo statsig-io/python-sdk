@@ -74,15 +74,16 @@ class _StatsigNetwork:
         self.error_boundary = error_boundary
         self.statsig_options = options
         self.statsig_metadata = statsig_metadata
-        worker: IStatsigNetworkWorker = HttpWorker(
+        defaultHttpWorker: IStatsigNetworkWorker = HttpWorker(
             sdk_key, options, statsig_metadata, error_boundary, diagnostics
         )
-        self.dcs_worker: IStatsigNetworkWorker = worker
-        self.id_list_worker: IStatsigNetworkWorker = worker
-        self.log_event_worker: IStatsigNetworkWorker = worker
-        self.http_worker: IStatsigNetworkWorker = worker
+        self.dcs_worker: IStatsigNetworkWorker = defaultHttpWorker
+        self.id_list_worker: IStatsigNetworkWorker = defaultHttpWorker
+        self.log_event_worker: IStatsigNetworkWorker = defaultHttpWorker
+        self.http_worker: IStatsigNetworkWorker = defaultHttpWorker
         for endpoint, config in options.proxy_configs.items():
             protocol = config.protocol
+            worker = defaultHttpWorker
             if protocol == NetworkProtocol.GRPC:
                 worker = GRPCWorker(sdk_key, config)
             elif protocol == NetworkProtocol.GRPC_WEBSOCKET:
