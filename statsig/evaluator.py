@@ -499,6 +499,14 @@ class _Evaluator:
             if not isinstance(value, list):
                 return False
             return not self.__arrays_have_common_value(value, condition)
+        if op == "array_contains_all":
+            if not isinstance(value, list):
+                return False
+            return self.__arrays_have_all_values(value, condition)
+        if op == "not_array_contains_all":
+            if not isinstance(value, list):
+                return False
+            return not self.__arrays_have_all_values(value, condition)
 
         return False
 
@@ -598,6 +606,14 @@ class _Evaluator:
             if target_val in value:
                 return True
         return False
+
+    def __arrays_have_all_values(self, value, condition):
+        fast_target = condition.get("fast_target_value")
+        for target_val in fast_target:
+            int_target_val = self.safe_parse_int(target_val)
+            if int_target_val not in value and target_val not in value:
+                return False
+        return True
 
     def safe_parse_int(self, value):
         try:

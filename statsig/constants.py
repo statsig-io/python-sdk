@@ -9,4 +9,5 @@ class Const:
                            'any', 'none', 'any_case_sensitive', 'none_case_sensitive',
                            'str_starts_with_any', 'str_ends_with_any', 'str_contains_any', 'str_contains_none',
                            'str_matches', 'eq', 'neq', 'before', 'after', 'on',
-                           'in_segment_list', 'not_in_segment_list', 'array_contains_any', 'array_contains_none']
+                           'in_segment_list', 'not_in_segment_list', 'array_contains_any', 'array_contains_none',
+                           'array_contains_all', 'not_array_contains_all']
