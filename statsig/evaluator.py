@@ -500,7 +500,7 @@ class _Evaluator:
                 return False
             return not self.__arrays_have_common_value(value, condition)
 
-        return True
+        return False
 
     def __get_from_user(self, user, field):
         value = None
