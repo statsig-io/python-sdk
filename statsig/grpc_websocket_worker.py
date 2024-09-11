@@ -149,10 +149,7 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
     def _listen_for_dcs(self, since_time=0):
         try:
             if self.dcs_stream is not None:
-                initial_metadata = self.dcs_stream.initial_metadata()
-                for metadata in initial_metadata:
-                    if metadata.key == "x-sfp-hostname":
-                        self.server_host_name = metadata.value
+                self.get_stream_metadata()
                 for response in self.dcs_stream:
                     if self.retrying:
                         self.retrying = False
@@ -278,6 +275,25 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
             self.retry_backoff = self.retry_backoff_base_ms
             if self._backup_callbacks:
                 self._backup_callbacks.cancel_backup()
+
+    def get_stream_metadata(self):
+        try:
+            if self.dcs_stream is not None:
+                initial_metadata = self.dcs_stream.initial_metadata()
+                for metadata in initial_metadata:
+                    if metadata.key == "x-sfp-hostname":
+                        self.server_host_name = metadata.value
+        except Exception as error:
+            self.error_boundary.log_exception(
+                "grpcWebSocket: connection error",
+                error,
+                {
+                    "retryAttempt": self.retry_limit - self.remaining_retry,
+                    "hostName": socket.gethostname(),
+                    "sfpHostName": self.server_host_name,
+                },
+                True,
+            )
 
     def shutdown(self) -> None:
         self.is_shutting_down = True

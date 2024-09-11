@@ -84,7 +84,6 @@ class _StatsigNetwork:
         self.http_worker: IStatsigNetworkWorker = defaultHttpWorker
         for endpoint, config in options.proxy_configs.items():
             protocol = config.protocol
-            worker = defaultHttpWorker
             if protocol == NetworkProtocol.GRPC:
                 self.load_grpc_worker(endpoint, config)
             elif protocol == NetworkProtocol.GRPC_WEBSOCKET:
