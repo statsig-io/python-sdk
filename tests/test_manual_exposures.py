@@ -62,10 +62,14 @@ class TestManualExposures(TestCaseWithExtras):
         statsig.manually_log_config_exposure(self._user, 'test_config')
         statsig.manually_log_experiment_exposure(self._user, 'sample_experiment')
         statsig.manually_log_layer_parameter_exposure(self._user, 'a_layer', 'experiment_param')
+        config = statsig.get_config_with_exposure_logging_disabled(StatsigUser("not dloomb"), 'test_config')
+        statsig.log_exposure_for_config(config)
+        exp = statsig.get_experiment_with_exposure_logging_disabled(StatsigUser("not dloomb"), 'sample_experiment')
+        statsig.log_exposure_for_config(exp)
         statsig.shutdown()
 
         events = TestManualExposures._logs["events"]
-        self.assertEqual(len(events), 4)
+        self.assertEqual(len(events), 6)
 
         gate_exposure = events[0]
         self._assert_exposure_event_name(gate_exposure, 'statsig::gate_exposure')
@@ -82,6 +86,16 @@ class TestManualExposures(TestCaseWithExtras):
         layer_exposure = events[3]
         self._assert_exposure_event_name(layer_exposure, 'statsig::layer_exposure')
         self._assert_exposure_metadata(layer_exposure, config='a_layer', is_manual_exposure='true')
+        config_exposure_without_eval = events[4]
+        self._assert_exposure_event_name(config_exposure_without_eval, 'statsig::config_exposure')
+        self._assert_exposure_metadata(
+            config_exposure, config='test_config', is_manual_exposure='true')
+        self._assert_user_equal('not dloomb', 'development', config_exposure_without_eval.get('user'))
+        experiment_exposure_without_eval = events[5]
+        self._assert_exposure_event_name(experiment_exposure_without_eval, 'statsig::config_exposure')
+        self._assert_exposure_metadata(
+            experiment_exposure, config='sample_experiment', is_manual_exposure='true')
+        self._assert_user_equal('not dloomb', 'development', config_exposure_without_eval.get('user'))
 
     def _assert_exposure_event_name(self, exposure: object, event_name: str):
         self.assertEqual(exposure.get('eventName', ''), event_name)
@@ -100,3 +114,7 @@ class TestManualExposures(TestCaseWithExtras):
         if is_manual_exposure is not None:
             self.assertEqual(exposure.get('metadata', {}).get(
                 'isManualExposure'), is_manual_exposure)
+
+    def _assert_user_equal(self, user_id: str, env: str, received_user: dict):
+        self.assertEqual(received_user.get('userID'), user_id)
+        self.assertEqual(received_user.get('statsigEnvironment').get('tier'), env)

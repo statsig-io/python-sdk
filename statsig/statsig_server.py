@@ -1,6 +1,7 @@
 import dataclasses
 import threading
 from typing import Optional, Union
+
 from .feature_gate import FeatureGate
 from .layer import Layer
 from .statsig_errors import StatsigNameError, StatsigRuntimeError, StatsigValueError
@@ -173,8 +174,10 @@ class StatsigServer:
                 result.json_value,
                 config_name,
                 result.rule_id,
+                result.user,
                 group_name=result.group_name,
-                evaluation_details=result.evaluation_details
+                evaluation_details=result.evaluation_details,
+                secondary_exposures=result.secondary_exposures
             )
             self.safe_eval_callback(dynamicConfig)
             return dynamicConfig
@@ -198,6 +201,17 @@ class StatsigServer:
             is_manual_exposure=True,
         )
 
+    def log_exposure_for_config(self, config_eval: DynamicConfig):
+        self._logger.log_config_exposure(
+            config_eval.user,
+            config_eval.name,
+            config_eval.rule_id,
+            config_eval.secondary_exposures,
+            config_eval.evaluation_details,
+            is_manual_exposure=True,
+        )
+
+
     def get_experiment(
         self, user: StatsigUser, experiment_name: str, log_exposure=True
     ):
@@ -212,8 +226,10 @@ class StatsigServer:
                 result.json_value,
                 experiment_name,
                 result.rule_id,
+                user,
                 group_name=result.group_name,
-                evaluation_details=result.evaluation_details
+                evaluation_details=result.evaluation_details,
+                secondary_exposures=result.secondary_exposures,
             )
             self.safe_eval_callback(dynamicConfig)
             return dynamicConfig
@@ -472,6 +488,7 @@ class StatsigServer:
         user = self.__normalize_user(user)
 
         result = self._evaluator.get_config(user, config_name)
+        result.user = user
         if log_exposure:
             self._logger.log_config_exposure(
                 user,

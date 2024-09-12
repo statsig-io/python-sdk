@@ -1,4 +1,5 @@
 from typing import Optional
+
 from .statsig_event import StatsigEvent
 from .statsig_user import StatsigUser
 from .statsig_server import StatsigServer
@@ -110,6 +111,15 @@ def manually_log_config_exposure(user: StatsigUser, config: str):
     :param config: The name of the dynamic config
     """
     __instance.manually_log_config_exposure(user, config)
+
+
+def log_exposure_for_config(config_value: DynamicConfig):
+    """
+    Logs an exposure event using a DynamicConfig object
+
+    :param config_value: The DynamicConfig object to log exposure for
+    """
+    __instance.log_exposure_for_config(config_value)
 
 
 def get_experiment(user: StatsigUser, experiment: str) -> DynamicConfig:

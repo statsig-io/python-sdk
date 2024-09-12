@@ -57,7 +57,10 @@ DEFAULT_PROXY_CONFIG = {
 
 
 class StatsigOptions:
-    """An object of properties for initializing the sdk with additional parameters"""
+    """
+    An object of properties for initializing the sdk with additional parameters
+    All time related options are in seconds
+    """
 
     def __init__(
         self,

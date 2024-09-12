@@ -1,5 +1,13 @@
+from typing import Optional
+
+from statsig.statsig_user import StatsigUser
+from statsig.evaluation_details import EvaluationDetails, EvaluationReason
+
+
 class DynamicConfig:
-    def __init__(self, data, name, rule, group_name=None, evaluation_details=None):
+    def __init__(self, data, name, rule, user: Optional[StatsigUser] = None, group_name=None,
+                 evaluation_details: Optional[EvaluationDetails] = None,
+                 secondary_exposures=None):
         if data is None:
             data = {}
         self.value = data
@@ -10,7 +18,13 @@ class DynamicConfig:
             rule = ""
         self.rule_id = rule
         self.group_name = group_name
+        if evaluation_details is None:
+            evaluation_details = EvaluationDetails(0, 0, EvaluationReason.uninitialized)
         self.evaluation_details = evaluation_details
+        if secondary_exposures is None:
+            secondary_exposures = []
+        self.secondary_exposures = secondary_exposures
+        self.user = user
 
     def get(self, key, default=None):
         """Returns the value of the config at the given key
@@ -41,3 +55,7 @@ class DynamicConfig:
     def get_evaluation_details(self):
         """Returns the evaluation detail of this DynamicConfig"""
         return self.evaluation_details
+
+    def get_user(self):
+        """Returns the user set when evaluating this DynamicConfig"""
+        return self.user
