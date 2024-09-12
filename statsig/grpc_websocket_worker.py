@@ -32,13 +32,13 @@ REQUEST_TIMEOUT = 20
 
 class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
     def __init__(
-        self,
-        sdk_key: str,
-        proxy_config: ProxyConfig,
-        options: StatsigOptions,
-        error_boundary: _StatsigErrorBoundary,
-        diagnostics: Diagnostics,
-        shutdown_event,
+            self,
+            sdk_key: str,
+            proxy_config: ProxyConfig,
+            options: StatsigOptions,
+            error_boundary: _StatsigErrorBoundary,
+            diagnostics: Diagnostics,
+            shutdown_event,
     ):
         self._diagnostics = diagnostics
         self.initialized = False
@@ -86,11 +86,11 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
         return False
 
     def get_dcs(
-        self,
-        on_complete: Callable,
-        since_time: int = 0,
-        log_on_exception: Optional[bool] = False,
-        timeout: Optional[int] = None,
+            self,
+            on_complete: Callable,
+            since_time: int = 0,
+            log_on_exception: Optional[bool] = False,
+            timeout: Optional[int] = None,
     ):
         if self.dcs_stream is None:
             self._diagnostics.add_marker(
@@ -99,10 +99,10 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
             self._start_listening(on_complete, since_time, timeout)
 
     def get_id_lists(
-        self,
-        on_complete: Callable,
-        log_on_exception: Optional[bool] = False,
-        timeout: Optional[int] = None,
+            self,
+            on_complete: Callable,
+            log_on_exception: Optional[bool] = False,
+            timeout: Optional[int] = None,
     ):
         raise NotImplementedError("Not supported yet")
 
@@ -160,43 +160,22 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
                             self.listeners.on_update(
                                 json.loads(response.spec), response.lastUpdated
                             )
-        except grpc.RpcError as rpc_error:
-            if self.is_shutting_down:
-                return
-            status_code = rpc_error.code()  # pylint: disable=no-member
-            if status_code in (
-                grpc.StatusCode.UNAVAILABLE,
-                grpc.StatusCode.DEADLINE_EXCEEDED,
-            ):
-                self.error_boundary.log_exception(
-                    "grpcWebSocket: connection error",
-                    rpc_error,
-                    {
-                        "retryAttempt": self.retry_limit - self.remaining_retry,
-                        "hostName": socket.gethostname(),
-                        "sfpHostName": self.server_host_name,
-                    },
-                    True,
-                )
-                if self.listeners and self.listeners.on_error is not None:
-                    self.listeners.on_error(rpc_error)
-                self._retry_connection(since_time)
-            else:
-                if self.listeners and self.listeners.on_error is not None:
-                    self.listeners.on_error(rpc_error)
         except Exception as e:
             if self.is_shutting_down:
                 return
             self.error_boundary.log_exception(
-                "grpcWebSocket: unexpected error",
+                "grpcWebSocket: connection error",
                 e,
                 {
+                    "retryAttempt": self.retry_limit - self.remaining_retry,
                     "hostName": socket.gethostname(),
                     "sfpHostName": self.server_host_name,
                 },
+                True,
             )
             if self.listeners and self.listeners.on_error is not None:
                 self.listeners.on_error(e)
+            self._retry_connection(since_time)
 
     def start_listen_for_config_spec(self, listeners: IStreamingListeners) -> None:
         if self.dcs_thread and self.dcs_thread.is_alive():
