@@ -200,9 +200,10 @@ class _StatsigNetwork:
         id_list_proxy = self.statsig_options.proxy_configs.get(
             NetworkEndpoint.GET_ID_LISTS
         )
-        is_id_lists_proxy = id_list_proxy and id_list_proxy.proxy_address != STATSIG_API
+        id_list_api_override = self.statsig_options.api_for_get_id_lists
+        is_id_lists_proxy = id_list_api_override != STATSIG_API or (id_list_proxy and id_list_proxy.proxy_address != STATSIG_API)
         if is_id_lists_proxy:
-            self.http_worker.get_id_lists(on_complete, log_on_exception, timeout)
+            self.http_worker.get_id_lists_fallback(on_complete, log_on_exception, timeout)
 
     def get_id_list(self, on_complete: Any, url, headers, log_on_exception=False):
         if self.statsig_options.local_mode:
