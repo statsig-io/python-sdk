@@ -41,7 +41,6 @@ class LoggerTest(unittest.TestCase):
 
         self._network_stub.stub_request_with_function("log_event", 202, on_log)
 
-        globals.STATSIG_LOGGING_INTERVAL_SECONDS = 1
         self._instance.initialize("secret-key", options)
         self._user = StatsigUser("dloomb")
         
@@ -49,7 +48,6 @@ class LoggerTest(unittest.TestCase):
         self.flush()
 
     def tearDown(self):
-        globals.STATSIG_LOGGING_INTERVAL_SECONDS = 5.0
         self._instance.shutdown()
 
     @patch('requests.request', side_effect=_network_stub.mock)

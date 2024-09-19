@@ -35,8 +35,8 @@ class LoggerTest(unittest.TestCase):
         self._instance.flush()
 
     def test_backoff_intervals(self):
-        ease_out_backoff_intervals = [5, 10, 20, 40, 80, 120, 120, 120, 120, 120]
-        ease_in_backoff_intervals = [120, 60, 30, 15, 7.5, 5, 5, 5, 5, 5]
+        ease_out_backoff_intervals = [1, 2, 4, 8, 16, 32, 64, 120, 120, 120]
+        ease_in_backoff_intervals = [120, 60, 30, 15, 7.5, 3.75, 1.875, 1, 1, 1]
 
         actual_out_intervals = []
         actual_in_intervals = []
@@ -70,7 +70,7 @@ class LoggerTest(unittest.TestCase):
 
         for i in range(50):
             curr_interval = self._instance._logger._logger_worker._log_interval
-            if curr_interval < 5 or curr_interval > 120:
+            if curr_interval < 1 or curr_interval > 120:
                 out_of_range = True
                 break
             randomly_backoff()

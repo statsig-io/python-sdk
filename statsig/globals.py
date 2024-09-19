@@ -1,7 +1,7 @@
 from .output_logger import OutputLogger
 
 STATSIG_BATCHING_INTERVAL_SECONDS = 60.0
-STATSIG_LOGGING_INTERVAL_SECONDS = 5.0
+STATSIG_LOGGING_INTERVAL_SECONDS = 1.0
 
 
 logger = OutputLogger('statsig.sdk')

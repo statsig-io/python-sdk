@@ -11,7 +11,7 @@ from .thread_util import spawn_background_thread, THREAD_JOIN_TIMEOUT
 BACKOFF_MULTIPLIER = 2.0
 
 MAX_FAILURE_BACKOFF_INTERVAL_SECONDS = 120.0
-MIN_SUCCESS_BACKOFF_INTERVAL_SECONDS = 5.0
+MIN_SUCCESS_BACKOFF_INTERVAL_SECONDS = 1.0
 
 
 class LoggerWorker:
@@ -19,6 +19,7 @@ class LoggerWorker:
                  diagnostics: Diagnostics, event_batch_processor: EventBatchProcessor):
         self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
         self._statsig_metadata = statsig_metadata
+        self._batching_interval = globals.STATSIG_BATCHING_INTERVAL_SECONDS
         self._log_interval = globals.STATSIG_LOGGING_INTERVAL_SECONDS
         self.backoff_interval = globals.STATSIG_LOGGING_INTERVAL_SECONDS
         self.max_failure_backoff_interval = MAX_FAILURE_BACKOFF_INTERVAL_SECONDS
@@ -31,6 +32,7 @@ class LoggerWorker:
         self._net = net
         self.event_batch_processor = event_batch_processor
         self.worker_thread = None
+        self._dropped_events_count_logging_thread = None
         self.spawn_bg_threads_if_needed()
 
     def spawn_bg_threads_if_needed(self):
@@ -43,8 +45,13 @@ class LoggerWorker:
                 (self._shutdown_event,),
                 self._error_boundary,
             )
-
-        self.event_batch_processor.spawn_bg_threads_if_needed()
+        if self._dropped_events_count_logging_thread is None or not self._dropped_events_count_logging_thread.is_alive():
+            self._dropped_events_count_logging_thread = spawn_background_thread(
+                "logger_worker_batch_queue_and_log_dropped_events_thread",
+                self._batch_queue_and_log_dropped_events_count,
+                (self._shutdown_event,),
+                self._error_boundary,
+            )
 
     def flush_at_interval(self):
         batched_events = self.event_batch_processor.get_batched_event()
@@ -60,8 +67,11 @@ class LoggerWorker:
         event_batches = self.event_batch_processor.get_all_batched_events()
         for batch in event_batches:
             self._flush_to_server(batch)
+        self._send_and_reset_dropped_events_count()
         if self.worker_thread is not None:
             self.worker_thread.join(THREAD_JOIN_TIMEOUT)
+        if self._dropped_events_count_logging_thread is not None:
+            self._dropped_events_count_logging_thread.join(THREAD_JOIN_TIMEOUT)
         self.event_batch_processor.shutdown()
         self._executor.shutdown()
 
@@ -73,6 +83,31 @@ class LoggerWorker:
                 self.flush_at_interval()
             except Exception as e:
                 self._error_boundary.log_exception("_process_queue", e)
+
+    def _batch_queue_and_log_dropped_events_count(self, shutdown_event):
+        while True:
+            try:
+                if shutdown_event.wait(self._batching_interval):
+                    break
+                self.event_batch_processor.batch_events()
+                self._send_and_reset_dropped_events_count()
+            except Exception as e:
+                self._error_boundary.log_exception("_batch_queue_and_send_dropped_events_count", e)
+
+    def _send_and_reset_dropped_events_count(self):
+        count = self.event_batch_processor.get_dropped_event_count()
+        if count > 0:
+            message = (
+                f"Dropped {count} events due to events input higher than event flushing qps"
+            )
+            self._error_boundary.log_exception(
+                "statsig::log_event_dropped_event_count",
+                Exception(message),
+                {"eventCount": count, "loggingInterval": self._log_interval, "error": message},
+                bypass_dedupe=True
+            )
+            globals.logger.warning(message)
+            self._dropped_events_count = 0
 
     def _flush_to_server(self, batched_events: BatchEventLogs):
         if self._local_mode:

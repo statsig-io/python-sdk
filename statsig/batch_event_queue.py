@@ -8,7 +8,7 @@ from .sdk_configs import _SDK_Configs
 from .statsig_event import StatsigEvent
 from .diagnostics import Context
 from .statsig_options import StatsigOptions, DEFAULT_EVENT_QUEUE_SIZE
-from .thread_util import spawn_background_thread, THREAD_JOIN_TIMEOUT
+from .thread_util import THREAD_JOIN_TIMEOUT
 
 
 @dataclass
@@ -37,7 +37,6 @@ class EventBatchProcessor:
         self._batching_thread = None
         self._dropped_events_count = 0
         self._dropped_events_count_logging_thread = None
-        self.spawn_bg_threads_if_needed()
 
     def add_to_batched_events_queue(self, batched_events):
         with self._lock:
@@ -52,23 +51,11 @@ class EventBatchProcessor:
                 return self._batched_events_queue.popleft()
             return None
 
-    def spawn_bg_threads_if_needed(self):
-        if self._local_mode:
-            return
-        if self._batching_thread is None or not self._batching_thread.is_alive():
-            self._batching_thread = spawn_background_thread(
-                "logger_worker_batch_event_thread",
-                self._batch_events_on_interval,
-                (self._shutdown_event,),
-                self._error_boundary,
-            )
-        if self._dropped_events_count_logging_thread is None or not self._dropped_events_count_logging_thread.is_alive():
-            self._dropped_events_count_logging_thread = spawn_background_thread(
-                "logger_worker_log_dropped_events_thread",
-                self._log_dropped_events_count,
-                (self._shutdown_event,),
-                self._error_boundary,
-            )
+    def get_dropped_event_count(self):
+        with self._lock:
+            count = self._dropped_events_count
+            self._dropped_events_count = 0
+            return count
 
     def batch_events(self, add_to_queue=True):
         batched_event = None
@@ -119,45 +106,10 @@ class EventBatchProcessor:
             return copy_events
 
     def shutdown(self):
-        self._send_and_reset_dropped_events_count()
         if self._batching_thread is not None:
             self._batching_thread.join(THREAD_JOIN_TIMEOUT)
         if self._dropped_events_count_logging_thread is not None:
             self._dropped_events_count_logging_thread.join(THREAD_JOIN_TIMEOUT)
-
-    def _batch_events_on_interval(self, shutdown_event):
-        while True:
-            try:
-                if shutdown_event.wait(self._batching_interval):
-                    break
-                self.batch_events()
-            except Exception as e:
-                self._error_boundary.log_exception("_batch_events_on_interval", e)
-
-    def _log_dropped_events_count(self, shutdown_event):
-        while True:
-            try:
-                if shutdown_event.wait(self._batching_interval):
-                    break
-                self._send_and_reset_dropped_events_count()
-            except Exception as e:
-                self._error_boundary.log_exception("_send_and_reset_dropped_events_count", e)
-
-    def _send_and_reset_dropped_events_count(self):
-        with self._lock:
-            if self._dropped_events_count > 0:
-                dropped_event_count = self._dropped_events_count
-                message = (
-                    f"Dropped {dropped_event_count} events due to log_event service outage"
-                )
-                self._error_boundary.log_exception(
-                    "statsig::log_event_dropped_event_count",
-                    Exception(message),
-                    {"eventCount": self._dropped_events_count, "error": message},
-                    bypass_dedupe=True
-                )
-                globals.logger.warning(message)
-                self._dropped_events_count = 0
 
     def _add_diagnostics_event(self, context: Context):
         if self._local_mode or not self._diagnostics.should_log_diagnostics(context):
