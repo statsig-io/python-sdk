@@ -312,4 +312,5 @@ class Diagnostics:
             return None
         return {
             "name": type(e).__name__,
+            "message": str(e)
         }
