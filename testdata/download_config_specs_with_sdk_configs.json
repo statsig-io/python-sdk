@@ -433,6 +433,6 @@
   "time": 1631638014811,
   "id_lists": { "list_1": true, "list_2": true },
   "sdk_configs": {
-    "log_event_interval": 100
+    "event_logging_interval_seconds": 100
   }
 }

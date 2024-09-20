@@ -160,7 +160,7 @@ class LoggerWorker:
         globals.logger.info(f"Log event success, decreasing backoff to {self._log_interval} seconds")
 
     def _check_override_interval(self):
-        override_interval = _SDK_Configs.get_config_num_value("log_event_interval")
+        override_interval = _SDK_Configs.get_config_num_value("event_logging_interval_seconds")
         if override_interval is not None and override_interval > 0:
             self._log_interval = float(override_interval)
             return True
