@@ -237,23 +237,21 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
         self._listen_for_dcs(since_time_to_use)
 
     def on_reconnect(self):
-        try:
-            raise StatsigNameError("Not a sdk exception - grpcWebSocket: Reconnected")
-        except Exception as e:
-            self.error_boundary.log_exception(
-                "grpcWebSocket: Reconnected",
-                e,
-                {
-                    "retryAttempt": self.retry_limit - self.remaining_retry,
-                    "hostName": socket.gethostname(),
-                    "sfpHostName": self.server_host_name,
-                },
-                True,
-            )
-            self.remaining_retry = self.retry_limit
-            self.retry_backoff = self.retry_backoff_base_ms
-            if self._backup_callbacks:
-                self._backup_callbacks.cancel_backup()
+        reconn_str = "Not an sdk exception - grpcWebSocket: Reconnected"
+        self.error_boundary.log_exception(
+            "grpcWebSocket: Reconnected",
+            Exception(reconn_str),
+            {
+                "retryAttempt": self.retry_limit - self.remaining_retry,
+                "hostName": socket.gethostname(),
+                "sfpHostName": self.server_host_name,
+            },
+            True,
+        )
+        self.remaining_retry = self.retry_limit
+        self.retry_backoff = self.retry_backoff_base_ms
+        if self._backup_callbacks:
+            self._backup_callbacks.cancel_backup()
 
     def get_stream_metadata(self):
         try:

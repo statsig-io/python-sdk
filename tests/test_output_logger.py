@@ -5,6 +5,7 @@ import unittest
 from unittest.mock import patch
 from network_stub import NetworkStub
 from statsig import statsig, StatsigOptions, OutputLogger
+from statsig.output_logger import sanitize
 
 _network_stub = NetworkStub("http://test-output-logger")
 
@@ -15,30 +16,39 @@ class MockOutputLogger(OutputLogger):
         self._urls = []
 
     def log_process(self, process: str, msg: str):
-        message = f"{process}: {msg}"
+        message = sanitize(f"{process}: {msg}")
         self.info(message)
 
     def debug(self, msg, *args, **kwargs):
-        self.add_url(args)
-        self._logs['debug'].append(msg)
+        sanitized_msg, sanitized_args, sanitized_kwargs = self._sanitize_args(msg, *args, **kwargs)
+        self.add_url(sanitized_args)
+        self._logs['debug'].append(sanitized_msg)
 
     def info(self, msg, *args, **kwargs):
-        self.add_url(args)
-        self._logs['info'].append(msg)
+        sanitized_msg, sanitized_args, sanitized_kwargs = self._sanitize_args(msg, *args, **kwargs)
+        self.add_url(sanitized_args)
+        self._logs['info'].append(sanitized_msg)
 
     def warning(self, msg, *args, **kwargs):
-        self.add_url(args)
-        self._logs['warning'].append(msg)
+        sanitized_msg, sanitized_args, sanitized_kwargs = self._sanitize_args(msg, *args, **kwargs)
+        self.add_url(sanitized_args)
+        self._logs['warning'].append(sanitized_msg)
+
+    def _sanitize_args(self, msg, *args, **kwargs):
+        sanitized_msg = sanitize(msg)
+        sanitized_args = tuple(sanitize(str(arg)) for arg in args)
+        sanitized_kwargs = {k: sanitize(str(v)) for k, v in kwargs.items()}
+        return sanitized_msg, sanitized_args, sanitized_kwargs
 
     def add_url(self, args):
         for arg in args:
             if isinstance(arg, str) and arg.startswith('http://test-output-logger'):
                 self._urls.append(arg)
 
-    def check_urls_for_secret(self):
+    def check_urls_for_secret(self, key):
         failed_urls = []
         for url in self._urls:
-            if 'secret-' in url:
+            if key in url:
                 failed_urls.append(url)
         return failed_urls
 
@@ -72,5 +82,5 @@ class TestOutputLogger(unittest.TestCase):
         statsig.initialize("secret-key", options)
         self.assertGreater(len(logger._logs.get("info")), 2)
         self.assertGreater(len(logger._logs.get("warning")), 0)
-        failed_urls = logger.check_urls_for_secret()
+        failed_urls = logger.check_urls_for_secret('secret-key')
         self.assertEqual(len(failed_urls), 0)

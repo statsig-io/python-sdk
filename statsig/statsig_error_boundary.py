@@ -71,9 +71,11 @@ class _StatsigErrorBoundary:
         bypass_dedupe: bool = False,
     ):
         try:
+            stack_trace = traceback.format_exc()
             if self._is_silent is False:
                 globals.logger.warning("[Statsig]: An unexpected error occurred.")
-                stack_trace = traceback.format_exc().replace(self._api_key, "********")
+                if stack_trace is None or stack_trace == 'NoneType: None\n':
+                    stack_trace = str(exception)
                 globals.logger.warning(stack_trace)
             if (
                 hasattr(self._options, "disable_all_logging")
@@ -82,6 +84,8 @@ class _StatsigErrorBoundary:
                 return
 
             name = type(exception).__name__
+            if name == "Exception":
+                name = tag
             if self._api_key is None:
                 return
             if bypass_dedupe is False and name in self._seen:
@@ -91,7 +95,7 @@ class _StatsigErrorBoundary:
             self._executor.submit(
                 self._post_exception,
                 name,
-                traceback.format_exc(),
+                stack_trace,
                 tag,
                 extra,
             )

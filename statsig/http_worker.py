@@ -2,7 +2,7 @@ import json
 import time
 from io import BytesIO
 import gzip
-from typing import Optional, Callable
+from typing import Callable
 
 import requests
 from .diagnostics import Diagnostics, Marker
@@ -53,8 +53,7 @@ class HttpWorker(IStatsigNetworkWorker):
     def is_pull_worker(self) -> bool:
         return True
 
-    def get_dcs(self, on_complete: Callable, since_time=0, log_on_exception: Optional[bool] = False,
-                timeout=None):
+    def get_dcs(self, on_complete: Callable, since_time=0, log_on_exception=False, timeout=None):
         response = self._get_request(
             url=f"{self.__api_for_download_config_specs}download_config_specs/{self.__sdk_key}.json?sinceTime={since_time}",
             headers=None, timeout=timeout, log_on_exception=log_on_exception,
@@ -191,9 +190,8 @@ class HttpWorker(IStatsigNetworkWorker):
                 ))
 
             if response.status_code < 200 or response.status_code >= 300:
-                clean_url = url.replace(self.__sdk_key, "********")
                 globals.logger.warning(
-                    "Request to %s failed with code %d", clean_url, response.status_code)
+                    "Request to %s failed with code %d", url, response.status_code)
                 globals.logger.warning(response.text)
             return response
         except Exception as err:

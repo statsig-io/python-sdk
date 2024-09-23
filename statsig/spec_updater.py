@@ -64,11 +64,11 @@ class SpecUpdater:
             self.bootstrap_config_specs()
         elif source is DataSource.NETWORK:
             self._network.get_dcs(
-                self._on_dcs_complete, self.last_update_time, False, timeout
+                self._on_dcs_complete, self.last_update_time, True, timeout
             )
         elif source is DataSource.STATSIG_NETWORK:
             self._network.get_dcs_fallback(
-                self._on_dcs_complete, self.last_update_time, False, timeout
+                self._on_dcs_complete, self.last_update_time, True, timeout
             )
 
     def register_process_network_id_lists_listener(self, listener: Callable):
@@ -337,7 +337,7 @@ class SpecUpdater:
             self._network.listen_for_dcs(
                 IStreamingListeners(on_error=on_error_dcs, on_update=on_update_dcs),
                 lambda: self._network.get_dcs_fallback(
-                    self._on_dcs_complete, since_time=self.last_update_time
+                    self._on_dcs_complete, since_time=self.last_update_time, log_on_exception=True
                 ),
             )
 
