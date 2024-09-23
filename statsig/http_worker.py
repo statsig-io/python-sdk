@@ -6,7 +6,7 @@ from typing import Callable
 
 import requests
 from .diagnostics import Diagnostics, Marker
-from .interface_network import IStatsigNetworkWorker, NetworkProtocol
+from .interface_network import IStatsigNetworkWorker, NetworkProtocol, NetworkEndpoint
 from .sdk_configs import _SDK_Configs
 from .statsig_options import StatsigOptions, STATSIG_API, STATSIG_CDN
 from .statsig_error_boundary import _StatsigErrorBoundary
@@ -29,20 +29,7 @@ class HttpWorker(IStatsigNetworkWorker):
             diagnostics: Diagnostics
     ):
         self.__sdk_key = sdk_key
-        api_for_download_config_specs = options.api_for_download_config_specs or options.api or STATSIG_CDN
-        if not api_for_download_config_specs.endswith("/"):
-            api_for_download_config_specs = api_for_download_config_specs + "/"
-        api_for_get_id_lists = options.api_for_get_id_lists or options.api or STATSIG_API
-        if not api_for_get_id_lists.endswith("/"):
-            api_for_get_id_lists = api_for_get_id_lists + "/"
-
-        api_for_log_event = options.api_for_log_event or options.api or STATSIG_API
-        if not api_for_log_event.endswith("/"):
-            api_for_log_event = api_for_log_event + "/"
-
-        self.__api_for_download_config_specs = api_for_download_config_specs
-        self.__api_for_get_id_lists = api_for_get_id_lists
-        self.__api_for_log_event = api_for_log_event
+        self.__configure_endpoints(options)
         self.__req_timeout = options.timeout or REQUEST_TIMEOUT
         self.__local_mode = options.local_mode
         self.__error_boundary = error_boundary
@@ -249,3 +236,30 @@ class HttpWorker(IStatsigNetworkWorker):
         if 'log_event' in url or tag == "log_event":
             return lambda: Marker().log_event().network_request()
         return None
+
+    def __get_proxy_address(self, options: StatsigOptions, endpoint: NetworkEndpoint) -> Optional[str]:
+        proxy_config = options.proxy_configs.get(endpoint)
+        return proxy_config.proxy_address + "/v1" if proxy_config and proxy_config.proxy_address else None
+
+    def __configure_endpoints(self, options: StatsigOptions) -> None:
+        api_for_download_config_specs = (self.__get_proxy_address(options, NetworkEndpoint.DOWNLOAD_CONFIG_SPECS)
+                                         or options.api_for_download_config_specs
+                                         or options.api or STATSIG_CDN)
+        if not api_for_download_config_specs.endswith("/"):
+            api_for_download_config_specs += "/"
+
+        api_for_get_id_lists = (self.__get_proxy_address(options, NetworkEndpoint.GET_ID_LISTS)
+                                or options.api_for_get_id_lists
+                                or options.api or STATSIG_API)
+        if not api_for_get_id_lists.endswith("/"):
+            api_for_get_id_lists += "/"
+
+        api_for_log_event = (self.__get_proxy_address(options, NetworkEndpoint.LOG_EVENT)
+                             or options.api_for_log_event
+                             or options.api or STATSIG_API)
+        if not api_for_log_event.endswith("/"):
+            api_for_log_event += "/"
+
+        self.__api_for_download_config_specs = api_for_download_config_specs
+        self.__api_for_get_id_lists = api_for_get_id_lists
+        self.__api_for_log_event = api_for_log_event
