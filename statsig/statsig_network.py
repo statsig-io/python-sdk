@@ -162,18 +162,14 @@ class _StatsigNetwork:
         if self.statsig_options.local_mode:
             logger.warning("Local mode is enabled. Not fetching DCS.")
             return
-        dcs_proxy = self.statsig_options.proxy_configs.get(
-            NetworkEndpoint.DOWNLOAD_CONFIG_SPECS
-        )
+        dcs_proxy = self.statsig_options.proxy_configs.get(NetworkEndpoint.DOWNLOAD_CONFIG_SPECS)
         is_proxy_dcs = (
                 dcs_proxy
                 and dcs_proxy.proxy_address != STATSIG_CDN
                 or self.statsig_options.api_for_download_config_specs != STATSIG_CDN
         )
         if is_proxy_dcs:
-            self.http_worker.get_dcs_fallback(
-                on_complete, since_time, log_on_exception, timeout
-            )
+            self.http_worker.get_dcs_fallback(on_complete, since_time, log_on_exception, timeout)
 
     def get_id_lists(
             self,

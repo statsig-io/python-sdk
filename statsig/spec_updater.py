@@ -103,25 +103,21 @@ class SpecUpdater:
                     )
                     return False
                 adapter_time = cache.get("time", None)
-                if (
-                    not isinstance(adapter_time, int)
-                    or adapter_time < self.last_update_time
-                ):
+                if not isinstance(adapter_time, int) or adapter_time < self.last_update_time:
                     return False
 
                 self._log_process("Done loading specs")
-                if self.dcs_listener and self.dcs_listener(
-                    cache, EvaluationReason.data_adapter
-                ):
-                    self._diagnostics.add_marker(
-                        Marker()
-                        .data_store_config_specs()
-                        .process()
-                        .end({"success": True})
-                    )
-                    return True
+                _, parse_success = False, False
+                if self.dcs_listener is not None:
+                    _, parse_success = self.dcs_listener(cache, EvaluationReason.data_adapter)
+                self._diagnostics.add_marker(
+                    Marker()
+                    .data_store_config_specs()
+                    .process()
+                    .end({"success": parse_success})
+                )
+                return parse_success
 
-                return False
             except Exception as err:
                 self._diagnostics.add_marker(
                     Marker()
@@ -145,28 +141,24 @@ class SpecUpdater:
     def _on_dcs_complete(self, specs: dict, error: Optional[Exception]):
         def process() -> Tuple[bool, Optional[Exception]]:
             if error is not None:
-                return (False, error)
+                return False, error
 
             if specs is None:
-                return (
-                    False,
-                    StatsigValueError("Failed to download specs from network"),
-                )
+                return False, StatsigValueError("Failed to download specs from network")
             err = None
             try:
                 self._diagnostics.add_marker(
                     Marker().download_config_specs().process().start()
                 )
                 self._log_process("Done loading specs")
-                if self.dcs_listener and self.dcs_listener(
-                    specs, EvaluationReason.network
-                ):
+                has_update, parse_success = False, False
+                if self.dcs_listener is not None:
+                    has_update, parse_success = self.dcs_listener(specs, EvaluationReason.network)
+                if has_update:
                     self._save_to_storage_adapter(specs)
-                    return (True, None)
-                return (False, None)
-            except Exception as ex:
-                err = ex
-                return (False, err)
+                return parse_success, None
+            except Exception as e:
+                return False, e
             finally:
                 self._diagnostics.add_marker(
                     Marker()
@@ -177,8 +169,8 @@ class SpecUpdater:
                     )
                 )
 
-        process_res = process()
-        if process_res[0] is False:
+        parse_success, error = process()
+        if parse_success is False:
             self._sync_failure_count += 1
 
     def _log_process(self, msg, process=None):
@@ -206,8 +198,6 @@ class SpecUpdater:
             self._sdk_key
         ):
             return False
-        if specs_json.get("has_updates", False) is False:
-            return False
         return True
 
     def bootstrap_config_specs(self):
@@ -215,14 +205,14 @@ class SpecUpdater:
         if self._options.bootstrap_values is None:
             return
 
-        success = False
+        _, success = False, False
 
         try:
             specs = json.loads(self._options.bootstrap_values)
             if specs is None or not self.is_specs_json_valid(specs):
                 return
             if self.dcs_listener is not None:
-                success = self.dcs_listener(specs, EvaluationReason.bootstrap)
+                _, success = self.dcs_listener(specs, EvaluationReason.bootstrap)
 
         except ValueError:
             # JSON decoding failed, just let background thread update rulesets
@@ -369,10 +359,10 @@ class SpecUpdater:
         fast_start = self._sync_failure_count > 0
 
         def sync_config_spec():
-            for idx, strategy in enumerate(self._config_sync_strategies):
+            for strategy in self._config_sync_strategies:
                 prev_failure_count = self._sync_failure_count
                 self.get_config_spec(strategy)
-                if idx != 0 and prev_failure_count == self._sync_failure_count:
+                if prev_failure_count == self._sync_failure_count:
                     break
 
         self._background_download_configs = spawn_background_thread(

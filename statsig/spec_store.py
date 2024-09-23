@@ -1,7 +1,7 @@
 import json
 import threading
 from concurrent.futures import wait, ThreadPoolExecutor
-from typing import List, Optional, Dict, Set
+from typing import List, Optional, Dict, Set, Tuple
 
 from .constants import Const
 from .sdk_configs import _SDK_Configs
@@ -21,14 +21,14 @@ class _SpecStore:
     _background_download_id_lists: Optional[threading.Thread]
 
     def __init__(
-        self,
-        network: _StatsigNetwork,
-        options: StatsigOptions,
-        statsig_metadata: dict,
-        error_boundary: _StatsigErrorBoundary,
-        shutdown_event: threading.Event,
-        sdk_key: str,
-        diagnostics: Diagnostics,
+            self,
+            network: _StatsigNetwork,
+            options: StatsigOptions,
+            statsig_metadata: dict,
+            error_boundary: _StatsigErrorBoundary,
+            shutdown_event: threading.Event,
+            sdk_key: str,
+            diagnostics: Diagnostics,
     ):
         self.initial_update_time = 0
         self.init_reason = EvaluationReason.uninitialized
@@ -132,20 +132,19 @@ class _SpecStore:
     def _initialize_specs(self):
         initialize_strategies = self._get_initialize_strategy()
         for strategy in initialize_strategies:
-            if (
-                self.init_reason is EvaluationReason.bootstrap
-                or self.last_update_time() != 0
-            ):
+            if self.init_reason is EvaluationReason.bootstrap or self.last_update_time() != 0:
                 break
             self.spec_updater.get_config_spec(strategy, True)
 
-    def _process_specs(self, specs_json, reason: EvaluationReason) -> bool:
+    def _process_specs(self, specs_json, reason: EvaluationReason) -> Tuple[bool, bool]:  # has update, parse success
         self._log_process("Processing specs...")
+        if specs_json.get("has_updates", False) is False:
+            return False, True
         if not self.spec_updater.is_specs_json_valid(specs_json):
             self._log_process("Failed to process specs")
-            return False
+            return False, False
         if specs_json.get("time", 0) < self.last_update_time():
-            return False
+            return False, False
         copy = json.dumps(specs_json)
         if callable(self._options.rules_updated_callback):
             self._options.rules_updated_callback(copy)
@@ -187,8 +186,8 @@ class _SpecStore:
                                 str(val).upper().lower()
                             ] = True
                     elif op in (
-                        "any_case_sensitive",
-                        "none_case_sensitive",
+                            "any_case_sensitive",
+                            "none_case_sensitive",
                     ) and isinstance(target_value, list):
                         rule["conditions"][i]["fast_target_value"] = {}
                         for val in target_value:
@@ -232,7 +231,7 @@ class _SpecStore:
         self._diagnostics.set_sampling_rate(sampling_rate)
 
         self._log_process("Done processing specs")
-        return True
+        return True, True
 
     def _process_download_id_lists(self, server_id_lists):
         threw_error = False
@@ -258,16 +257,16 @@ class _SpecStore:
                 old_file_id = local_list.get("fileID", "")
 
                 if (
-                    url is None
-                    or new_creation_time < old_creation_time
-                    or new_file_id is None
+                        url is None
+                        or new_creation_time < old_creation_time
+                        or new_file_id is None
                 ):
                     continue
 
                 # should reset the list if a new file has been created
                 if (
-                    new_file_id != old_file_id
-                    and new_creation_time >= old_creation_time
+                        new_file_id != old_file_id
+                        and new_creation_time >= old_creation_time
                 ):
                     local_list = {
                         "ids": set(),
@@ -351,9 +350,7 @@ class _SpecStore:
             strategies.insert(0, DataSource.DATASTORE)
         if self._options.bootstrap_values:
             if data_store is not None:
-                globals.logger.debug(
-                    "data_store gets priority over bootstrap_values. bootstrap_values will be ignored"
-                )
+                globals.logger.debug("data_store gets priority over bootstrap_values. bootstrap_values will be ignored")
             else:
                 strategies.insert(0, DataSource.BOOTSTRAP)
         if self._options.fallback_to_statsig_api:
