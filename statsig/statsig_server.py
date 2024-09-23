@@ -42,6 +42,9 @@ class StatsigServer:
 
         self._errorBoundary = _StatsigErrorBoundary()
 
+    def is_initialized(self):
+        return self._initialized
+
     def initialize(self, sdkKey: str, options: Optional[StatsigOptions] = None):
         if self._initialized:
             globals.logger.info("Statsig is already initialized.")
@@ -211,9 +214,8 @@ class StatsigServer:
             is_manual_exposure=True,
         )
 
-
     def get_experiment(
-        self, user: StatsigUser, experiment_name: str, log_exposure=True
+            self, user: StatsigUser, experiment_name: str, log_exposure=True
     ):
         def task():
             if not self._verify_inputs(user, experiment_name):
@@ -256,7 +258,7 @@ class StatsigServer:
     def get_layer(self, user: StatsigUser, layer_name: str, log_exposure=True) -> Layer:
         def task():
             if not self._verify_inputs(user, layer_name):
-                layer =  Layer._create(layer_name, {}, "")
+                layer = Layer._create(layer_name, {}, "")
                 if not self._options.evaluation_callback is None:
                     self._options.evaluation_callback(layer)
                 return layer
@@ -270,7 +272,7 @@ class StatsigServer:
                         normal_user, layer, parameter_name, result
                     )
 
-            layer =  Layer._create(
+            layer = Layer._create(
                 layer_name,
                 result.json_value,
                 result.rule_id,
@@ -290,7 +292,7 @@ class StatsigServer:
         )
 
     def manually_log_layer_parameter_exposure(
-        self, user: StatsigUser, layer_name: str, parameter_name: str
+            self, user: StatsigUser, layer_name: str, parameter_name: str
     ):
         user = self.__normalize_user(user)
         result = self._evaluator.get_layer(user, layer_name)
@@ -344,7 +346,7 @@ class StatsigServer:
         )
 
     def override_config(
-        self, config: str, value: object, user_id: Optional[str] = None
+            self, config: str, value: object, user_id: Optional[str] = None
     ):
         self._errorBoundary.swallow(
             "override_config",
@@ -352,7 +354,7 @@ class StatsigServer:
         )
 
     def override_experiment(
-        self, experiment: str, value: object, user_id: Optional[str] = None
+            self, experiment: str, value: object, user_id: Optional[str] = None
     ):
         self._errorBoundary.swallow(
             "override_experiment",
@@ -378,7 +380,7 @@ class StatsigServer:
         )
 
     def remove_experiment_override(
-        self, experiment: str, user_id: Optional[str] = None
+            self, experiment: str, user_id: Optional[str] = None
     ):
         self._errorBoundary.swallow(
             "remove_experiment_override",
@@ -397,12 +399,13 @@ class StatsigServer:
         )
 
     def get_client_initialize_response(
-        self, user: StatsigUser,
-        client_sdk_key: Optional[str] = None,
-        hash: Optional[HashingAlgorithm] = HashingAlgorithm.SHA256,
-        include_local_overrides: Optional[bool] = False,
+            self, user: StatsigUser,
+            client_sdk_key: Optional[str] = None,
+            hash: Optional[HashingAlgorithm] = HashingAlgorithm.SHA256,
+            include_local_overrides: Optional[bool] = False,
     ):
         hash_value = hash.value if hash is not None else HashingAlgorithm.SHA256.value
+
         def task():
             result = self._evaluator.get_client_initialize_response(
                 self.__normalize_user(user), hash or HashingAlgorithm.SHA256, client_sdk_key, include_local_overrides

@@ -31,10 +31,17 @@ def initialize(secret_key: str, options: Optional[StatsigOptions] = None):
     globals.logger.log_process("Initialize", "Starting...")
     __instance.initialize(secret_key, options)
 
-    if __instance._initialized:
+    if __instance.is_initialized():
         globals.logger.log_process("Initialize", "Done")
     else:
         globals.logger.log_process("Initialize", "Failed")
+
+
+def is_initialized():
+    """
+    Checks if the Statsig instance has been initialized
+    """
+    return __instance.is_initialized()
 
 
 def check_gate(user: StatsigUser, gate: str) -> bool:
