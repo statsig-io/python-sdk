@@ -555,6 +555,10 @@ class _Evaluator:
         return unpack('>Q', sha256(str(input).encode('utf-8')).digest()[:8])[0]
 
     def __eval_pass_percentage(self, user, rule, config):
+        if rule.get("passPercentage", 0) == 100.0:
+            return True
+        if rule.get("passPercentage", 0) == 0.0:
+            return False
         rule_salt = rule.get("salt", rule.get("id", ""))
         id = self.__get_unit_id(user, rule.get("idType", "userID")) or ""
         config_salt = config.get("salt", "")
