@@ -2,7 +2,7 @@ import json
 import time
 from io import BytesIO
 import gzip
-from typing import Callable
+from typing import Callable, Optional
 
 import requests
 from .diagnostics import Diagnostics, Marker
