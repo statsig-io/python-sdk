@@ -3,17 +3,16 @@ import threading
 from typing import Optional, Callable, List, Any, Tuple
 
 from . import globals
-from .interface_network import IStreamingListeners
-from .statsig_network import _StatsigNetwork
-from .statsig_options import DataSource, StatsigOptions
-from .interface_data_store import IDataStore
 from .diagnostics import Diagnostics, Marker, Context, Key
 from .evaluation_details import EvaluationReason
+from .interface_data_store import IDataStore
+from .interface_network import IStreamingListeners
 from .statsig_error_boundary import _StatsigErrorBoundary
 from .statsig_errors import StatsigValueError, StatsigNameError
+from .statsig_network import _StatsigNetwork
+from .statsig_options import DataSource, StatsigOptions
 from .thread_util import spawn_background_thread, THREAD_JOIN_TIMEOUT
 from .utils import djb2_hash
-
 
 RULESETS_SYNC_INTERVAL = 10
 IDLISTS_SYNC_INTERVAL = 60
@@ -23,15 +22,15 @@ STORAGE_ADAPTER_KEY = "statsig.cache"
 
 class SpecUpdater:
     def __init__(
-        self,
-        network: _StatsigNetwork,
-        data_adapter: Optional[IDataStore],
-        options: StatsigOptions,
-        diagnostics: Diagnostics,
-        sdk_key: str,
-        error_boundary: _StatsigErrorBoundary,
-        statsig_metadata: dict,
-        shutdown_event: threading.Event,
+            self,
+            network: _StatsigNetwork,
+            data_adapter: Optional[IDataStore],
+            options: StatsigOptions,
+            diagnostics: Diagnostics,
+            sdk_key: str,
+            error_boundary: _StatsigErrorBoundary,
+            statsig_metadata: dict,
+            shutdown_event: threading.Event,
     ):
         self._shutdown_event = shutdown_event
         self._sync_failure_count = 0
@@ -55,20 +54,20 @@ class SpecUpdater:
 
     def get_config_spec(self, source: DataSource, for_initialize=False):
         self._log_process(f"Loading specs from {source.value}...")
-        timeout = None
+        init_timeout = None
         if for_initialize:
-            timeout = self._options.init_timeout
+            init_timeout = self._options.init_timeout
         if source is DataSource.DATASTORE:
             self.load_config_specs_from_storage_adapter()
         elif source is DataSource.BOOTSTRAP:
             self.bootstrap_config_specs()
         elif source is DataSource.NETWORK:
             self._network.get_dcs(
-                self._on_dcs_complete, self.last_update_time, True, timeout
+                self._on_dcs_complete, self.last_update_time, True, init_timeout
             )
         elif source is DataSource.STATSIG_NETWORK:
             self._network.get_dcs_fallback(
-                self._on_dcs_complete, self.last_update_time, True, timeout
+                self._on_dcs_complete, self.last_update_time, True, init_timeout
             )
 
     def register_process_network_id_lists_listener(self, listener: Callable):
@@ -195,7 +194,7 @@ class SpecUpdater:
             return False
         hashed_sdk_key_used = specs_json.get("hashed_sdk_key_used", None)
         if hashed_sdk_key_used is not None and hashed_sdk_key_used != djb2_hash(
-            self._sdk_key
+                self._sdk_key
         ):
             return False
         return True
@@ -236,13 +235,13 @@ class SpecUpdater:
         result: List[bool] = [False]
 
         try:
-            timeout: Optional[int] = None
+            init_timeout: Optional[int] = None
             if for_initialize:
-                timeout = self._options.init_timeout
+                init_timeout = self._options.init_timeout
 
-            self._network.get_id_lists(on_complete, False, timeout)
+            self._network.get_id_lists(on_complete, False, init_timeout)
             if result[0] is False:
-                self._network.get_id_lists_fallback(on_complete, False, timeout)
+                self._network.get_id_lists_fallback(on_complete, False, init_timeout)
 
         except Exception as e:
             raise e
@@ -250,7 +249,7 @@ class SpecUpdater:
             self._diagnostics.log_diagnostics(Context.CONFIG_SYNC, Key.GET_ID_LIST)
 
     def download_single_id_list(
-        self, url, list_name, local_list, all_lists, start_index
+            self, url, list_name, local_list, all_lists, start_index
     ):
         def on_complete(resp: Any):
             if resp is None:
@@ -308,8 +307,8 @@ class SpecUpdater:
         self._diagnostics.set_context(Context.CONFIG_SYNC)
         if self._network.is_pull_worker("download_config_specs"):
             if (
-                self._background_download_configs is None
-                or not self._background_download_configs.is_alive()
+                    self._background_download_configs is None
+                    or not self._background_download_configs.is_alive()
             ):
                 self._spawn_bg_poll_dcs()
         else:
@@ -333,8 +332,8 @@ class SpecUpdater:
 
         if self._network.is_pull_worker("download_id_lists"):
             if (
-                self._background_download_id_lists is None
-                or not self._background_download_id_lists.is_alive()
+                    self._background_download_id_lists is None
+                    or not self._background_download_id_lists.is_alive()
             ):
                 self._spawn_bg_poll_id_lists()
         else:
@@ -398,10 +397,10 @@ class SpecUpdater:
             return self._options.config_sync_sources
         strategies = [DataSource.NETWORK]
         if (
-            self._options.data_store is not None
-            and self._options.data_store.should_be_used_for_querying_updates(
-                STORAGE_ADAPTER_KEY
-            )
+                self._options.data_store is not None
+                and self._options.data_store.should_be_used_for_querying_updates(
+            STORAGE_ADAPTER_KEY
+        )
         ):
             strategies = [DataSource.DATASTORE]
         if self._options.fallback_to_statsig_api:

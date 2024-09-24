@@ -38,19 +38,19 @@ class IStatsigNetworkWorker:
         return True
 
     def get_dcs(
-        self,
-        on_complete: Callable,
-        since_time: int = 0,
-        log_on_exception: Optional[bool] = False,
-        timeout: Optional[int] = None,
+            self,
+            on_complete: Callable,
+            since_time: int = 0,
+            log_on_exception: Optional[bool] = False,
+            init_timeout: Optional[int] = None,
     ):
         pass
 
     def get_id_lists(
-        self,
-        on_complete: Callable,
-        log_on_exception: Optional[bool] = False,
-        timeout: Optional[int] = None,
+            self,
+            on_complete: Callable,
+            log_on_exception: Optional[bool] = False,
+            init_timeout: Optional[int] = None,
     ):
         pass
 
@@ -61,19 +61,19 @@ class IStatsigNetworkWorker:
         pass
 
     def get_dcs_fallback(
-        self,
-        on_complete: Callable,
-        since_time: int = 0,
-        log_on_exception: Optional[bool] = False,
-        timeout: Optional[int] = None,
+            self,
+            on_complete: Callable,
+            since_time: int = 0,
+            log_on_exception: Optional[bool] = False,
+            init_timeout: Optional[int] = None,
     ):
         pass
 
     def get_id_lists_fallback(
-        self,
-        on_complete: Any,
-        log_on_exception: Optional[bool] = False,
-        timeout: Optional[int] = None,
+            self,
+            on_complete: Any,
+            log_on_exception: Optional[bool] = False,
+            init_timeout: Optional[int] = None,
     ):
         pass
 

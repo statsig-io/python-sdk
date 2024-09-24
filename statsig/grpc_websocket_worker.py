@@ -4,8 +4,6 @@ from typing import Optional, Callable
 
 import grpc
 
-from .utils import get_or_default
-
 from . import globals
 from .diagnostics import Marker, Diagnostics
 from .grpc.generated.statsig_forward_proxy_pb2 import (ConfigSpecRequest)  # pylint: disable=no-name-in-module
@@ -21,6 +19,7 @@ from .statsig_error_boundary import _StatsigErrorBoundary
 from .statsig_errors import StatsigNameError
 from .statsig_options import ProxyConfig, StatsigOptions
 from .thread_util import spawn_background_thread, THREAD_JOIN_TIMEOUT
+from .utils import get_or_default
 
 KEEP_ALIVE_TIME_MS = 2 * 60 * 60 * 1000  # Ping every 2 hour
 DEFAULT_RETRY_LIMIT = 10
@@ -90,32 +89,32 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
             on_complete: Callable,
             since_time: int = 0,
             log_on_exception: Optional[bool] = False,
-            timeout: Optional[int] = None,
+            init_timeout: Optional[int] = None,
     ):
         if self.dcs_stream is None:
             self._diagnostics.add_marker(
                 Marker().download_config_specs().network_request().start()
             )
-            self._start_listening(on_complete, since_time, timeout)
+            self._start_listening(on_complete, since_time, init_timeout)
 
     def get_id_lists(
             self,
             on_complete: Callable,
             log_on_exception: Optional[bool] = False,
-            timeout: Optional[int] = None,
+            init_timeout: Optional[int] = None
     ):
         raise NotImplementedError("Not supported yet")
 
     def log_events(self, payload, headers=None, log_on_exception=False, retry=0):
         raise NotImplementedError("Not supported yet")
 
-    def _start_listening(self, dcs_data_cb: Callable, since_time=0, timeout=None):
+    def _start_listening(self, dcs_data_cb: Callable, since_time=0, init_timeout=None):
         try:
             request = ConfigSpecRequest(sdkKey=self.sdk_key, sinceTime=since_time)
 
-            if timeout is None:
-                timeout = self._timeout
-            dcs_data = self.stub.getConfigSpec(request, timeout=timeout)
+            if init_timeout is None:
+                init_timeout = self._timeout
+            dcs_data = self.stub.getConfigSpec(request, timeout=init_timeout)
 
             self.lcut = dcs_data.lastUpdated
             self._diagnostics.add_marker(

@@ -1,17 +1,18 @@
+import gzip
 import json
 import time
+from concurrent.futures.thread import ThreadPoolExecutor
 from io import BytesIO
-import gzip
-from typing import Callable, Optional
+from typing import Callable, Tuple, Optional, Any
 
 import requests
+
+from . import globals
 from .diagnostics import Diagnostics, Marker
 from .interface_network import IStatsigNetworkWorker, NetworkProtocol, NetworkEndpoint
 from .sdk_configs import _SDK_Configs
-from .statsig_options import StatsigOptions, STATSIG_API, STATSIG_CDN
 from .statsig_error_boundary import _StatsigErrorBoundary
-
-from . import globals
+from .statsig_options import StatsigOptions, STATSIG_API, STATSIG_CDN
 
 REQUEST_TIMEOUT = 20
 
@@ -28,6 +29,7 @@ class HttpWorker(IStatsigNetworkWorker):
             error_boundary: _StatsigErrorBoundary,
             diagnostics: Diagnostics
     ):
+        self._executor = ThreadPoolExecutor(max_workers=2)
         self.__sdk_key = sdk_key
         self.__configure_endpoints(options)
         self.__req_timeout = options.timeout or REQUEST_TIMEOUT
@@ -40,47 +42,47 @@ class HttpWorker(IStatsigNetworkWorker):
     def is_pull_worker(self) -> bool:
         return True
 
-    def get_dcs(self, on_complete: Callable, since_time=0, log_on_exception=False, timeout=None):
+    def get_dcs(self, on_complete: Callable, since_time=0, log_on_exception=False, init_timeout=None):
         response = self._get_request(
             url=f"{self.__api_for_download_config_specs}download_config_specs/{self.__sdk_key}.json?sinceTime={since_time}",
-            headers=None, timeout=timeout, log_on_exception=log_on_exception,
+            headers=None, init_timeout=init_timeout, log_on_exception=log_on_exception,
             tag="download_config_specs")
         if response is not None and self._is_success_code(response.status_code):
             on_complete(response.json() or {}, None)
             return
         on_complete(None, None)
 
-    def get_dcs_fallback(self, on_complete: Callable, since_time=0, log_on_exception=False, timeout=None):
+    def get_dcs_fallback(self, on_complete: Callable, since_time=0, log_on_exception=False, init_timeout=None):
         response = self._get_request(
             url=f"{STATSIG_CDN}download_config_specs/{self.__sdk_key}.json?sinceTime={since_time}",
-            headers=None, timeout=timeout, log_on_exception=log_on_exception,
+            headers=None, init_timeout=init_timeout, log_on_exception=log_on_exception,
             tag="download_config_specs")
         if response is not None and self._is_success_code(response.status_code):
             on_complete(response.json() or {}, None)
             return
         on_complete(None, None)
 
-    def get_id_lists(self, on_complete: Callable, log_on_exception=False, timeout=None):
+    def get_id_lists(self, on_complete: Callable, log_on_exception=False, init_timeout=None):
         response = self._post_request(
             url=f"{self.__api_for_get_id_lists}get_id_lists",
             headers=None,
             payload={"statsigMetadata": self.__statsig_metadata},
             log_on_exception=log_on_exception,
-            timeout=timeout,
-            tag="get_id_lists"
+            init_timeout=init_timeout,
+            tag="get_id_lists",
         )
         if response is not None and self._is_success_code(response.status_code):
             return on_complete(response.json() or {}, None)
         return on_complete(None, None)
 
-    def get_id_lists_fallback(self, on_complete: Callable, log_on_exception=False, timeout=None):
+    def get_id_lists_fallback(self, on_complete: Callable, log_on_exception=False, init_timeout=None):
         response = self._post_request(
             url=f"{STATSIG_API}get_id_lists",
             headers=None,
             payload={"statsigMetadata": self.__statsig_metadata},
             log_on_exception=log_on_exception,
-            timeout=timeout,
-            tag="get_id_lists"
+            init_timeout=init_timeout,
+            tag="get_id_lists",
         )
         if response is not None and self._is_success_code(response.status_code):
             return on_complete(response.json() or {}, None)
@@ -101,32 +103,54 @@ class HttpWorker(IStatsigNetworkWorker):
             method='POST',
             url=f"{self.__api_for_log_event}log_event",
             headers=additional_headers,
-            payload=payload, log_on_exception=log_on_exception, timeout=None, zipped=not disable_compression,
+            payload=payload, log_on_exception=log_on_exception, init_timeout=None, zipped=not disable_compression,
             tag="log_event")
         if response is None or response.status_code in self.__RETRY_CODES:
             return payload
         return None
 
+    def shutdown(self) -> None:
+        self._executor.shutdown(wait=False)
+
+    def _run_task_for_initialize(self, task, timeout) -> Tuple[Optional[Any], Optional[Exception]]:
+        future = self._executor.submit(task)
+        try:
+            result = future.result(timeout=timeout)
+            return result, None
+        except Exception as e:
+            return None, e
+
     def _post_request(
-            self, url, headers, payload, log_on_exception=False, timeout=None, zipped=None,
+            self, url, headers, payload, log_on_exception=False, init_timeout=None, zipped=None,
             tag=None):
-        return self._request('POST', url, headers, payload, log_on_exception, timeout, zipped, tag)
+        return self._request('POST', url, headers, payload, log_on_exception, init_timeout, zipped, tag)
 
     def _get_request(
-            self, url, headers, log_on_exception=False, timeout=None, zipped=None, tag=None):
-        return self._request('GET', url, headers, None, log_on_exception, timeout, zipped, tag)
+            self, url, headers, log_on_exception=False, init_timeout=None, zipped=None, tag=None):
+        return self._request('GET', url, headers, None, log_on_exception, init_timeout, zipped, tag)
 
-    def _request(self, method, url, headers=None, payload=None, log_on_exception=False,
-                 timeout=None, zipped=False, tag=None):
+    def _request(
+            self,
+            method,
+            url,
+            headers=None,
+            payload=None,
+            log_on_exception=False,
+            init_timeout=None,
+            zipped=False,
+            tag=None,
+    ):
         if self.__local_mode:
             globals.logger.debug("Using local mode. Dropping network request")
             return None
 
         create_marker = self._get_diagnostics_from_url_or_tag(url, tag)
-        marker_id = str(self.__request_count) if (tag == 'log_event') else None
+        marker_id = str(self.__request_count) if (tag == "log_event") else None
         self.__request_count += 1
         if create_marker is not None:
-            self.__diagnostics.add_marker(create_marker().start({'markerID': marker_id}))
+            self.__diagnostics.add_marker(
+                create_marker().start({"markerID": marker_id})
+            )
 
         base_headers = {
             "Content-type": "application/json",
@@ -135,7 +159,7 @@ class HttpWorker(IStatsigNetworkWorker):
             "STATSIG-SERVER-SESSION-ID": self.__statsig_metadata["sessionID"],
             "STATSIG-SDK-TYPE": self.__statsig_metadata["sdkType"],
             "STATSIG-SDK-VERSION": self.__statsig_metadata["sdkVersion"],
-            'STATSIG-RETRY': '0',
+            "STATSIG-RETRY": "0",
         }
         if zipped:
             base_headers.update({"Content-Encoding": "gzip"})
@@ -150,31 +174,37 @@ class HttpWorker(IStatsigNetworkWorker):
             if zipped:
                 payload = self._zip_payload(payload)
 
-        response = None
         payload_size = len(payload) if payload is not None else None
         try:
+            timeout = init_timeout
             if timeout is None:
                 timeout = self.__req_timeout
 
-            response = requests.request(
-                method,
-                url,
-                data=payload,
-                headers=headers,
-                timeout=timeout,
-            )
+            def request_task():
+                return requests.request(method, url, data=payload, headers=headers, timeout=timeout)
+
+            response = None
+            if init_timeout is not None:
+                response, err = self._run_task_for_initialize(request_task, timeout)
+                if response is None:
+                    err = err or Exception("Request timed out")
+                    raise err
+            else:
+                response = request_task()
 
             if create_marker is not None:
-                self.__diagnostics.add_marker(create_marker().end(
-                    {
-                        "statusCode": response.status_code,
-                        "success": response.ok,
-                        "sdkRegion": response.headers.get("x-statsig-region"),
-                        "payloadSize": payload_size,
-                        "markerID": marker_id,
-                        "networkProtocol": NetworkProtocol.HTTP
-                    }
-                ))
+                self.__diagnostics.add_marker(
+                    create_marker().end(
+                        {
+                            "statusCode": response.status_code,
+                            "success": response.ok,
+                            "sdkRegion": response.headers.get("x-statsig-region"),
+                            "payloadSize": payload_size,
+                            "markerID": marker_id,
+                            "networkProtocol": NetworkProtocol.HTTP,
+                        }
+                    )
+                )
 
             if response.status_code < 200 or response.status_code >= 300:
                 globals.logger.warning(
@@ -183,21 +213,26 @@ class HttpWorker(IStatsigNetworkWorker):
             return response
         except Exception as err:
             if create_marker is not None:
-                self.__diagnostics.add_marker(create_marker().end(
-                    {
-                        "statusCode": response.status_code
-                        if response is not None
-                        else None,
-                        "success": False,
-                        "error": Diagnostics.format_error(err),
-                        "payloadSize": payload_size,
-                        "markerID": marker_id,
-                        "networkProtocol": NetworkProtocol.HTTP
-                    }
-                ))
+                self.__diagnostics.add_marker(
+                    create_marker().end(
+                        {
+                            "statusCode": (
+                                response.status_code if response is not None else None
+                            ),
+                            "success": False,
+                            "error": Diagnostics.format_error(err),
+                            "payloadSize": payload_size,
+                            "markerID": marker_id,
+                            "networkProtocol": NetworkProtocol.HTTP,
+                        }
+                    )
+                )
             if log_on_exception:
                 self.__error_boundary.log_exception(
-                    "request:" + tag, err, {"timeoutMs": timeout * 1000, "httpMethod": method})
+                    "request:" + tag,
+                    err,
+                    {"timeoutMs": timeout * 1000, "httpMethod": method},
+                )
             return None
 
     def _is_success_code(self, status_code: int) -> bool:

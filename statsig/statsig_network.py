@@ -2,14 +2,6 @@ import importlib
 import threading
 from typing import Any, Callable, Optional
 
-from .thread_util import spawn_background_thread
-
-from .statsig_options import (
-    DEFAULT_RULESET_SYNC_INTERVAL,
-    StatsigOptions,
-    STATSIG_CDN,
-    STATSIG_API, ProxyConfig,
-)
 from .diagnostics import Diagnostics
 from .globals import logger
 from .http_worker import HttpWorker
@@ -22,6 +14,13 @@ from .interface_network import (
     IStatsigWebhookWorker,
 )
 from .statsig_error_boundary import _StatsigErrorBoundary
+from .statsig_options import (
+    DEFAULT_RULESET_SYNC_INTERVAL,
+    StatsigOptions,
+    STATSIG_CDN,
+    STATSIG_API, ProxyConfig,
+)
+from .thread_util import spawn_background_thread
 
 
 class StreamingFallback(IStreamingFallback):
@@ -145,19 +144,19 @@ class _StatsigNetwork:
             on_complete: Any,
             since_time: int = 0,
             log_on_exception: Optional[bool] = False,
-            timeout: Optional[int] = None,
+            init_timeout: Optional[int] = None,
     ):
         if self.statsig_options.local_mode:
             logger.warning("Local mode is enabled. Not fetching DCS.")
             return
-        self.dcs_worker.get_dcs(on_complete, since_time, log_on_exception, timeout)
+        self.dcs_worker.get_dcs(on_complete, since_time, log_on_exception, init_timeout)
 
     def get_dcs_fallback(
             self,
             on_complete: Any,
             since_time: int = 0,
             log_on_exception: Optional[bool] = False,
-            timeout: Optional[int] = None,
+            init_timeout: Optional[int] = None,
     ):
         if self.statsig_options.local_mode:
             logger.warning("Local mode is enabled. Not fetching DCS.")
@@ -169,24 +168,24 @@ class _StatsigNetwork:
                 or self.statsig_options.api_for_download_config_specs != STATSIG_CDN
         )
         if is_proxy_dcs:
-            self.http_worker.get_dcs_fallback(on_complete, since_time, log_on_exception, timeout)
+            self.http_worker.get_dcs_fallback(on_complete, since_time, log_on_exception, init_timeout)
 
     def get_id_lists(
             self,
             on_complete: Any,
             log_on_exception: Optional[bool] = False,
-            timeout: Optional[int] = None,
+            init_timeout: Optional[int] = None,
     ):
         if self.statsig_options.local_mode:
             logger.warning("Local mode is enabled. Not fetching ID Lists.")
             return
-        self.id_list_worker.get_id_lists(on_complete, log_on_exception, timeout)
+        self.id_list_worker.get_id_lists(on_complete, log_on_exception, init_timeout)
 
     def get_id_lists_fallback(
             self,
             on_complete: Any,
             log_on_exception: Optional[bool] = False,
-            timeout: Optional[int] = None,
+            init_timeout: Optional[int] = None,
     ):
         if self.statsig_options.local_mode:
             logger.warning("Local mode is enabled. Not fetching ID Lists.")
@@ -197,9 +196,10 @@ class _StatsigNetwork:
             NetworkEndpoint.GET_ID_LISTS
         )
         id_list_api_override = self.statsig_options.api_for_get_id_lists
-        is_id_lists_proxy = id_list_api_override != STATSIG_API or (id_list_proxy and id_list_proxy.proxy_address != STATSIG_API)
+        is_id_lists_proxy = id_list_api_override != STATSIG_API or (
+                id_list_proxy and id_list_proxy.proxy_address != STATSIG_API)
         if is_id_lists_proxy:
-            self.http_worker.get_id_lists_fallback(on_complete, log_on_exception, timeout)
+            self.http_worker.get_id_lists_fallback(on_complete, log_on_exception, init_timeout)
 
     def get_id_list(self, on_complete: Any, url, headers, log_on_exception=False):
         if self.statsig_options.local_mode:
