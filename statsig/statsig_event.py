@@ -18,6 +18,7 @@ class StatsigEvent:
     event_name: str
     value: Union[str, int, None] = None
     metadata: Optional[dict] = None
+    statsigMetadata: Optional[dict] = None
     _secondary_exposures: Optional[list] = None
     _time: int = field(default_factory=lambda: round(time.time() * 1000))
 
@@ -37,6 +38,7 @@ class StatsigEvent:
             'value': self.value,
             'metadata': to_raw_dict_or_none(self.metadata),
             'secondaryExposures': self._secondary_exposures,
-            'time': self._time
+            'time': self._time,
+            'statsigMetadata': to_raw_dict_or_none(self.statsigMetadata)
         }
         return {k: v for k, v in evt_nullable.items() if v is not None}

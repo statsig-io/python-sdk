@@ -2,23 +2,23 @@ import dataclasses
 import threading
 from typing import Optional, Union
 
+from . import globals
+from .diagnostics import Context, Diagnostics, Marker
+from .dynamic_config import DynamicConfig
+from .evaluator import _Evaluator
 from .feature_gate import FeatureGate
 from .layer import Layer
-from .statsig_errors import StatsigNameError, StatsigRuntimeError, StatsigValueError
-from .statsig_event import StatsigEvent
-from .statsig_metadata import _StatsigMetadata
-
-from .statsig_user import StatsigUser
 from .spec_store import _SpecStore
 from .statsig_error_boundary import _StatsigErrorBoundary
-from .evaluator import _Evaluator
-from .statsig_network import _StatsigNetwork
+from .statsig_errors import StatsigNameError, StatsigRuntimeError, StatsigValueError
+from .statsig_event import StatsigEvent
 from .statsig_logger import _StatsigLogger
-from .dynamic_config import DynamicConfig
+from .statsig_metadata import _StatsigMetadata
+from .statsig_network import _StatsigNetwork
 from .statsig_options import StatsigOptions
-from .diagnostics import Context, Diagnostics, Marker
-from .utils import HashingAlgorithm
-from . import globals
+from .statsig_user import StatsigUser
+from .utils import HashingAlgorithm, compute_dedupe_key_for_gate, is_hash_in_sampling_rate, \
+    compute_dedupe_key_for_config
 
 RULESETS_SYNC_INTERVAL = 10
 IDLISTS_SYNC_INTERVAL = 60
@@ -476,7 +476,17 @@ class StatsigServer:
     def __check_gate(self, user: StatsigUser, gate_name: str, log_exposure=True):
         user = self.__normalize_user(user)
         result = self._evaluator.check_gate(user, gate_name)
-        if log_exposure:
+        env = self._options.get_evironment()
+        should_log = True
+        logged_sample_rate = None
+        if env is None or (env is not None and env.get("tier") == "production"):
+            if result.sample_rate is not None:
+                logged_sample_rate = result.sample_rate
+                exposure_key = compute_dedupe_key_for_gate(gate_name, result.rule_id, result.boolean_value,
+                                                           user.user_id, user.custom_ids)
+                should_log = is_hash_in_sampling_rate(exposure_key, result.sample_rate)
+
+        if log_exposure and should_log:
             self._logger.log_gate_exposure(
                 user,
                 gate_name,
@@ -484,6 +494,7 @@ class StatsigServer:
                 result.rule_id,
                 result.secondary_exposures,
                 result.evaluation_details,
+                sampling_rate=logged_sample_rate
             )
         return result
 
@@ -492,13 +503,23 @@ class StatsigServer:
 
         result = self._evaluator.get_config(user, config_name)
         result.user = user
-        if log_exposure:
+        env = self._options.get_evironment()
+        should_log = True
+        logged_sample_rate = None
+        if env is None or (env is not None and env.get("tier") == "production"):
+            if result.sample_rate is not None:
+                logged_sample_rate = result.sample_rate
+                exposure_key = compute_dedupe_key_for_config(config_name, result.rule_id, user.user_id, user.custom_ids)
+                should_log = is_hash_in_sampling_rate(exposure_key, result.sample_rate)
+
+        if log_exposure and should_log:
             self._logger.log_config_exposure(
                 user,
                 config_name,
                 result.rule_id,
                 result.secondary_exposures,
                 result.evaluation_details,
+                sampling_rate=logged_sample_rate
             )
         return result
 

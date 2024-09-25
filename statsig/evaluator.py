@@ -3,7 +3,6 @@ import time
 from datetime import datetime
 import re
 from hashlib import sha256
-from struct import unpack
 from typing import Dict
 
 from ua_parser import user_agent_parser
@@ -14,7 +13,7 @@ from .client_initialize_formatter import ClientInitializeResponseFormatter
 from .evaluation_details import EvaluationDetails, EvaluationReason
 from .spec_store import _SpecStore
 from .config_evaluation import _ConfigEvaluation
-from .utils import HashingAlgorithm
+from .utils import HashingAlgorithm, sha256_hash
 
 
 class _Evaluator:
@@ -298,6 +297,7 @@ class _Evaluator:
             end_result.group_name = rule.get("groupName", None)
             end_result.is_experiment_group = rule.get("isExperimentGroup", False)
             end_result.rule_id = rule.get("id", "")
+            end_result.sample_rate = rule.get("samplingRate", None)
 
         if not is_nested:
             self.__finalize_exposures(end_result)
@@ -552,7 +552,7 @@ class _Evaluator:
         return None
 
     def __compute_user_hash(self, input):
-        return unpack('>Q', sha256(str(input).encode('utf-8')).digest()[:8])[0]
+        return sha256_hash(input)
 
     def __eval_pass_percentage(self, user, rule, config):
         if rule.get("passPercentage", 0) == 100.0:

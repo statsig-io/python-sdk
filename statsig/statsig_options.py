@@ -156,7 +156,7 @@ class StatsigOptions:
             self._environment = {}
         self._environment[key] = value
 
-    def _get_evironment(self):
+    def get_evironment(self):
         return self._environment
 
     def _set_logging_copy(self):

@@ -1,9 +1,9 @@
-import time
-import os
-import unittest
 import json
-
+import os
+import time
+import unittest
 from unittest.mock import patch
+
 from gzip_helpers import GzipHelpers
 from network_stub import NetworkStub
 from statsig import statsig, StatsigUser, StatsigOptions, StatsigEvent, StatsigEnvironmentTier
@@ -147,7 +147,15 @@ class TestStatsigE2E(unittest.TestCase):
                                  "on_for_id_list": {
                                      "value": True,
                                      "rule_id": "7w9rbTSffLT89pxqpyhuqA"
-                                 }
+                                 },
+                                 "always_on_gate_sampled": {
+                                     "value": True,
+                                     "rule_id": "6N6Z8ODekNYZ7F8gFdoLP5"
+                                 },
+                                 "always_on_gate_sampled_10_percent": {
+                                     "value": True,
+                                     "rule_id": "6N6Z8ODekNYZ7F8gFdoLP5"
+                                 },
                              },
                              "dynamic_configs": {
                                  "test_config": {
@@ -167,8 +175,8 @@ class TestStatsigE2E(unittest.TestCase):
                                      "rule_id": "2RamGujUou6h2bVNQWhtNZ"
                                  }
                              }
-        }
-        )
+                         }
+                         )
 
     # test_z ensures this runs last
     def test_z_logs(self, mock_request):

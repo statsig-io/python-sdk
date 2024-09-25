@@ -1,17 +1,16 @@
 import threading
-
 from typing import Optional, Union, Set, List
 
+from . import globals
+from .batch_event_queue import EventBatchProcessor
+from .config_evaluation import _ConfigEvaluation
+from .diagnostics import Diagnostics
+from .evaluation_details import EvaluationDetails
+from .layer import Layer
+from .statsig_event import StatsigEvent
 from .statsig_logger_worker import LoggerWorker
 from .statsig_network import _StatsigNetwork
-from .batch_event_queue import EventBatchProcessor
-from .evaluation_details import EvaluationDetails
-from .config_evaluation import _ConfigEvaluation
-from .statsig_event import StatsigEvent
-from .layer import Layer
-from . import globals
 from .thread_util import spawn_background_thread
-from .diagnostics import Diagnostics
 
 _CONFIG_EXPOSURE_EVENT = "statsig::config_exposure"
 _LAYER_EXPOSURE_EVENT = "statsig::layer_exposure"
@@ -50,7 +49,8 @@ class _StatsigLogger:
         self._shutdown_event = shutdown_event
         self._background_exposure_handler = None
         self._diagnostics = diagnostics
-        event_batch_processor = EventBatchProcessor(options, statsig_metadata, shutdown_event, error_boundary, diagnostics)
+        event_batch_processor = EventBatchProcessor(options, statsig_metadata, shutdown_event, error_boundary,
+                                                    diagnostics)
         self.event_batch_processor = event_batch_processor
         self._logger_worker = LoggerWorker(net, error_boundary, options, statsig_metadata, shutdown_event, diagnostics,
                                            event_batch_processor)
@@ -84,6 +84,7 @@ class _StatsigLogger:
             secondary_exposures,
             evaluation_details: EvaluationDetails,
             is_manual_exposure=False,
+            sampling_rate=None,
     ):
         event = StatsigEvent(user, _GATE_EXPOSURE_EVENT)
         event.metadata = {
@@ -96,6 +97,8 @@ class _StatsigLogger:
 
         if is_manual_exposure:
             event.metadata["isManualExposure"] = "true"
+        if sampling_rate is not None:
+            event.statsigMetadata = {"samplingRate": sampling_rate}
 
         if secondary_exposures is None:
             secondary_exposures = []
@@ -112,6 +115,7 @@ class _StatsigLogger:
             secondary_exposures,
             evaluation_details: EvaluationDetails,
             is_manual_exposure=False,
+            sampling_rate=None,
     ):
         event = StatsigEvent(user, _CONFIG_EXPOSURE_EVENT)
         event.metadata = {
@@ -122,6 +126,8 @@ class _StatsigLogger:
             return
         if is_manual_exposure:
             event.metadata["isManualExposure"] = "true"
+        if sampling_rate is not None:
+            event.statsigMetadata = {"samplingRate": sampling_rate}
 
         if secondary_exposures is None:
             secondary_exposures = []

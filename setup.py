@@ -39,6 +39,7 @@ setup(
         'ip3country',
         'grpcio',
         'protobuf',
+        'pyfarmhash'
     ],
     tests_require=test_deps,
     extras_require=extras,

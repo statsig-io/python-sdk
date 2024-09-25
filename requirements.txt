@@ -6,3 +6,4 @@ grpcio==1.62.3
 protobuf==4.24.4
 requests
 semver
+pyfarmhash
