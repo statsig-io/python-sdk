@@ -1,14 +1,14 @@
 from enum import Enum
 from typing import List, Optional, Union, Callable, Dict, Any
 
-from .interface_network import NetworkProtocol, NetworkEndpoint
-from .layer import Layer
 from .dynamic_config import DynamicConfig
 from .feature_gate import FeatureGate
-from .statsig_errors import StatsigValueError
 from .interface_data_store import IDataStore
-from .statsig_environment_tier import StatsigEnvironmentTier
+from .interface_network import NetworkProtocol, NetworkEndpoint
+from .layer import Layer
 from .output_logger import OutputLogger
+from .statsig_environment_tier import StatsigEnvironmentTier
+from .statsig_errors import StatsigValueError
 
 DEFAULT_RULESET_SYNC_INTERVAL = 10
 DEFAULT_IDLIST_SYNC_INTERVAL = 60
@@ -23,16 +23,16 @@ STATSIG_CDN = "https://api.statsigcdn.com/v1/"
 
 class ProxyConfig:
     def __init__(
-        self,
-        protocol: NetworkProtocol,
-        proxy_address: str,
-        # Failover config
-        max_retry_attempt: Optional[int] = None,
-        retry_backoff_multiplier: Optional[int] = None,
-        retry_backoff_base_ms: Optional[int] = None,
-        # Push worker failback to polling threshold, fallback immediate set 0,
-        # n means fallback after n retry failed
-        push_worker_failover_threshold: Optional[int] = None,
+            self,
+            protocol: NetworkProtocol,
+            proxy_address: str,
+            # Failover config
+            max_retry_attempt: Optional[int] = None,
+            retry_backoff_multiplier: Optional[int] = None,
+            retry_backoff_base_ms: Optional[int] = None,
+            # Push worker failback to polling threshold, fallback immediate set 0,
+            # n means fallback after n retry failed
+            push_worker_failover_threshold: Optional[int] = None,
     ):
         self.proxy_address = proxy_address
         self.protocol = protocol
@@ -63,33 +63,33 @@ class StatsigOptions:
     """
 
     def __init__(
-        self,
-        api: Optional[str] = None,
-        api_for_download_config_specs: Optional[str] = None,
-        api_for_get_id_lists: Optional[str] = None,
-        api_for_log_event: Optional[str] = None,
-        tier: Union[str, StatsigEnvironmentTier, None] = None,
-        init_timeout: Optional[int] = None,
-        timeout: Optional[int] = None,
-        rulesets_sync_interval: int = DEFAULT_RULESET_SYNC_INTERVAL,
-        idlists_sync_interval: int = DEFAULT_IDLIST_SYNC_INTERVAL,
-        local_mode: bool = False,
-        bootstrap_values: Optional[str] = None,
-        rules_updated_callback: Optional[Callable] = None,
-        event_queue_size: Optional[int] = DEFAULT_EVENT_QUEUE_SIZE,
-        data_store: Optional[IDataStore] = None,
-        idlists_thread_limit: int = DEFAULT_IDLISTS_THREAD_LIMIT,
-        logging_interval: int = DEFAULT_LOGGING_INTERVAL, #deprecated
-        disable_diagnostics: bool = False,
-        custom_logger: Optional[OutputLogger] = None,
-        enable_debug_logs = False,
-        disable_all_logging = False,
-        evaluation_callback: Optional[Callable[[Union[Layer, DynamicConfig, FeatureGate]], None]] = None,
-        retry_queue_size: int = DEFAULT_RETRY_QUEUE_SIZE,
-        proxy_configs: Optional[Dict[NetworkEndpoint, ProxyConfig]] = None,
-        fallback_to_statsig_api: Optional[bool] = False,
-        initialize_sources: Optional[List[DataSource]] = None,
-        config_sync_sources: Optional[List[DataSource]] = None,
+            self,
+            api: Optional[str] = None,
+            api_for_download_config_specs: Optional[str] = None,
+            api_for_get_id_lists: Optional[str] = None,
+            api_for_log_event: Optional[str] = None,
+            tier: Union[str, StatsigEnvironmentTier, None] = None,
+            init_timeout: Optional[int] = None,
+            timeout: Optional[int] = None,
+            rulesets_sync_interval: int = DEFAULT_RULESET_SYNC_INTERVAL,
+            idlists_sync_interval: int = DEFAULT_IDLIST_SYNC_INTERVAL,
+            local_mode: bool = False,
+            bootstrap_values: Optional[str] = None,
+            rules_updated_callback: Optional[Callable] = None,
+            event_queue_size: Optional[int] = DEFAULT_EVENT_QUEUE_SIZE,
+            data_store: Optional[IDataStore] = None,
+            idlists_thread_limit: int = DEFAULT_IDLISTS_THREAD_LIMIT,
+            logging_interval: int = DEFAULT_LOGGING_INTERVAL,  # deprecated
+            disable_diagnostics: bool = False,
+            custom_logger: Optional[OutputLogger] = None,
+            enable_debug_logs=False,
+            disable_all_logging=False,
+            evaluation_callback: Optional[Callable[[Union[Layer, DynamicConfig, FeatureGate]], None]] = None,
+            retry_queue_size: int = DEFAULT_RETRY_QUEUE_SIZE,
+            proxy_configs: Optional[Dict[NetworkEndpoint, ProxyConfig]] = None,
+            fallback_to_statsig_api: Optional[bool] = False,
+            initialize_sources: Optional[List[DataSource]] = None,
+            config_sync_sources: Optional[List[DataSource]] = None,
     ):
         self.data_store = data_store
         self._environment: Union[None, dict] = None
@@ -117,7 +117,7 @@ class StatsigOptions:
         self.rules_updated_callback = rules_updated_callback
         self.disable_diagnostics = disable_diagnostics
         if event_queue_size is None:
-            self.event_queue_size = 500
+            self.event_queue_size = DEFAULT_EVENT_QUEUE_SIZE
         else:
             self.event_queue_size = event_queue_size
         self.logging_interval = logging_interval
@@ -127,16 +127,29 @@ class StatsigOptions:
         self.evaluation_callback = evaluation_callback
         self.retry_queue_size = retry_queue_size
         self.fallback_to_statsig_api = fallback_to_statsig_api
-        self._set_logging_copy()
         if proxy_configs is None:
             self.proxy_configs = DEFAULT_PROXY_CONFIG
         else:
             self.proxy_configs = proxy_configs
         self.initialize_sources = initialize_sources
         self.config_sync_sources = config_sync_sources
+        self._logging_copy: Dict[str, Any] = {}
+        self._set_logging_copy()
+        self._attributes_changed = False
+
+    def __setattr__(self, name, value):
+        if name.startswith("_"):
+            super().__setattr__(name, value)
+        else:
+            if hasattr(self, name) and getattr(self, name) != value:
+                self._attributes_changed = True
+
+            super().__setattr__(name, value)
 
     def get_logging_copy(self):
-        return self.logging_copy
+        if self._logging_copy is None or self._attributes_changed:
+            self._set_logging_copy()
+        return self._logging_copy
 
     def set_environment_parameter(self, key: str, value: str):
         if self._environment is None:
@@ -184,4 +197,5 @@ class StatsigOptions:
             logging_copy["event_queue_size"] = self.event_queue_size
         if self.retry_queue_size != DEFAULT_RETRY_QUEUE_SIZE:
             logging_copy["retry_queue_size"] = self.retry_queue_size
-        self.logging_copy = logging_copy
+        self._logging_copy = logging_copy
+        self._attributes_changed = False

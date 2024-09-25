@@ -3,15 +3,15 @@ import os
 import unittest
 from unittest.mock import patch
 
-from statsig import StatsigOptions, StatsigServer, _Evaluator, StatsigUser, IDataStore
 from gzip_helpers import GzipHelpers
 from network_stub import NetworkStub
+from statsig import StatsigOptions, StatsigServer, _Evaluator, StatsigUser
 
 with open(
-    os.path.join(
-        os.path.abspath(os.path.dirname(__file__)),
-        "../testdata/download_config_specs.json",
-    )
+        os.path.join(
+            os.path.abspath(os.path.dirname(__file__)),
+            "../testdata/download_config_specs.json",
+        )
 ) as r:
     CONFIG_SPECS_RESPONSE = r.read()
 
@@ -50,7 +50,7 @@ class TestDiagnostics(unittest.TestCase):
         _network_stub.stub_request_with_value("get_id_lists", 200, {})
 
         def assert_event_equal(
-            event: dict, values: dict, skip_sync_times: bool = False
+                event: dict, values: dict, skip_sync_times: bool = False
         ):
             self.assertEqual(event["eventName"], values["eventName"])
             self.assertEqual(event["metadata"]["reason"], values["reason"])
@@ -66,11 +66,11 @@ class TestDiagnostics(unittest.TestCase):
         self._assert_event_equal = assert_event_equal
 
         def assert_marker_equal(
-            marker: dict,
-            key,
-            action=None,
-            step=None,
-            tags={},
+                marker: dict,
+                key,
+                action=None,
+                step=None,
+                tags={},
         ):
             # Verify basic fields
             self.assertEqual(key, marker.get("key"))
@@ -81,7 +81,7 @@ class TestDiagnostics(unittest.TestCase):
             for tag_key, tag_value in tags.items():
                 assert tag_key in marker, f"Tag '{tag_key}' does not exist in marker"
                 assert (
-                    marker[tag_key] == tag_value
+                        marker[tag_key] == tag_value
                 ), f"Tag '{tag_key}' value mismatch in marker"
 
         self._assert_marker_equal = assert_marker_equal
@@ -96,7 +96,7 @@ class TestDiagnostics(unittest.TestCase):
 
         metadata = event["metadata"]
         self.assertEqual(metadata["context"], "initialize")
-        self.assertEqual(metadata["statsigOptions"], self._options.logging_copy)
+        self.assertEqual(metadata["statsigOptions"], self._options._logging_copy)
         markers = metadata["markers"]
         self._assert_marker_equal(markers[0], "overall", "start")
         self._assert_marker_equal(

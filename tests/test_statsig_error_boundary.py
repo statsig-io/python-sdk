@@ -1,7 +1,7 @@
 import traceback
 import unittest
-
 from unittest.mock import patch
+
 from statsig.statsig_error_boundary import _StatsigErrorBoundary
 from statsig.statsig_errors import StatsigNameError, StatsigRuntimeError, StatsigValueError
 from statsig.statsig_metadata import _StatsigMetadata
@@ -17,7 +17,7 @@ def mocked_post(*args, **kwargs):
 
 
 @patch('requests.post', side_effect=mocked_post)
-class TestStatsigErrorBoundary(unittest.TestCase):    
+class TestStatsigErrorBoundary(unittest.TestCase):
     requests: list
 
     _boundary: _StatsigErrorBoundary
@@ -82,13 +82,13 @@ class TestStatsigErrorBoundary(unittest.TestCase):
 
         body = self._get_requests()[0]['body']
         self.assertEqual(body['statsigMetadata'], self._metadata)
-    
+
     def test_logging_statsig_options(self, mock_post):
         self._capture_error()
-        
+
         body = self._get_requests()[0]['body']
-        self.assertEqual(body['statsigOptions'], self._options.logging_copy)
-        
+        self.assertEqual(body['statsigOptions'], self._options._logging_copy)
+
     def test_logging_errors_only_once(self, mock_post):
         self._capture_error()
 
