@@ -85,6 +85,8 @@ class _StatsigLogger:
             evaluation_details: EvaluationDetails,
             is_manual_exposure=False,
             sampling_rate=None,
+            shadow_logged=None,
+            sampling_mode=None
     ):
         event = StatsigEvent(user, _GATE_EXPOSURE_EVENT)
         event.metadata = {
@@ -92,6 +94,7 @@ class _StatsigLogger:
             "gateValue": "true" if value else "false",
             "ruleID": rule_id,
         }
+        event.statsigMetadata = {}
         if not self._is_unique_exposure(user, _GATE_EXPOSURE_EVENT, event.metadata):
             return
 
@@ -99,6 +102,10 @@ class _StatsigLogger:
             event.metadata["isManualExposure"] = "true"
         if sampling_rate is not None:
             event.statsigMetadata = {"samplingRate": sampling_rate}
+        if shadow_logged is not None:
+            event.statsigMetadata["shadowLogged"] = shadow_logged
+        if sampling_mode is not None:
+            event.statsigMetadata["samplingMode"] = sampling_mode
 
         if secondary_exposures is None:
             secondary_exposures = []
@@ -116,18 +123,26 @@ class _StatsigLogger:
             evaluation_details: EvaluationDetails,
             is_manual_exposure=False,
             sampling_rate=None,
+            shadow_logged=None,
+            sampling_mode=None,
     ):
         event = StatsigEvent(user, _CONFIG_EXPOSURE_EVENT)
         event.metadata = {
             "config": config,
             "ruleID": rule_id,
         }
+        event.statsigMetadata = {}
+
         if not self._is_unique_exposure(user, _CONFIG_EXPOSURE_EVENT, event.metadata):
             return
         if is_manual_exposure:
             event.metadata["isManualExposure"] = "true"
         if sampling_rate is not None:
             event.statsigMetadata = {"samplingRate": sampling_rate}
+        if shadow_logged is not None:
+            event.statsigMetadata["shadowLogged"] = shadow_logged
+        if sampling_mode is not None:
+            event.statsigMetadata["samplingMode"] = sampling_mode
 
         if secondary_exposures is None:
             secondary_exposures = []

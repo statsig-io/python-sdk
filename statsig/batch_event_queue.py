@@ -4,9 +4,9 @@ from dataclasses import dataclass
 from typing import Dict, List, Deque
 
 from . import globals
+from .diagnostics import Context
 from .sdk_configs import _SDK_Configs
 from .statsig_event import StatsigEvent
-from .diagnostics import Context
 from .statsig_options import StatsigOptions, DEFAULT_EVENT_QUEUE_SIZE
 from .thread_util import THREAD_JOIN_TIMEOUT
 

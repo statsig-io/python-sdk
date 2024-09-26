@@ -1,13 +1,15 @@
 import dataclasses
 import threading
-from typing import Optional, Union
+from typing import Optional, Union, Tuple
 
 from . import globals
+from .config_evaluation import _ConfigEvaluation
 from .diagnostics import Context, Diagnostics, Marker
 from .dynamic_config import DynamicConfig
 from .evaluator import _Evaluator
 from .feature_gate import FeatureGate
 from .layer import Layer
+from .sdk_configs import _SDK_Configs
 from .spec_store import _SpecStore
 from .statsig_error_boundary import _StatsigErrorBoundary
 from .statsig_errors import StatsigNameError, StatsigRuntimeError, StatsigValueError
@@ -476,15 +478,7 @@ class StatsigServer:
     def __check_gate(self, user: StatsigUser, gate_name: str, log_exposure=True):
         user = self.__normalize_user(user)
         result = self._evaluator.check_gate(user, gate_name)
-        env = self._options.get_evironment()
-        should_log = True
-        logged_sample_rate = None
-        if env is None or (env is not None and env.get("tier") == "production"):
-            if result.sample_rate is not None:
-                logged_sample_rate = result.sample_rate
-                exposure_key = compute_dedupe_key_for_gate(gate_name, result.rule_id, result.boolean_value,
-                                                           user.user_id, user.custom_ids)
-                should_log = is_hash_in_sampling_rate(exposure_key, result.sample_rate)
+        should_log, logged_sampling_rate, shadow_logged = self.__determine_sampling("GATE", gate_name, result, user)
 
         if log_exposure and should_log:
             self._logger.log_gate_exposure(
@@ -494,7 +488,9 @@ class StatsigServer:
                 result.rule_id,
                 result.secondary_exposures,
                 result.evaluation_details,
-                sampling_rate=logged_sample_rate
+                sampling_rate=logged_sampling_rate,
+                shadow_logged=shadow_logged,
+                sampling_mode=_SDK_Configs.get_config_str_value("sampling_mode")
             )
         return result
 
@@ -503,14 +499,8 @@ class StatsigServer:
 
         result = self._evaluator.get_config(user, config_name)
         result.user = user
-        env = self._options.get_evironment()
-        should_log = True
-        logged_sample_rate = None
-        if env is None or (env is not None and env.get("tier") == "production"):
-            if result.sample_rate is not None:
-                logged_sample_rate = result.sample_rate
-                exposure_key = compute_dedupe_key_for_config(config_name, result.rule_id, user.user_id, user.custom_ids)
-                should_log = is_hash_in_sampling_rate(exposure_key, result.sample_rate)
+        should_log, logged_sampling_rate, shadow_logged = self.__determine_sampling("CONFIG", config_name,
+                                                                                    result, user)
 
         if log_exposure and should_log:
             self._logger.log_config_exposure(
@@ -519,9 +509,39 @@ class StatsigServer:
                 result.rule_id,
                 result.secondary_exposures,
                 result.evaluation_details,
-                sampling_rate=logged_sample_rate
+                sampling_rate=logged_sampling_rate,
+                shadow_logged=shadow_logged,
+                sampling_mode=_SDK_Configs.get_config_str_value("sampling_mode")
             )
         return result
+
+    def __determine_sampling(self, type: str, name: str, result: _ConfigEvaluation,
+                             user: StatsigUser) -> Tuple[
+        bool, Optional[int], Optional[str]]:  # should_log, logged_sampling_rate, shadow_logged
+        shadow_should_log, logged_sampling_rate = True, None
+        env = self._options.get_evironment()
+        sampling_mode = _SDK_Configs.get_config_str_value("sampling_mode")
+
+        if sampling_mode is None or sampling_mode == "none" or (env is not None and env.get("tier") != "production"):
+            return True, None, None
+
+        if result.sample_rate is not None:
+            exposure_key = ""
+            if type == "GATE":
+                exposure_key = compute_dedupe_key_for_gate(name, result.rule_id, result.boolean_value,
+                                                           user.user_id, user.custom_ids)
+            elif type == "CONFIG":
+                exposure_key = compute_dedupe_key_for_config(name, result.rule_id, user.user_id, user.custom_ids)
+            shadow_should_log = is_hash_in_sampling_rate(exposure_key, result.sample_rate)
+            logged_sampling_rate = result.sample_rate
+
+        if sampling_mode == "on":
+            return shadow_should_log, logged_sampling_rate, None
+        if sampling_mode == "shadow":
+            shadow_logged = None if result.sample_rate is None else "logged" if shadow_should_log else "dropped"
+            return True, logged_sampling_rate, shadow_logged
+
+        return True, None, None
 
     def __normalize_user(self, user):
         userCopy = dataclasses.replace(user)

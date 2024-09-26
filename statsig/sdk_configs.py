@@ -23,3 +23,10 @@ class _SDK_Configs:
         if isinstance(value, (int, float)):
             return value
         return None
+
+    @staticmethod
+    def get_config_str_value(config: str) -> Optional[str]:
+        value = _SDK_Configs._configs.get(config)
+        if isinstance(value, str):
+            return value
+        return None

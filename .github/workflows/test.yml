@@ -3,9 +3,9 @@ name: tests
 on:
   workflow_dispatch:
   pull_request:
-    branches: [main]
+    branches: [ main ]
   push:
-    branches: [main]
+    branches: [ main ]
 
 jobs:
   test:
@@ -19,10 +19,10 @@ jobs:
 
       - name: Install Deps
         run: |
-          pip install pylint
-          pip install mypy
-          pip install -r requirements.txt
-          pip install .[test]
+          pip install --upgrade pylint
+          pip install --upgrade mypy
+          pip install --upgrade -r requirements.txt
+          pip install --upgrade .[test]
 
       - name: Run Linter
         run: pylint ./statsig --rcfile .pylintrc

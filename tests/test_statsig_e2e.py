@@ -148,14 +148,6 @@ class TestStatsigE2E(unittest.TestCase):
                                      "value": True,
                                      "rule_id": "7w9rbTSffLT89pxqpyhuqA"
                                  },
-                                 "always_on_gate_sampled": {
-                                     "value": True,
-                                     "rule_id": "6N6Z8ODekNYZ7F8gFdoLP5"
-                                 },
-                                 "always_on_gate_sampled_10_percent": {
-                                     "value": True,
-                                     "rule_id": "6N6Z8ODekNYZ7F8gFdoLP5"
-                                 },
                              },
                              "dynamic_configs": {
                                  "test_config": {
