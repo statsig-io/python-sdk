@@ -174,7 +174,7 @@ class SpecUpdater:
 
     def _log_process(self, msg, process=None):
         if process is None:
-            process = "Initialize" if not self.initialized else "Sync"
+            process = "Initialize" if not self.initialized else "Config Sync"
         globals.logger.log_process(process, msg)
 
     def _save_to_storage_adapter(self, specs):
@@ -356,13 +356,28 @@ class SpecUpdater:
     def _spawn_bg_poll_dcs(self):
         interval = self._options.rulesets_sync_interval or RULESETS_SYNC_INTERVAL
         fast_start = self._sync_failure_count > 0
+        globals.logger.info(
+            f"Starting polling for downloading config specs with an interval "
+            f"of {interval}s")
 
         def sync_config_spec():
-            for strategy in self._config_sync_strategies:
+            for i, strategy in enumerate(self._config_sync_strategies):
                 prev_failure_count = self._sync_failure_count
                 self.get_config_spec(strategy)
+
                 if prev_failure_count == self._sync_failure_count:
+                    globals.logger.log_process("Config Sync", f"Syncing config values with {strategy.value} successful")
                     break
+                if i < len(self._config_sync_strategies) - 1:
+                    globals.logger.log_process(
+                        "Config Sync",
+                        f"Syncing config values failed with {strategy.value}, falling back to next available configured config sync method"
+                    )
+                else:
+                    globals.logger.log_process(
+                        "Config Sync",
+                        f"Syncing config values failed with {strategy.value}. No more strategies left. The next sync will be in {interval} seconds."
+                    )
 
         self._background_download_configs = spawn_background_thread(
             "bg_download_config_specs",

@@ -1,11 +1,11 @@
 import concurrent.futures
 
 from . import globals
+from .batch_event_queue import EventBatchProcessor, BatchEventLogs
+from .diagnostics import Diagnostics
 from .sdk_configs import _SDK_Configs
 from .statsig_network import _StatsigNetwork
 from .statsig_options import StatsigOptions
-from .batch_event_queue import EventBatchProcessor, BatchEventLogs
-from .diagnostics import Diagnostics
 from .thread_util import spawn_background_thread, THREAD_JOIN_TIMEOUT
 
 BACKOFF_MULTIPLIER = 2.0
@@ -106,7 +106,6 @@ class LoggerWorker:
                 {"eventCount": count, "loggingInterval": self._log_interval, "error": message},
                 bypass_dedupe=True
             )
-            globals.logger.warning(message)
             self._dropped_events_count = 0
 
     def _flush_to_server(self, batched_events: BatchEventLogs):

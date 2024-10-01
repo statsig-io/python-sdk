@@ -208,10 +208,12 @@ class HttpWorker(IStatsigNetworkWorker):
 
             if response.status_code < 200 or response.status_code >= 300:
                 globals.logger.warning(
-                    "Request to %s failed with code %d", url, response.status_code)
+                    f"Request to {url} failed with code {response.status_code}"
+                )
                 globals.logger.warning(response.text)
             return response
         except Exception as err:
+            globals.logger.debug("Request to %s failed with error %s", url, err)
             if create_marker is not None:
                 self.__diagnostics.add_marker(
                     create_marker().end(

@@ -62,6 +62,7 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
             options=[("grpc.keepalive_time_ms", KEEP_ALIVE_TIME_MS)],
         )
         self.channel = channel
+        self.channel_address = proxy_config.proxy_address
         self.stub = StatsigForwardProxyStub(channel)
         self.dcs_thread = None
         self.dcs_stream = None
@@ -91,24 +92,9 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
             log_on_exception: Optional[bool] = False,
             init_timeout: Optional[int] = None,
     ):
-        if self.dcs_stream is None:
-            self._diagnostics.add_marker(
-                Marker().download_config_specs().network_request().start()
-            )
-            self._start_listening(on_complete, since_time, init_timeout)
-
-    def get_id_lists(
-            self,
-            on_complete: Callable,
-            log_on_exception: Optional[bool] = False,
-            init_timeout: Optional[int] = None
-    ):
-        raise NotImplementedError("Not supported yet")
-
-    def log_events(self, payload, headers=None, log_on_exception=False, retry=0):
-        raise NotImplementedError("Not supported yet")
-
-    def _start_listening(self, dcs_data_cb: Callable, since_time=0, init_timeout=None):
+        self._diagnostics.add_marker(
+            Marker().download_config_specs().network_request().start()
+        )
         try:
             request = ConfigSpecRequest(sdkKey=self.sdk_key, sinceTime=since_time)
 
@@ -128,7 +114,7 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
                     }
                 )
             )
-            dcs_data_cb(json.loads(dcs_data.spec), None)
+            on_complete(json.loads(dcs_data.spec), None)
         except Exception as e:
             self.error_boundary.log_exception("grpcWebSocket:initialize", e)
             self._diagnostics.add_marker(
@@ -143,11 +129,24 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
                     }
                 )
             )
-            dcs_data_cb(None, e)
+            on_complete(None, e)
+
+    def get_id_lists(
+            self,
+            on_complete: Callable,
+            log_on_exception: Optional[bool] = False,
+            init_timeout: Optional[int] = None
+    ):
+        raise NotImplementedError("Get ID Lists is not supported yet for gRPC streaming")
+
+    def log_events(self, payload, headers=None, log_on_exception=False, retry=0):
+        raise NotImplementedError("Log events is not supported yet for gRPC streaming")
 
     def _listen_for_dcs(self, since_time=0):
         try:
             if self.dcs_stream is not None:
+                if not self.retrying:
+                    globals.logger.info("Established streaming connection to gRPC server at %s", self.channel_address)
                 self.get_stream_metadata()
                 for response in self.dcs_stream:
                     if self.retrying:
@@ -155,6 +154,8 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
                         self.on_reconnect()
                     if self.listeners and self.listeners.on_update:
                         if response.lastUpdated > self.lcut:
+                            globals.logger.log_process("gRPC Streaming",
+                                                       f"Received new config spec from gRPC stream at {response.lastUpdated}")
                             self.lcut = response.lastUpdated
                             self.listeners.on_update(
                                 json.loads(response.spec), response.lastUpdated
@@ -213,6 +214,10 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
         if self.is_shutting_down:
             return
         if self.remaining_retry <= 0:
+            globals.logger.error(
+                f"Failed to establish a gRPC stream after {self.retry_limit} retries. "
+                "Please check if the gRPC server is running and ensure the correct server address is configured."
+            )
             self.error_boundary.log_exception(
                 "grpcWebSocket: retry exhausted",
                 Exception("Exhaust retry attempts, disconnected from server"),
@@ -225,9 +230,9 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
 
         if self._shutdown_event.wait(timeout=self.retry_backoff / 1000):
             return
-        globals.logger.warning(
-            f"Retrying grpc websocket connection... attempt {self.retry_limit - self.remaining_retry + 1}"
-        )
+        globals.logger.info("gRPC Streaming",
+                            f"gRPC stream disconnected. Starting automatic retry attempt {self.retry_limit - self.remaining_retry + 1}"
+                            )
         self.remaining_retry -= 1
         self.retry_backoff = self.retry_backoff * self.retry_backoff_multiplier
         since_time_to_use = self.lcut if since_time == 0 else since_time
@@ -237,6 +242,7 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
 
     def on_reconnect(self):
         reconn_str = "Not an sdk exception - grpcWebSocket: Reconnected"
+        globals.logger.info(f"Reconnected to gRPC server at {self.channel_address}")
         self.error_boundary.log_exception(
             "grpcWebSocket: Reconnected",
             Exception(reconn_str),
@@ -246,6 +252,7 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
                 "sfpHostName": self.server_host_name,
             },
             True,
+            log_mode="debug"
         )
         self.remaining_retry = self.retry_limit
         self.retry_backoff = self.retry_backoff_base_ms
@@ -261,14 +268,14 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
                         self.server_host_name = metadata.value
         except Exception as error:
             self.error_boundary.log_exception(
-                "grpcWebSocket: connection error",
+                "grpcWebSocket: get stream metadata",
                 error,
                 {
                     "retryAttempt": self.retry_limit - self.remaining_retry,
                     "hostName": socket.gethostname(),
                     "sfpHostName": self.server_host_name,
                 },
-                True,
+                log_mode="debug",
             )
 
     def shutdown(self) -> None:

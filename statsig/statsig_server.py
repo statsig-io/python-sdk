@@ -54,7 +54,7 @@ class StatsigServer:
 
         if sdkKey is None or not sdkKey.startswith("secret-"):
             raise StatsigValueError(
-                "Invalid key provided.  You must use a Server Secret Key from the Statsig console."
+                "Invalid key provided. You must use a Server Secret Key from the Statsig console."
             )
 
         self._initialize_impl(sdkKey, options)
@@ -116,6 +116,12 @@ class StatsigServer:
         finally:
             diagnostics.add_marker(Marker().overall().end({"success": not threw_error}))
             diagnostics.log_diagnostics(Context.INITIALIZE)
+
+    def is_store_populated(self):
+        return self._spec_store.last_update_time() > 0
+
+    def get_init_source(self):
+        return self._spec_store.init_source
 
     def get_feature_gate(self, user: StatsigUser, gate_name: str, log_exposure=True):
         def task():
@@ -247,7 +253,7 @@ class StatsigServer:
 
     def manually_log_experiment_exposure(self, user: StatsigUser, experiment_name: str):
         user = self.__normalize_user(user)
-        result = self._evaluator.get_config(user, experiment_name)
+        result = self._evaluator.get_config(user, experiment_name, True)
         self._logger.log_config_exposure(
             user,
             experiment_name,
@@ -519,10 +525,10 @@ class StatsigServer:
                              user: StatsigUser) -> Tuple[
         bool, Optional[int], Optional[str]]:  # should_log, logged_sampling_rate, shadow_logged
         shadow_should_log, logged_sampling_rate = True, None
-        env = self._options.get_evironment()
+        env = self._options.get_sdk_environment_tier()
         sampling_mode = _SDK_Configs.get_config_str_value("sampling_mode")
 
-        if sampling_mode is None or sampling_mode == "none" or (env is not None and env.get("tier") != "production"):
+        if sampling_mode is None or sampling_mode == "none" or env != "production":
             return True, None, None
 
         if result.sample_rate is not None:

@@ -2,8 +2,8 @@ import importlib
 import threading
 from typing import Any, Callable, Optional
 
+from . import globals
 from .diagnostics import Diagnostics
-from .globals import logger
 from .http_worker import HttpWorker
 from .interface_network import (
     IStreamingFallback,
@@ -37,6 +37,10 @@ class StreamingFallback(IStreamingFallback):
     def start_backup(self):
         if self._background_job is not None and self._background_job.is_alive():
             return
+        globals.logger.error(
+            f"gRPC streaming falling back to polling for {self._name}."
+            "Please check if the gRPC server is running and ensure the correct server address is configured."
+        )
         self._background_job = spawn_background_thread(
             self._name, self._sync, (), self._eb
         )
@@ -147,7 +151,7 @@ class _StatsigNetwork:
             init_timeout: Optional[int] = None,
     ):
         if self.statsig_options.local_mode:
-            logger.warning("Local mode is enabled. Not fetching DCS.")
+            globals.logger.warning("Local mode is enabled. Not fetching DCS.")
             return
         self.dcs_worker.get_dcs(on_complete, since_time, log_on_exception, init_timeout)
 
@@ -159,7 +163,7 @@ class _StatsigNetwork:
             init_timeout: Optional[int] = None,
     ):
         if self.statsig_options.local_mode:
-            logger.warning("Local mode is enabled. Not fetching DCS.")
+            globals.logger.warning("Local mode is enabled. Not fetching DCS.")
             return
         dcs_proxy = self.statsig_options.proxy_configs.get(NetworkEndpoint.DOWNLOAD_CONFIG_SPECS)
         is_proxy_dcs = (
@@ -177,7 +181,7 @@ class _StatsigNetwork:
             init_timeout: Optional[int] = None,
     ):
         if self.statsig_options.local_mode:
-            logger.warning("Local mode is enabled. Not fetching ID Lists.")
+            globals.logger.warning("Local mode is enabled. Not fetching ID Lists.")
             return
         self.id_list_worker.get_id_lists(on_complete, log_on_exception, init_timeout)
 
@@ -188,7 +192,7 @@ class _StatsigNetwork:
             init_timeout: Optional[int] = None,
     ):
         if self.statsig_options.local_mode:
-            logger.warning("Local mode is enabled. Not fetching ID Lists.")
+            globals.logger.warning("Local mode is enabled. Not fetching ID Lists.")
             return
         if not self.statsig_options.fallback_to_statsig_api:
             return
@@ -203,13 +207,13 @@ class _StatsigNetwork:
 
     def get_id_list(self, on_complete: Any, url, headers, log_on_exception=False):
         if self.statsig_options.local_mode:
-            logger.warning("Local mode is enabled. Not fetching ID List.")
+            globals.logger.warning("Local mode is enabled. Not fetching ID List.")
             return
         self.http_worker.get_id_list(on_complete, url, headers, log_on_exception)
 
     def log_events(self, payload, headers=None, log_on_exception=False, retry=0):
         if self.statsig_options.local_mode:
-            logger.warning("Local mode is enabled. Not logging events.")
+            globals.logger.warning("Local mode is enabled. Not logging events.")
             return None
         return self.log_event_worker.log_events(
             payload, headers=headers, log_on_exception=log_on_exception, retry=retry
@@ -217,7 +221,7 @@ class _StatsigNetwork:
 
     def listen_for_dcs(self, listeners: IStreamingListeners, fallback: Callable):
         if self.statsig_options.local_mode:
-            logger.warning("Local mode is enabled. Not listening for DCS.")
+            globals.logger.warning("Local mode is enabled. Not listening for DCS.")
             return
         if isinstance(self.dcs_worker, IStatsigWebhookWorker):
             self.dcs_worker.start_listen_for_config_spec(listeners)
@@ -235,7 +239,7 @@ class _StatsigNetwork:
 
     def listen_for_id_lists(self, listeners: IStreamingListeners):
         if self.statsig_options.local_mode:
-            logger.warning("Local mode is enabled. Not listening for ID Lists.")
+            globals.logger.warning("Local mode is enabled. Not listening for ID Lists.")
             return
         if isinstance(self.id_list_worker, IStatsigWebhookWorker):
             self.id_list_worker.start_listen_for_id_list(listeners)

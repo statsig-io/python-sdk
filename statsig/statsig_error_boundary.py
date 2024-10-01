@@ -1,14 +1,16 @@
+import traceback
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
-import traceback
-import requests
-from .statsig_errors import StatsigNameError, StatsigRuntimeError, StatsigValueError
 
-from .statsig_options import StatsigOptions
-from .diagnostics import Diagnostics, Key, Context, Marker
+import requests
+
 from . import globals
+from .diagnostics import Diagnostics, Key, Context, Marker
+from .statsig_errors import StatsigNameError, StatsigRuntimeError, StatsigValueError
+from .statsig_options import StatsigOptions
 
 REQUEST_TIMEOUT = 5
+
 
 class _StatsigErrorBoundary:
     endpoint = "https://statsigapi.net/v1/sdk_exception"
@@ -21,7 +23,7 @@ class _StatsigErrorBoundary:
         self._executor = ThreadPoolExecutor(max_workers=1)
 
     def set_statsig_options_and_metadata(
-        self, statsig_options: StatsigOptions, statsig_metadata: dict
+            self, statsig_options: StatsigOptions, statsig_metadata: dict
     ):
         self._options = statsig_options
         self._metadata = statsig_metadata
@@ -64,23 +66,25 @@ class _StatsigErrorBoundary:
         self._executor.shutdown(wait)
 
     def log_exception(
-        self,
-        tag: str,
-        exception: Exception,
-        extra: Optional[dict] = None,
-        bypass_dedupe: bool = False,
+            self,
+            tag: str,
+            exception: Exception,
+            extra: Optional[dict] = None,
+            bypass_dedupe: bool = False,
+            log_mode: Optional[str] = "warning",  # warn/debug based on error severity
     ):
         try:
             stack_trace = traceback.format_exc()
-            if self._is_silent is False:
-                globals.logger.warning("[Statsig]: An unexpected error occurred.")
-                if stack_trace is None or stack_trace == 'NoneType: None\n':
-                    stack_trace = str(exception)
-                globals.logger.warning(stack_trace)
-            if (
-                hasattr(self._options, "disable_all_logging")
-                and self._options.disable_all_logging
-            ):
+            if stack_trace is None or stack_trace == 'NoneType: None\n':
+                stack_trace = str(exception)
+            full_error_message = f"[{tag}]: {str(exception)} \n {stack_trace}"
+            if not self._is_silent:
+                if log_mode == "warning":
+                    globals.logger.warning(full_error_message)
+                elif log_mode == "debug":
+                    globals.logger.debug(full_error_message)
+
+            if (hasattr(self._options, "disable_all_logging") and self._options.disable_all_logging):
                 return
 
             name = type(exception).__name__

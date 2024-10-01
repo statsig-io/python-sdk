@@ -1,14 +1,15 @@
 from typing import Optional
 
-from .statsig_event import StatsigEvent
-from .statsig_user import StatsigUser
-from .statsig_server import StatsigServer
-from .statsig_options import StatsigOptions
+from . import globals, FeatureGate
+from .client_initialize_formatter import ClientInitializeResponse
 from .dynamic_config import DynamicConfig
 from .layer import Layer
-from .client_initialize_formatter import ClientInitializeResponse
+from .statsig_event import StatsigEvent
+from .statsig_options import StatsigOptions
+from .statsig_server import StatsigServer
+from .statsig_user import StatsigUser
 from .utils import HashingAlgorithm
-from . import globals, FeatureGate
+from .version import __version__
 
 __instance = StatsigServer()
 
@@ -25,16 +26,25 @@ def initialize(secret_key: str, options: Optional[StatsigOptions] = None):
 
     if options.custom_logger is not None:
         globals.set_logger(options.custom_logger)
-    elif options.enable_debug_logs:
-        globals.enable_debug_logs()
+    elif options.output_logger_level is not None:
+        globals.set_log_level(options.output_logger_level)
 
-    globals.logger.log_process("Initialize", "Starting...")
+    globals.logger.info(
+        f"Initializing Statsig SDK (v{__version__}) instance. "
+        f"Current environment tier: {options.get_sdk_environment_tier()}."
+    )
+
     __instance.initialize(secret_key, options)
 
     if __instance.is_initialized():
-        globals.logger.log_process("Initialize", "Done")
+        if __instance.is_store_populated():
+            globals.logger.info(
+                f"Statsig SDK instance initialized successfully with data from {__instance.get_init_source()}")
+        else:
+            globals.logger.error(
+                "Statsig SDK instance initialized, but config store is not populated. The SDK is using default values for evaluation.")
     else:
-        globals.logger.log_process("Initialize", "Failed")
+        globals.logger.error("Statsig SDK instance Initialized failed!")
 
 
 def is_initialized():

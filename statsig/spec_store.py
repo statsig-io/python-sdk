@@ -3,17 +3,16 @@ import threading
 from concurrent.futures import wait, ThreadPoolExecutor
 from typing import List, Optional, Dict, Set, Tuple
 
+from . import globals
 from .constants import Const
+from .diagnostics import Context, Diagnostics, Marker
+from .evaluation_details import EvaluationReason
 from .sdk_configs import _SDK_Configs
 from .spec_updater import SpecUpdater
-from .utils import djb2_hash
-
-from .evaluation_details import EvaluationReason
 from .statsig_error_boundary import _StatsigErrorBoundary
 from .statsig_network import _StatsigNetwork
 from .statsig_options import DataSource, StatsigOptions
-from .diagnostics import Context, Diagnostics, Marker
-from . import globals
+from .utils import djb2_hash
 
 
 class _SpecStore:
@@ -32,6 +31,7 @@ class _SpecStore:
     ):
         self.initial_update_time = 0
         self.init_reason = EvaluationReason.uninitialized
+        self.init_source = DataSource.NETWORK
         self._options = options
         self._statsig_metadata = statsig_metadata
         self._error_boundary = error_boundary
@@ -132,9 +132,10 @@ class _SpecStore:
     def _initialize_specs(self):
         initialize_strategies = self._get_initialize_strategy()
         for strategy in initialize_strategies:
-            if self.init_reason is EvaluationReason.bootstrap or self.last_update_time() != 0:
-                break
             self.spec_updater.get_config_spec(strategy, True)
+            if self.init_reason is EvaluationReason.bootstrap or self.last_update_time() != 0:
+                self.init_source = strategy
+                break
 
     def _process_specs(self, specs_json, reason: EvaluationReason) -> Tuple[bool, bool]:  # has update, parse success
         self._log_process("Processing specs...")
@@ -331,7 +332,7 @@ class _SpecStore:
 
     def _log_process(self, msg, process=None):
         if process is None:
-            process = "Initialize" if not self.spec_updater.initialized else "Sync"
+            process = "Initialize" if not self.spec_updater.initialized else "Config Sync"
         globals.logger.log_process(process, msg)
 
     def _get_current_context(self):

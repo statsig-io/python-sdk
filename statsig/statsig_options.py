@@ -6,7 +6,7 @@ from .feature_gate import FeatureGate
 from .interface_data_store import IDataStore
 from .interface_network import NetworkProtocol, NetworkEndpoint
 from .layer import Layer
-from .output_logger import OutputLogger
+from .output_logger import OutputLogger, LogLevel
 from .statsig_environment_tier import StatsigEnvironmentTier
 from .statsig_errors import StatsigValueError
 
@@ -90,6 +90,7 @@ class StatsigOptions:
             fallback_to_statsig_api: Optional[bool] = False,
             initialize_sources: Optional[List[DataSource]] = None,
             config_sync_sources: Optional[List[DataSource]] = None,
+            output_logger_level: Optional[LogLevel] = LogLevel.WARNING,
     ):
         self.data_store = data_store
         self._environment: Union[None, dict] = None
@@ -122,7 +123,7 @@ class StatsigOptions:
             self.event_queue_size = event_queue_size
         self.logging_interval = logging_interval
         self.custom_logger = custom_logger
-        self.enable_debug_logs = enable_debug_logs
+        self.enable_debug_logs = enable_debug_logs  # deprecated
         self.disable_all_logging = disable_all_logging
         self.evaluation_callback = evaluation_callback
         self.retry_queue_size = retry_queue_size
@@ -133,6 +134,7 @@ class StatsigOptions:
             self.proxy_configs = proxy_configs
         self.initialize_sources = initialize_sources
         self.config_sync_sources = config_sync_sources
+        self.output_logger_level = output_logger_level
         self._logging_copy: Dict[str, Any] = {}
         self._set_logging_copy()
         self._attributes_changed = False
@@ -156,8 +158,10 @@ class StatsigOptions:
             self._environment = {}
         self._environment[key] = value
 
-    def get_evironment(self):
-        return self._environment
+    def get_sdk_environment_tier(self):
+        if self._environment is not None and "tier" in self._environment:
+            return self._environment["tier"]
+        return "production"
 
     def _set_logging_copy(self):
         logging_copy: Dict[str, Any] = {}

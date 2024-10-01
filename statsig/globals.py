@@ -1,8 +1,7 @@
-from .output_logger import OutputLogger
+from .output_logger import OutputLogger, LogLevel
 
 STATSIG_BATCHING_INTERVAL_SECONDS = 60.0
 STATSIG_LOGGING_INTERVAL_SECONDS = 1.0
-
 
 logger = OutputLogger('statsig.sdk')
 
@@ -12,6 +11,5 @@ def set_logger(output_logger):
     logger = output_logger
 
 
-def enable_debug_logs():
-    global logger
-    logger = OutputLogger('statsig.sdk', True)
+def set_log_level(log_level: LogLevel):
+    logger.set_log_level(log_level)

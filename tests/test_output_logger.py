@@ -1,17 +1,19 @@
-from collections import defaultdict
 import time
 import unittest
-
+from collections import defaultdict
 from unittest.mock import patch
+
 from network_stub import NetworkStub
 from statsig import statsig, StatsigOptions, OutputLogger
-from statsig.output_logger import sanitize
+from statsig.output_logger import sanitize, LogLevel
 
 _network_stub = NetworkStub("http://test-output-logger")
+
 
 class MockOutputLogger(OutputLogger):
     def __init__(self):
         super().__init__('mock')
+        self._disabled = False
         self._logs = defaultdict(list)
         self._urls = []
 
@@ -20,19 +22,28 @@ class MockOutputLogger(OutputLogger):
         self.info(message)
 
     def debug(self, msg, *args, **kwargs):
-        sanitized_msg, sanitized_args, sanitized_kwargs = self._sanitize_args(msg, *args, **kwargs)
-        self.add_url(sanitized_args)
-        self._logs['debug'].append(sanitized_msg)
+        if self._log_level <= LogLevel.DEBUG and not self._disabled:
+            sanitized_msg, sanitized_args, sanitized_kwargs = self._sanitize_args(msg, *args, **kwargs)
+            self.add_url(sanitized_args)
+            self._logs['debug'].append(sanitized_msg)
 
     def info(self, msg, *args, **kwargs):
-        sanitized_msg, sanitized_args, sanitized_kwargs = self._sanitize_args(msg, *args, **kwargs)
-        self.add_url(sanitized_args)
-        self._logs['info'].append(sanitized_msg)
+        if self._log_level <= LogLevel.INFO and not self._disabled:
+            sanitized_msg, sanitized_args, sanitized_kwargs = self._sanitize_args(msg, *args, **kwargs)
+            self.add_url(sanitized_args)
+            self._logs['info'].append(sanitized_msg)
 
     def warning(self, msg, *args, **kwargs):
-        sanitized_msg, sanitized_args, sanitized_kwargs = self._sanitize_args(msg, *args, **kwargs)
-        self.add_url(sanitized_args)
-        self._logs['warning'].append(sanitized_msg)
+        if self._log_level <= LogLevel.WARNING and not self._disabled:
+            sanitized_msg, sanitized_args, sanitized_kwargs = self._sanitize_args(msg, *args, **kwargs)
+            self.add_url(sanitized_args)
+            self._logs['warning'].append(sanitized_msg)
+
+    def error(self, msg, *args, **kwargs):
+        if self._log_level <= LogLevel.ERROR and not self._disabled:
+            sanitized_msg, sanitized_args, sanitized_kwargs = self._sanitize_args(msg, *args, **kwargs)
+            self.add_url(sanitized_args)
+            self._logs['error'].append(sanitized_msg)
 
     def _sanitize_args(self, msg, *args, **kwargs):
         sanitized_msg = sanitize(msg)
@@ -51,6 +62,7 @@ class MockOutputLogger(OutputLogger):
             if key in url:
                 failed_urls.append(url)
         return failed_urls
+
 
 class TestOutputLogger(unittest.TestCase):
 
@@ -71,7 +83,8 @@ class TestOutputLogger(unittest.TestCase):
     @patch('requests.request', side_effect=_network_stub.mock)
     def test_initialize_timeout(self, mock_request):
         logger = MockOutputLogger()
-        options = StatsigOptions(api=_network_stub.host, init_timeout=0.1, disable_diagnostics=True, custom_logger=logger)
+        options = StatsigOptions(api=_network_stub.host, init_timeout=0.1, disable_diagnostics=True,
+                                 custom_logger=logger)
         statsig.initialize("secret-key", options)
         self.assertGreater(len(logger._logs.get("info")), 3)
 
@@ -80,6 +93,29 @@ class TestOutputLogger(unittest.TestCase):
         logger = MockOutputLogger()
         options = StatsigOptions(api=_network_stub.host, disable_diagnostics=True, custom_logger=logger)
         statsig.initialize("secret-key", options)
+        self.assertGreater(len(logger._logs.get("info")), 2)
+        self.assertGreater(len(logger._logs.get("warning")), 0)
+        failed_urls = logger.check_urls_for_secret('secret-key')
+        self.assertEqual(len(failed_urls), 0)
+
+    @patch('requests.request', side_effect=_network_stub.mock)
+    def test_set_logging_level_warning(self, mock_request):
+        logger = MockOutputLogger()
+        logger.set_log_level(LogLevel.WARNING)
+        options = StatsigOptions(api=_network_stub.host, disable_diagnostics=True, custom_logger=logger)
+        statsig.initialize("secret-key", options)
+        self.assertIsNone(logger._logs.get("info"))
+        self.assertGreater(len(logger._logs.get("warning")), 0)
+        failed_urls = logger.check_urls_for_secret('secret-key')
+        self.assertEqual(len(failed_urls), 0)
+
+    @patch('requests.request', side_effect=_network_stub.mock)
+    def test_set_logging_level_debug(self, mock_request):
+        logger = MockOutputLogger()
+        logger.set_log_level(LogLevel.DEBUG)
+        options = StatsigOptions(api=_network_stub.host, disable_diagnostics=True, custom_logger=logger)
+        statsig.initialize("secret-key", options)
+        self.assertGreater(len(logger._logs.get("debug")), 0)
         self.assertGreater(len(logger._logs.get("info")), 2)
         self.assertGreater(len(logger._logs.get("warning")), 0)
         failed_urls = logger.check_urls_for_secret('secret-key')

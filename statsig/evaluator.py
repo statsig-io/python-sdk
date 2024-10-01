@@ -1,18 +1,19 @@
 import base64
+import re
 import time
 from datetime import datetime
-import re
 from hashlib import sha256
 from typing import Dict
 
-from ua_parser import user_agent_parser
 from ip3country import CountryLookup
+from ua_parser import user_agent_parser
 
-from .statsig_user import StatsigUser
+from . import globals
 from .client_initialize_formatter import ClientInitializeResponseFormatter
+from .config_evaluation import _ConfigEvaluation
 from .evaluation_details import EvaluationDetails, EvaluationReason
 from .spec_store import _SpecStore
-from .config_evaluation import _ConfigEvaluation
+from .statsig_user import StatsigUser
 from .utils import HashingAlgorithm, sha256_hash
 
 
@@ -201,14 +202,15 @@ class _Evaluator:
                     EvaluationReason.uninitialized))
         eval_gate = self._spec_store.get_gate(gate)
         if eval_gate is None:
+            globals.logger.debug(f"Gate {gate} not found in the store. Are you sure the gate name is correct?")
             return self.unsupported_or_unrecognized(gate)
         if end_result is None:
             end_result = _ConfigEvaluation()
         self.__eval_config(user, eval_gate, end_result, is_nested)
         return end_result
 
-    def get_config(self, user, config):
-        override = self.__lookup_config_override(user, config)
+    def get_config(self, user, config_name, is_exp=False):
+        override = self.__lookup_config_override(user, config_name)
         if override is not None:
             return override
 
@@ -217,15 +219,18 @@ class _Evaluator:
                 evaluation_details=self._create_evaluation_details(
                     EvaluationReason.uninitialized))
 
-        eval_config = self._spec_store.get_config(config)
+        eval_config = self._spec_store.get_config(config_name)
         if eval_config is None:
-            return self.unsupported_or_unrecognized(config)
+            globals.logger.debug(
+                f"{'Config' if is_exp else 'Experiment'} {config_name} not found in the store. Are you sure the config name is correct?"
+            )
+            return self.unsupported_or_unrecognized(config_name)
         result = _ConfigEvaluation()
         self.__eval_config(user, eval_config, result)
         return result
 
-    def get_layer(self, user, layer):
-        override = self.__lookup_layer_override(user, layer)
+    def get_layer(self, user, layer_name):
+        override = self.__lookup_layer_override(user, layer_name)
         if override is not None:
             return override
 
@@ -234,9 +239,10 @@ class _Evaluator:
                 evaluation_details=self._create_evaluation_details(
                     EvaluationReason.uninitialized))
 
-        eval_layer = self._spec_store.get_layer(layer)
+        eval_layer = self._spec_store.get_layer(layer_name)
         if eval_layer is None:
-            return self.unsupported_or_unrecognized(layer)
+            globals.logger.debug(f"Layer {layer_name} not found in the store. Are you sure the layer name is correct?")
+            return self.unsupported_or_unrecognized(layer_name)
         result = _ConfigEvaluation()
         self.__eval_config(user, eval_layer, result)
         return result
