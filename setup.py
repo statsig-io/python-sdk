@@ -1,4 +1,5 @@
 import os
+
 from setuptools import setup, find_packages
 
 with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), 'statsig', 'version.py'), encoding='utf-8') as f:
@@ -39,7 +40,6 @@ setup(
         'ip3country',
         'grpcio',
         'protobuf',
-        'pyfarmhash'
     ],
     tests_require=test_deps,
     extras_require=extras,

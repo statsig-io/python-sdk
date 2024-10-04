@@ -4,8 +4,6 @@ from enum import Enum
 from struct import unpack
 from typing import Optional, Dict, Any
 
-import farmhash
-
 
 class HashingAlgorithm(Enum):
     SHA256 = 'sha256'
@@ -62,19 +60,15 @@ TWO_TO_THE_63 = 1 << 63
 TWO_TO_THE_64 = 1 << 64
 
 
-def fingerprint64(string: str) -> int:
-    return farmhash.fingerprint64(string)
-
-
-def bigquery_farm_hash(string: str) -> int:
-    num = fingerprint64(string)
+def bigquery_hash(string: str) -> int:
+    num = sha256_hash(string)
     if num >= TWO_TO_THE_63:
         return num - TWO_TO_THE_64
     return num
 
 
 def is_hash_in_sampling_rate(key: str, sampling_rate: int) -> bool:
-    return bigquery_farm_hash(key) % sampling_rate == 0
+    return bigquery_hash(key) % sampling_rate == 0
 
 
 def compute_dedupe_key_for_gate(
