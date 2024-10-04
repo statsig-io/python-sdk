@@ -53,22 +53,27 @@ class SpecUpdater:
         self.data_adapter = data_adapter
 
     def get_config_spec(self, source: DataSource, for_initialize=False):
-        self._log_process(f"Loading specs from {source.value}...")
-        init_timeout = None
-        if for_initialize:
-            init_timeout = self._options.init_timeout
-        if source is DataSource.DATASTORE:
-            self.load_config_specs_from_storage_adapter()
-        elif source is DataSource.BOOTSTRAP:
-            self.bootstrap_config_specs()
-        elif source is DataSource.NETWORK:
-            self._network.get_dcs(
-                self._on_dcs_complete, self.last_update_time, True, init_timeout
-            )
-        elif source is DataSource.STATSIG_NETWORK:
-            self._network.get_dcs_fallback(
-                self._on_dcs_complete, self.last_update_time, True, init_timeout
-            )
+        try:
+            self._log_process(f"Loading specs from {source.value}...")
+            init_timeout = None
+            if for_initialize:
+                init_timeout = self._options.init_timeout
+            if source is DataSource.DATASTORE:
+                self.load_config_specs_from_storage_adapter()
+            elif source is DataSource.BOOTSTRAP:
+                self.bootstrap_config_specs()
+            elif source is DataSource.NETWORK:
+                self._network.get_dcs(
+                    self._on_dcs_complete, self.last_update_time, True, init_timeout
+                )
+            elif source is DataSource.STATSIG_NETWORK:
+                self._network.get_dcs_fallback(
+                    self._on_dcs_complete, self.last_update_time, True, init_timeout
+                )
+        except Exception as e:
+            if not for_initialize:
+                self._sync_failure_count += 1
+            self._error_boundary.log_exception(f"get_config_spec:{source}", e)
 
     def register_process_network_id_lists_listener(self, listener: Callable):
         self.id_lists_listener = listener
