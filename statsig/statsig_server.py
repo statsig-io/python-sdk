@@ -481,6 +481,9 @@ class StatsigServer:
         if self._spec_store is not None:
             self._spec_store.spec_updater.start_background_threads()
 
+        if self._network is not None:
+            self._network.spawn_bg_threads_if_needed()
+
     def __check_gate(self, user: StatsigUser, gate_name: str, log_exposure=True):
         user = self.__normalize_user(user)
         result = self._evaluator.check_gate(user, gate_name)

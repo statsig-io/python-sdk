@@ -22,6 +22,12 @@ class IStreamingListeners:
 
 
 class IStreamingFallback:
+    def __init__(self):
+        self.started = False
+
+    def backup_started(self):
+        return self.started
+
     def start_backup(self):
         pass
 
@@ -77,6 +83,9 @@ class IStatsigNetworkWorker:
     ):
         pass
 
+    def spawn_bg_threads_if_needed(self):
+        pass
+
     def shutdown(self) -> None:
         pass
 
@@ -89,4 +98,4 @@ class IStatsigWebhookWorker:
         pass
 
     def register_fallback_cb(self, cb: Optional[IStreamingFallback]) -> None:
-        self._backup_callbacks = cb
+        self.backup_callbacks = cb

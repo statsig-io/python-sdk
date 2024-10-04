@@ -1,5 +1,9 @@
 import json
+import os
 import socket
+import threading
+import time
+from datetime import datetime, timedelta
 from typing import Optional, Callable
 
 import grpc
@@ -17,7 +21,7 @@ from .interface_network import (
 )
 from .statsig_error_boundary import _StatsigErrorBoundary
 from .statsig_errors import StatsigNameError
-from .statsig_options import ProxyConfig, StatsigOptions
+from .statsig_options import ProxyConfig, StatsigOptions, AuthenticationMode
 from .thread_util import spawn_background_thread, THREAD_JOIN_TIMEOUT
 from .utils import get_or_default
 
@@ -27,6 +31,26 @@ DEFAULT_RETRY_BACKOFF_MULTIPLIER = 5
 DEFAULT_RETRY_BACKOFF_BASE_MS = 10 * 1000
 DEFAULT_RETRY_FALLBACK_THRESHOLD = 4
 REQUEST_TIMEOUT = 20
+
+IDLE_RESTART_TIMEOUT = 2  # 2 hour
+CHANNEL_CHECK_INTERVAL = 60 * 5  # 5 minutes
+GRPC_CHANNEL_OPTIONS = [("grpc.keepalive_time_ms", KEEP_ALIVE_TIME_MS)]
+
+
+def load_credential_from_file(filepath, description):
+    try:
+        real_path = os.path.abspath(filepath)
+    except Exception as e:
+        globals.logger.error(f"Failed to resolve the absolute path for {description} file at {filepath}: {e}")
+        return None
+
+    try:
+        with open(real_path, "rb") as f:
+            return f.read()
+    except Exception as e:
+        globals.logger.error(f"Failed to read {description} file at {real_path}: {e}")
+
+    return None
 
 
 class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
@@ -57,13 +81,13 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
         )
         self.options = options
         self.error_boundary = error_boundary
-        channel = grpc.insecure_channel(
-            proxy_config.proxy_address,
-            options=[("grpc.keepalive_time_ms", KEEP_ALIVE_TIME_MS)],
-        )
+        self.proxy_config = proxy_config
+        channel = self.init_channel(proxy_config)
+        if channel is not None:
+            channel.subscribe(self.channel_state_subscribe)
         self.channel = channel
+        self.stub = self.init_stub()
         self.channel_address = proxy_config.proxy_address
-        self.stub = StatsigForwardProxyStub(channel)
         self.dcs_thread = None
         self.dcs_stream = None
         self.listeners: Optional[IStreamingListeners] = None
@@ -73,10 +97,15 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
         self.retry_backoff = self.retry_backoff_base_ms
         self.lcut = 0
         self.server_host_name = "not set"
-        self._timeout = options.timeout or REQUEST_TIMEOUT
+        self.timeout = options.timeout or REQUEST_TIMEOUT
         self.retrying = False
-        self._shutdown_event = shutdown_event
-        self._backup_callbacks: Optional[IStreamingFallback] = None
+        self.started = False
+        self.shutdown_event = shutdown_event
+        self.backup_callbacks: Optional[IStreamingFallback] = None
+        self.last_streamed_time = 0
+        self.channel_status = grpc.ChannelConnectivity.IDLE
+        self.monitor_thread = None
+        self.spawn_bg_threads_if_needed()
 
     @property
     def type(self) -> NetworkProtocol:
@@ -84,6 +113,87 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
 
     def is_pull_worker(self) -> bool:
         return False
+
+    def channel_state_subscribe(self, state):
+        globals.logger.log_process("gRPC Streaming", f"Channel state changed to {state}")
+        self.channel_status = state
+
+    def is_last_streamed_time_old(self):
+        return 0 < self.last_streamed_time < (
+                datetime.now() - timedelta(hours=IDLE_RESTART_TIMEOUT)).timestamp()
+
+    def spawn_bg_threads_if_needed(self):
+        if self.monitor_thread is None or not self.monitor_thread.is_alive():
+            self.monitor_thread = spawn_background_thread("monitor_thread", self.monitor_channel, (),
+                                                          self.error_boundary)
+
+    def monitor_channel(self):
+        while True:
+            try:
+                if self.shutdown_event.wait(CHANNEL_CHECK_INTERVAL):
+                    break
+                self.check_channel_state()
+            except Exception as e:
+                self.error_boundary.log_exception(
+                    "grpcWebSocket: monitor channel",
+                    e,
+                    {
+                        "retryAttempt": self.retry_limit - self.remaining_retry,
+                        "hostName": socket.gethostname(),
+                        "sfpHostName": self.server_host_name,
+                    },
+                    log_mode="debug",
+                )
+
+    def check_channel_state(self):
+        if self.is_last_streamed_time_old() and self.channel_status != grpc.ChannelConnectivity.READY and not self.retrying:
+            globals.logger.warning(
+                "gRPC Streaming channel has been idle for over 2 hours. Restarting the channel and starting backup.")
+            self._restart_dcs_streaming_thread_and_start_backup()
+
+    def init_channel(self, proxy_config: ProxyConfig):
+        try:
+            if proxy_config.authentication_mode == AuthenticationMode.TLS:
+                ca_cert = load_credential_from_file(proxy_config.tls_ca_cert_path, "TLS CA certificate")
+                if not ca_cert:
+                    return None
+                credentials = grpc.ssl_channel_credentials(root_certificates=ca_cert)
+                globals.logger.log_process("gRPC Streaming",
+                                           "Connecting using an TLS secure channel for gRPC webSocket")
+                return grpc.secure_channel(
+                    proxy_config.proxy_address, credentials, options=GRPC_CHANNEL_OPTIONS
+                )
+
+            if proxy_config.authentication_mode == AuthenticationMode.MTLS:
+                client_cert = load_credential_from_file(proxy_config.tls_client_cert_path, "TLS client certificate")
+                client_key = load_credential_from_file(proxy_config.tls_client_key_path, "TLS client key")
+                ca_cert = load_credential_from_file(proxy_config.tls_ca_cert_path, "TLS CA certificate")
+                if not client_cert or not client_key or not ca_cert:
+                    return None
+                credentials = grpc.ssl_channel_credentials(
+                    root_certificates=ca_cert,
+                    private_key=client_key,
+                    certificate_chain=client_cert,
+                )
+                globals.logger.log_process("gRPC Streaming",
+                                           "Connecting using an mTLS secure channel for gRPC webSocket")
+                return grpc.secure_channel(
+                    proxy_config.proxy_address, credentials, options=GRPC_CHANNEL_OPTIONS
+                )
+
+            globals.logger.log_process("gRPC Streaming", "Connecting using an insecure channel for gRPC webSocket")
+            return grpc.insecure_channel(
+                proxy_config.proxy_address,
+                options=GRPC_CHANNEL_OPTIONS,
+            )
+        except Exception as e:
+            self.error_boundary.log_exception("grpcWebSocket:init_channel", e)
+            return None
+
+    def init_stub(self):
+        if not self.channel:
+            return None
+        return StatsigForwardProxyStub(self.channel)
 
     def get_dcs(
             self,
@@ -99,7 +209,7 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
             request = ConfigSpecRequest(sdkKey=self.sdk_key, sinceTime=since_time)
 
             if init_timeout is None:
-                init_timeout = self._timeout
+                init_timeout = self.timeout
             dcs_data = self.stub.getConfigSpec(request, timeout=init_timeout)
 
             self.lcut = dcs_data.lastUpdated
@@ -144,11 +254,12 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
 
     def _listen_for_dcs(self, since_time=0):
         try:
+            self.started = True
             if self.dcs_stream is not None:
-                if not self.retrying:
-                    globals.logger.info("Established streaming connection to gRPC server at %s", self.channel_address)
+                globals.logger.info("Listening for gRPC stream")
                 self.get_stream_metadata()
                 for response in self.dcs_stream:
+                    self.last_streamed_time = int(time.time())
                     if self.retrying:
                         self.retrying = False
                         self.on_reconnect()
@@ -210,6 +321,19 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
     def start_listen_for_id_list(self, listeners: IStreamingListeners) -> None:
         raise NotImplementedError("Not supported yet")
 
+    def _restart_dcs_streaming_thread_and_start_backup(self):
+        self.retrying = True
+        if self.dcs_thread and self.dcs_thread != threading.current_thread():
+            globals.logger.log_process("gRPC Streaming", "Restarting the streaming thread")
+            self.dcs_thread.join(THREAD_JOIN_TIMEOUT)
+        request = ConfigSpecRequest(sdkKey=self.sdk_key, sinceTime=self.lcut)
+        self.dcs_stream = self.stub.StreamConfigSpec(request)
+        self.dcs_thread = spawn_background_thread(
+            "dcs_thread", self._listen_for_dcs, (self.lcut,), self.error_boundary
+        )
+        if self.backup_callbacks is not None and self.backup_callbacks.backup_started():
+            self.backup_callbacks.start_backup()
+
     def _retry_connection(self, since_time):
         if self.is_shutting_down:
             return
@@ -225,14 +349,14 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
             return
         self.retrying = True
         if self.fallback_threshold == (self.retry_limit - self.remaining_retry):
-            if self._backup_callbacks:
-                self._backup_callbacks.start_backup()
+            if self.backup_callbacks:
+                self.backup_callbacks.start_backup()
 
-        if self._shutdown_event.wait(timeout=self.retry_backoff / 1000):
+        if self.shutdown_event.wait(timeout=self.retry_backoff / 1000):
             return
-        globals.logger.info("gRPC Streaming",
-                            f"gRPC stream disconnected. Starting automatic retry attempt {self.retry_limit - self.remaining_retry + 1}"
-                            )
+        globals.logger.info(
+            f"gRPC stream disconnected. Starting automatic retry attempt {self.retry_limit - self.remaining_retry + 1}"
+        )
         self.remaining_retry -= 1
         self.retry_backoff = self.retry_backoff * self.retry_backoff_multiplier
         since_time_to_use = self.lcut if since_time == 0 else since_time
@@ -256,8 +380,8 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
         )
         self.remaining_retry = self.retry_limit
         self.retry_backoff = self.retry_backoff_base_ms
-        if self._backup_callbacks:
-            self._backup_callbacks.cancel_backup()
+        if self.backup_callbacks:
+            self.backup_callbacks.cancel_backup()
 
     def get_stream_metadata(self):
         try:
@@ -280,8 +404,8 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
 
     def shutdown(self) -> None:
         self.is_shutting_down = True
-        if self._backup_callbacks:
-            self._backup_callbacks.cancel_backup()
+        if self.backup_callbacks:
+            self.backup_callbacks.cancel_backup()
         if self.dcs_stream:
             self.dcs_stream.cancel()
         if self.dcs_thread:

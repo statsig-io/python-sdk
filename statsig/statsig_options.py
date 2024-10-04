@@ -21,7 +21,18 @@ STATSIG_API = "https://statsigapi.net/v1/"
 STATSIG_CDN = "https://api.statsigcdn.com/v1/"
 
 
+class AuthenticationMode(str, Enum):
+    NONE = "none"
+    TLS = "tls"
+    MTLS = "mtls"
+
+
 class ProxyConfig:
+    """
+    An object of properties for configuring proxy network settings
+    Including the network protocol/address, fail over settings, and authentication settings
+    """
+
     def __init__(
             self,
             protocol: NetworkProtocol,
@@ -33,6 +44,11 @@ class ProxyConfig:
             # Push worker failback to polling threshold, fallback immediate set 0,
             # n means fallback after n retry failed
             push_worker_failover_threshold: Optional[int] = None,
+            # authentication configuration
+            authentication_mode: Optional[AuthenticationMode] = AuthenticationMode.NONE,
+            tls_client_cert_path: Optional[str] = None,
+            tls_client_key_path: Optional[str] = None,
+            tls_ca_cert_path: Optional[str] = None,
     ):
         self.proxy_address = proxy_address
         self.protocol = protocol
@@ -40,6 +56,10 @@ class ProxyConfig:
         self.retry_backoff_multiplier = retry_backoff_multiplier
         self.retry_backoff_base_ms = retry_backoff_base_ms
         self.push_worker_failover_threshold = push_worker_failover_threshold
+        self.authentication_mode = authentication_mode
+        self.tls_client_cert_path = tls_client_cert_path
+        self.tls_client_key_path = tls_client_key_path
+        self.tls_ca_cert_path = tls_ca_cert_path
 
 
 class DataSource(str, Enum):

@@ -24,21 +24,25 @@ from .thread_util import spawn_background_thread
 
 
 class StreamingFallback(IStreamingFallback):
-    def __init__(
-            self, fn: Callable, interval: int, name: str, eb: _StatsigErrorBoundary
-    ):
+    def __init__(self, fn: Callable, interval: int, name: str, eb: _StatsigErrorBoundary):
+        super().__init__()
         self.fn = fn
         self.stop_event = threading.Event()
+        self.started = False
         self._interval = interval
         self._name = name
         self._background_job = None
         self._eb = eb
 
+    def backup_started(self):
+        return self.started
+
     def start_backup(self):
         if self._background_job is not None and self._background_job.is_alive():
             return
+        self.started = True
         globals.logger.error(
-            f"gRPC streaming falling back to polling for {self._name}."
+            f"gRPC streaming falling back to polling for {self._name}. "
             "Please check if the gRPC server is running and ensure the correct server address is configured."
         )
         self._background_job = spawn_background_thread(
@@ -46,6 +50,8 @@ class StreamingFallback(IStreamingFallback):
         )
 
     def cancel_backup(self):
+        self.started = False
+        globals.logger.debug("gRPC streaming backup cancelled.")
         self.stop_event.set()
         if self._background_job is not None:
             self._background_job.join(self._interval)
@@ -243,6 +249,11 @@ class _StatsigNetwork:
             return
         if isinstance(self.id_list_worker, IStatsigWebhookWorker):
             self.id_list_worker.start_listen_for_id_list(listeners)
+
+    def spawn_bg_threads_if_needed(self):
+        self.dcs_worker.spawn_bg_threads_if_needed()
+        self.id_list_worker.spawn_bg_threads_if_needed()
+        self.log_event_worker.spawn_bg_threads_if_needed()
 
     def shutdown(self):
         self.dcs_worker.shutdown()
