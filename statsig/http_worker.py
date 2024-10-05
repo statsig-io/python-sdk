@@ -213,7 +213,7 @@ class HttpWorker(IStatsigNetworkWorker):
                 globals.logger.warning(response.text)
             return response
         except Exception as err:
-            globals.logger.debug("Request to %s failed with error %s", url, err)
+            globals.logger.debug(f"Request to {url} failed with error {err}")
             if create_marker is not None:
                 self.__diagnostics.add_marker(
                     create_marker().end(
@@ -253,11 +253,8 @@ class HttpWorker(IStatsigNetworkWorker):
             return json.dumps(payload)
         except TypeError as e:
             globals.logger.error(
-                "Dropping request to %s. Failed to json encode payload. Are you sure the input is json serializable? "
-                "%s %s",
-                url,
-                type(e).__name__,
-                e.args,
+                f"Dropping request to {url}. Failed to json encode payload. Are you sure the input is json serializable? "
+                f"{type(e).__name__} {e.args}"
             )
             if self._raise_on_error:
                 raise e
