@@ -16,7 +16,7 @@ class StatsigEvent:
     """
     user: Optional[StatsigUser]
     event_name: str
-    value: Union[str, int, None] = None
+    value: Union[str, int, float, None] = None
     metadata: Optional[dict] = None
     statsigMetadata: Optional[dict] = None
     _secondary_exposures: Optional[list] = None
