@@ -14,7 +14,8 @@ class _ConfigEvaluation:
                  evaluation_details=None,
                  group_name=None,
                  sample_rate=None,
-                 user=None):
+                 user=None,
+                 forward_all_exposures=False):
         if boolean_value is None:
             boolean_value = False
         self.boolean_value = boolean_value
@@ -39,3 +40,4 @@ class _ConfigEvaluation:
         self.group_name = group_name
         self.sample_rate = sample_rate
         self.user = user
+        self.forward_all_exposures = forward_all_exposures

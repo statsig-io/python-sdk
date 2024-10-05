@@ -25,6 +25,15 @@ class _SDK_Configs:
         return None
 
     @staticmethod
+    def get_config_int_value(config: str) -> Optional[int]:
+        value = _SDK_Configs._configs.get(config)
+        if isinstance(value, float):
+            return int(value)
+        if isinstance(value, int):
+            return value
+        return None
+
+    @staticmethod
     def get_config_str_value(config: str) -> Optional[str]:
         value = _SDK_Configs._configs.get(config)
         if isinstance(value, str):

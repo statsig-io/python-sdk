@@ -45,14 +45,12 @@ class TestEventSampling(unittest.TestCase):
         self.__class__._events = []
 
     def stub_network(self, mock_request, sampling_mode):
+        if "sdk_configs" not in PARSED_CONFIG_SPEC:
+            PARSED_CONFIG_SPEC["sdk_configs"] = {}
         if sampling_mode == "on":
-            PARSED_CONFIG_SPEC["sdk_configs"] = {
-                "sampling_mode": "on"
-            }
-        if sampling_mode == "shadow":
-            PARSED_CONFIG_SPEC["sdk_configs"] = {
-                "sampling_mode": "shadow"
-            }
+            PARSED_CONFIG_SPEC["sdk_configs"]["sampling_mode"] = "on"
+        elif sampling_mode == "shadow":
+            PARSED_CONFIG_SPEC["sdk_configs"]["sampling_mode"] = "shadow"
         _network_stub.stub_request_with_value(
             "download_config_specs/.*", 200, PARSED_CONFIG_SPEC)
 
@@ -61,6 +59,11 @@ class TestEventSampling(unittest.TestCase):
         statsig.get_config(self.statsig_user, "test_config")
         statsig.get_experiment(self.statsig_user, "sample_experiment")
 
+        statsig.check_gate(self.statsig_user, "always_on_gate_sampled")
+        statsig.get_config(self.statsig_user, "test_config_sampled")
+        statsig.get_experiment(self.statsig_user, "not_started_exp")
+
+        # the first set of events are not going to be sampled
         statsig.check_gate(self.statsig_user, "always_on_gate_sampled")
         statsig.get_config(self.statsig_user, "test_config_sampled")
         statsig.get_experiment(self.statsig_user, "not_started_exp")
@@ -78,7 +81,7 @@ class TestEventSampling(unittest.TestCase):
         not_sampled_event = self._events[0]
         self.assertEqual(not_sampled_event["statsigMetadata"].get("sampleRate"), None)
         self.assertEqual(not_sampled_event["statsigMetadata"].get("samplingMode"), 'on')
-        self.assertEqual(3, len(self._events))
+        self.assertEqual(6, len(self._events))
 
     def test_do_not_apply_sampling_if_development(self, mock_request):
         options = StatsigOptions(
@@ -123,7 +126,7 @@ class TestEventSampling(unittest.TestCase):
         statsig.shutdown()
         print("Expecting around 100 events, received", len(self._events))
         self.assertTrue(85 <= len(self._events) <= 115)
-        sampled_event = self._events[0]
+        sampled_event = self._events[1]  # first event is not sampled
         self.assertEqual(sampled_event["statsigMetadata"]["samplingRate"], 101)
 
     def test_apply_10_percent_sampling(self, mock_request):
@@ -139,7 +142,7 @@ class TestEventSampling(unittest.TestCase):
         statsig.shutdown()
         print("Expecting around 1000 events, received", len(self._events))
         self.assertTrue(900 <= len(self._events) <= 1100)
-        sampled_event = self._events[0]
+        sampled_event = self._events[1]  # first event is not sampled
         self.assertEqual(sampled_event["statsigMetadata"]["samplingRate"], 10)
 
     def test_apply_shadow_sampling_in_production_dropped(self, mock_request):
@@ -150,16 +153,17 @@ class TestEventSampling(unittest.TestCase):
         self.stub_network(mock_request, "shadow")
         statsig.initialize("secret-key", options=options)
         statsig.check_gate(self.statsig_user, "always_on_gate_sampled")
+        statsig.check_gate(StatsigUser(user_id="abc"), "always_on_gate_sampled")
         statsig.check_gate(self.statsig_user, "always_on_gate")
 
         statsig.shutdown()
 
-        self.assertEqual(2, len(self._events))
-        sampled_event = self._events[0]
+        self.assertEqual(3, len(self._events))
+        sampled_event = self._events[1]
         self.assertEqual(sampled_event["statsigMetadata"]["samplingRate"], 101)
         self.assertEqual(sampled_event["statsigMetadata"]["shadowLogged"], "dropped")
         self.assertEqual(sampled_event["statsigMetadata"]["samplingMode"], 'shadow')
-        not_sampled_event = self._events[1]
+        not_sampled_event = self._events[2]
         self.assertEqual(not_sampled_event["statsigMetadata"].get("sampleRate"), None)
         self.assertEqual(not_sampled_event["statsigMetadata"].get("shadowLogged"), None)
         self.assertEqual(not_sampled_event["statsigMetadata"]["samplingMode"], "shadow")
@@ -233,3 +237,29 @@ class TestEventSampling(unittest.TestCase):
         self.assertEqual(not_sampled_event["statsigMetadata"].get("sampleRate"), None)
         self.assertEqual(not_sampled_event["statsigMetadata"].get("shadowLogged"), None)
         self.assertEqual(not_sampled_event["statsigMetadata"]["samplingMode"], "shadow")
+
+    def test_do_not_apply_sampling_to_all_exposure_forwarded_gate(self, mock_request):
+        options = StatsigOptions(
+            api=_network_stub.host,
+            tier=StatsigEnvironmentTier.production,
+            disable_diagnostics=True)
+        self.stub_network(mock_request, "on")
+        statsig.initialize("secret-key", options=options)
+        user = StatsigUser(generate_random_user_id())
+        statsig.check_gate(user, "forward_all_exposures_gate")
+        statsig.shutdown()
+
+        self.assertEqual(1, len(self._events))
+
+    def test_sample_default_gates_when_no_exposure_forwarded(self, mock_request):
+        options = StatsigOptions(
+            api=_network_stub.host,
+            tier=StatsigEnvironmentTier.production,
+            disable_diagnostics=True)
+        self.stub_network(mock_request, "on")
+        statsig.initialize("secret-key", options=options)
+        user = StatsigUser(generate_random_user_id())
+        statsig.check_gate(user, "default_not_forward_all_exposures_gate")
+        statsig.shutdown()
+
+        self.assertEqual(1, len(self._events))
