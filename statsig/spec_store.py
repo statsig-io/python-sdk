@@ -343,18 +343,24 @@ class _SpecStore:
         )
 
     def _get_initialize_strategy(self) -> List[DataSource]:
-        if self._options.initialize_sources is not None:
-            return self._options.initialize_sources
-        strategies = [DataSource.NETWORK]
-        data_store = self._options.data_store
-        if data_store is not None:
-            strategies.insert(0, DataSource.DATASTORE)
-        if self._options.bootstrap_values:
+        try:
+            if self._options.initialize_sources is not None:
+                return self._options.initialize_sources
+            strategies = [DataSource.NETWORK]
+            data_store = self._options.data_store
             if data_store is not None:
-                globals.logger.debug("data_store gets priority over bootstrap_values. bootstrap_values will be ignored")
-            else:
-                strategies.insert(0, DataSource.BOOTSTRAP)
-        if self._options.fallback_to_statsig_api:
-            strategies.append(DataSource.STATSIG_NETWORK)
+                strategies.insert(0, DataSource.DATASTORE)
+            if self._options.bootstrap_values:
+                if data_store is not None:
+                    globals.logger.debug("data_store gets priority over bootstrap_values. bootstrap_values will be ignored")
+                else:
+                    strategies.insert(0, DataSource.BOOTSTRAP)
+            if self._options.fallback_to_statsig_api:
+                strategies.append(DataSource.STATSIG_NETWORK)
 
-        return strategies
+            return strategies
+        except Exception:
+            globals.logger.warning(
+                "Failed to get initialization sources, fallling back to always sync from statsig network "
+            )
+            return [DataSource.STATSIG_NETWORK]

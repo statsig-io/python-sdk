@@ -413,19 +413,25 @@ class SpecUpdater:
                 self._error_boundary.log_exception("_sync", e)
 
     def _get_sync_dcs_strategies(self) -> List[DataSource]:
-        if self._options.config_sync_sources is not None:
-            return self._options.config_sync_sources
-        strategies = [DataSource.NETWORK]
-        if (
-                self._options.data_store is not None
-                and self._options.data_store.should_be_used_for_querying_updates(
-            STORAGE_ADAPTER_KEY
-        )
-        ):
-            strategies = [DataSource.DATASTORE]
-        if self._options.fallback_to_statsig_api:
-            strategies.append(DataSource.STATSIG_NETWORK)
-        return strategies
+        try:
+            if self._options.config_sync_sources is not None:
+                return self._options.config_sync_sources
+            strategies = [DataSource.NETWORK]
+            if (
+                    self._options.data_store is not None
+                    and self._options.data_store.should_be_used_for_querying_updates(
+                STORAGE_ADAPTER_KEY
+            )
+            ):
+                strategies = [DataSource.DATASTORE]
+            if self._options.fallback_to_statsig_api:
+                strategies.append(DataSource.STATSIG_NETWORK)
+            return strategies
+        except Exception:
+            globals.logger.warning(
+                "Failed to get sync sources, fallling back to always sync from statsig network "
+            )
+            return [DataSource.STATSIG_NETWORK]
 
     def shutdown(self):
         if self._background_download_configs is not None:
