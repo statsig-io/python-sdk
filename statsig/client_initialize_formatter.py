@@ -71,12 +71,16 @@ class ClientInitializeResponseFormatter:
                     return None
 
                 result["value"] = eval_result.boolean_value
+                result["id_type"] = config_spec["idType"]
             elif category == "dynamic_config":
                 id_type = config_spec["idType"]
                 result["value"] = eval_result.json_value
                 result["group"] = eval_result.rule_id
                 result["is_device_based"] = id_type.lower(
                 ) == "stableid" if isinstance(id_type, str) else False
+
+                if entity_type != "layer":
+                    result["id_type"] = config_spec["idType"]
 
                 if entity_type == "experiment":
                     populate_experiment_fields(
