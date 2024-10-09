@@ -140,6 +140,7 @@ class _SpecStore:
     def _process_specs(self, specs_json, reason: EvaluationReason) -> Tuple[bool, bool]:  # has update, parse success
         self._log_process("Processing specs...")
         if specs_json.get("has_updates", False) is False:
+            globals.logger.debug("Received update: %s", "No Update")
             return False, True
         if not self.spec_updater.is_specs_json_valid(specs_json):
             self._log_process("Failed to process specs")
@@ -222,6 +223,7 @@ class _SpecStore:
         self._experiment_to_layer = new_experiment_to_layer
         self.spec_updater.last_update_time = specs_json.get("time", 0)
         self.init_reason = reason
+        globals.logger.debug("Received update: %s", self.spec_updater.last_update_time)
 
         flags = specs_json.get("sdk_flags", {})
         _SDK_Configs.set_flags(flags)
@@ -230,7 +232,6 @@ class _SpecStore:
 
         sampling_rate = specs_json.get("diagnostics", {})
         self._diagnostics.set_sampling_rate(sampling_rate)
-
         self._log_process("Done processing specs")
         return True, True
 
