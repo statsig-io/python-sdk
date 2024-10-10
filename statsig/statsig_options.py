@@ -108,6 +108,7 @@ class StatsigOptions:
             retry_queue_size: int = DEFAULT_RETRY_QUEUE_SIZE,
             proxy_configs: Optional[Dict[NetworkEndpoint, ProxyConfig]] = None,
             fallback_to_statsig_api: Optional[bool] = False,
+            out_of_sync_threshold_in_s: Optional[float] = None , # If config is out of sync for {threshold} s, we enforce to fallback logic you defined
             initialize_sources: Optional[List[DataSource]] = None,
             config_sync_sources: Optional[List[DataSource]] = None,
             output_logger_level: Optional[LogLevel] = LogLevel.WARNING,
@@ -148,6 +149,7 @@ class StatsigOptions:
         self.evaluation_callback = evaluation_callback
         self.retry_queue_size = retry_queue_size
         self.fallback_to_statsig_api = fallback_to_statsig_api
+        self.out_of_sync_threshold_in_s = out_of_sync_threshold_in_s
         if proxy_configs is None:
             self.proxy_configs = DEFAULT_PROXY_CONFIG
         else:

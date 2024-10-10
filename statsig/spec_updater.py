@@ -1,5 +1,6 @@
 import json
 import threading
+import time
 from typing import Optional, Callable, List, Any, Tuple
 
 from . import globals
@@ -44,6 +45,10 @@ class SpecUpdater:
         self._background_download_id_lists = None
         self._config_sync_strategies = self._get_sync_dcs_strategies()
         self._dcs_process_lock = threading.Lock()
+        if options.out_of_sync_threshold_in_s is not None:
+            self._enforce_sync_fallback_threshold_in_ms: Optional[float] = options.out_of_sync_threshold_in_s * 1000
+        else:
+            self._enforce_sync_fallback_threshold_in_ms = None
 
         self.initialized = False
         self.last_update_time = 0
@@ -369,8 +374,11 @@ class SpecUpdater:
             for i, strategy in enumerate(self._config_sync_strategies):
                 prev_failure_count = self._sync_failure_count
                 self.get_config_spec(strategy)
-
-                if prev_failure_count == self._sync_failure_count:
+                outof_sync = False
+                time_elapsed = time.time() * 1000 - self.last_update_time
+                if (self._enforce_sync_fallback_threshold_in_ms is not None and time_elapsed > self._enforce_sync_fallback_threshold_in_ms):
+                    outof_sync = True
+                if prev_failure_count == self._sync_failure_count and not outof_sync:
                     globals.logger.log_process("Config Sync", f"Syncing config values with {strategy.value} successful")
                     break
                 if i < len(self._config_sync_strategies) - 1:

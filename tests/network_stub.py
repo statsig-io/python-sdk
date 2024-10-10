@@ -2,9 +2,11 @@ import re
 from typing import Callable, Union
 from urllib.parse import urlparse, ParseResult
 
+STATSIG_APIS = ["https://api.statsigcdn.com/", "https://statsigapi.net/"]
 
 class NetworkStub:
     host: str
+    mock_statsig_api: bool
 
     class StubResponse:
         def __init__(self, status, data=None, headers=None):
@@ -20,8 +22,9 @@ class NetworkStub:
         def json(self):
             return self._json
 
-    def __init__(self, host: str):
+    def __init__(self, host: str, mock_statsig_api = False):
         self.host = host
+        self.mock_statsig_api = mock_statsig_api
         self._stubs = {}
 
     def reset(self):
@@ -52,8 +55,8 @@ class NetworkStub:
         instance: NetworkStub = args[0]
         method: str = args[1]
         url: ParseResult = urlparse(args[2])
-
-        if (url.scheme + "://" + url.hostname) != instance.host:
+        request_host = (url.scheme + "://" + url.hostname)
+        if request_host != instance.host and (instance.mock_statsig_api and request_host not in STATSIG_APIS):
             return
 
         paths = list(instance._stubs.keys())
