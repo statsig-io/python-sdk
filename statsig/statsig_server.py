@@ -215,8 +215,9 @@ class StatsigServer:
         )
 
     def log_exposure_for_config(self, config_eval: DynamicConfig):
+        user = self.__normalize_user(config_eval.user)
         self._logger.log_config_exposure(
-            config_eval.user,
+            user,
             config_eval.name,
             config_eval.rule_id,
             config_eval.secondary_exposures,
