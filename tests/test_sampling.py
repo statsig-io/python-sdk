@@ -54,7 +54,7 @@ class TestEventSampling(unittest.TestCase):
         _network_stub.stub_request_with_value(
             "download_config_specs/.*", 200, PARSED_CONFIG_SPEC)
 
-    def run_configs(self, mock_request):
+    def run_initial_and_additional_statsig_checks_9_total(self, mock_request):
         statsig.check_gate(self.statsig_user, "always_on_gate")
         statsig.get_config(self.statsig_user, "test_config")
         statsig.get_experiment(self.statsig_user, "sample_experiment")
@@ -63,10 +63,10 @@ class TestEventSampling(unittest.TestCase):
         statsig.get_config(self.statsig_user, "test_config_sampled")
         statsig.get_experiment(self.statsig_user, "not_started_exp")
 
-        # the first set of events are not going to be sampled
-        statsig.check_gate(self.statsig_user, "always_on_gate_sampled")
-        statsig.get_config(self.statsig_user, "test_config_sampled")
-        statsig.get_experiment(self.statsig_user, "not_started_exp")
+        # the first set of events are not going to be sampled and avoid dedupe exposures
+        statsig.check_gate(StatsigUser(generate_random_user_id()), "always_on_gate_sampled")
+        statsig.get_config(StatsigUser(generate_random_user_id()), "test_config_sampled")
+        statsig.get_experiment(StatsigUser(generate_random_user_id()), "not_started_exp")
 
     def test_apply_sampling_if_production(self, mock_request):
         options = StatsigOptions(
@@ -75,13 +75,13 @@ class TestEventSampling(unittest.TestCase):
             disable_diagnostics=True)
         self.stub_network(mock_request, "on")
         statsig.initialize("secret-key", options=options)
-        self.run_configs(mock_request)
+        self.run_initial_and_additional_statsig_checks_9_total(mock_request)
         statsig.shutdown()
 
         not_sampled_event = self._events[0]
         self.assertEqual(not_sampled_event["statsigMetadata"].get("sampleRate"), None)
         self.assertEqual(not_sampled_event["statsigMetadata"].get("samplingMode"), 'on')
-        self.assertEqual(6, len(self._events))
+        self.assertEqual(6, len(self._events))  # 3 initial passes sampling events, 3 not sampled events
 
     def test_do_not_apply_sampling_if_development(self, mock_request):
         options = StatsigOptions(
@@ -90,10 +90,10 @@ class TestEventSampling(unittest.TestCase):
             disable_diagnostics=True)
         self.stub_network(mock_request, "on")
         statsig.initialize("secret-key", options=options)
-        self.run_configs(mock_request)
+        self.run_initial_and_additional_statsig_checks_9_total(mock_request)
         statsig.shutdown()
 
-        self.assertEqual(6, len(self._events))
+        self.assertEqual(9, len(self._events))
         not_sampled_event = self._events[0]
         self.assertEqual(not_sampled_event["statsigMetadata"].get("sampleRate"), None)
         self.assertEqual(not_sampled_event["statsigMetadata"].get("samplingMode"), 'on')
@@ -105,10 +105,10 @@ class TestEventSampling(unittest.TestCase):
             disable_diagnostics=True)
         self.stub_network(mock_request, "on")
         statsig.initialize("secret-key", options=options)
-        self.run_configs(mock_request)
+        self.run_initial_and_additional_statsig_checks_9_total(mock_request)
         statsig.shutdown()
 
-        self.assertEqual(6, len(self._events))
+        self.assertEqual(9, len(self._events))
         not_sampled_event = self._events[0]
         self.assertEqual(not_sampled_event["statsigMetadata"].get("sampleRate"), None)
         self.assertEqual(not_sampled_event["statsigMetadata"]["samplingMode"], 'on')
@@ -152,7 +152,7 @@ class TestEventSampling(unittest.TestCase):
             disable_diagnostics=True)
         self.stub_network(mock_request, "shadow")
         statsig.initialize("secret-key", options=options)
-        statsig.check_gate(self.statsig_user, "always_on_gate_sampled")
+        statsig.check_gate(self.statsig_user, "always_on_gate_sampled")  # the initial sample
         statsig.check_gate(StatsigUser(user_id="abc"), "always_on_gate_sampled")
         statsig.check_gate(self.statsig_user, "always_on_gate")
 
@@ -165,7 +165,7 @@ class TestEventSampling(unittest.TestCase):
         self.assertEqual(sampled_event["statsigMetadata"]["samplingMode"], 'shadow')
         not_sampled_event = self._events[2]
         self.assertEqual(not_sampled_event["statsigMetadata"].get("sampleRate"), None)
-        self.assertEqual(not_sampled_event["statsigMetadata"].get("shadowLogged"), None)
+        self.assertEqual(not_sampled_event["statsigMetadata"].get("shadowLogged"), "logged")
         self.assertEqual(not_sampled_event["statsigMetadata"]["samplingMode"], "shadow")
 
     def test_apply_shadow_sampling_in_production_logged(self, mock_request):
@@ -185,8 +185,8 @@ class TestEventSampling(unittest.TestCase):
         shadow_logged_events = [event for event in self._events if
                                 event.get("statsigMetadata", {}).get("shadowLogged") == "logged"]
 
-        self.assertGreater(len(shadow_logged_events), 0)
-        shadow_logged_event = shadow_logged_events[0]
+        self.assertGreater(len(shadow_logged_events), 1)
+        shadow_logged_event = shadow_logged_events[1]  # the first one is not sampled bc ttlset
 
         self.assertEqual(shadow_logged_event["statsigMetadata"]["samplingRate"], 10)
         self.assertEqual(shadow_logged_event["statsigMetadata"]["shadowLogged"], "logged")
@@ -206,13 +206,13 @@ class TestEventSampling(unittest.TestCase):
 
         self.assertEqual(2, len(self._events))
         sampled_event = self._events[0]
-        self.assertEqual(sampled_event["metadata"].get("sampleRate"), None)
-        self.assertEqual(sampled_event["metadata"].get("shadowLogged"), None)
+        self.assertEqual(sampled_event["statsigMetadata"].get("sampleRate"), None)
+        self.assertEqual(sampled_event["statsigMetadata"].get("shadowLogged"), "logged")
         self.assertEqual(sampled_event["statsigMetadata"]["samplingMode"], "shadow")
 
         not_sampled_event = self._events[1]
         self.assertEqual(not_sampled_event["statsigMetadata"].get("sampleRate"), None)
-        self.assertEqual(not_sampled_event["statsigMetadata"].get("shadowLogged"), None)
+        self.assertEqual(not_sampled_event["statsigMetadata"].get("shadowLogged"), "logged")
         self.assertEqual(not_sampled_event["statsigMetadata"]["samplingMode"], "shadow")
 
     def test_do_not_apply_shadow_sampling_in_staging(self, mock_request):
@@ -230,12 +230,12 @@ class TestEventSampling(unittest.TestCase):
         self.assertEqual(2, len(self._events))
         sampled_event = self._events[0]
         self.assertEqual(sampled_event["statsigMetadata"].get("sampleRate"), None)
-        self.assertEqual(sampled_event["statsigMetadata"].get("shadowLogged"), None)
+        self.assertEqual(sampled_event["statsigMetadata"].get("shadowLogged"), 'logged')
         self.assertEqual(sampled_event["statsigMetadata"]["samplingMode"], "shadow")
 
         not_sampled_event = self._events[1]
         self.assertEqual(not_sampled_event["statsigMetadata"].get("sampleRate"), None)
-        self.assertEqual(not_sampled_event["statsigMetadata"].get("shadowLogged"), None)
+        self.assertEqual(not_sampled_event["statsigMetadata"].get("shadowLogged"), 'logged')
         self.assertEqual(not_sampled_event["statsigMetadata"]["samplingMode"], "shadow")
 
     def test_do_not_apply_sampling_to_all_exposure_forwarded_gate(self, mock_request):
@@ -260,6 +260,25 @@ class TestEventSampling(unittest.TestCase):
         statsig.initialize("secret-key", options=options)
         user = StatsigUser(generate_random_user_id())
         statsig.check_gate(user, "default_not_forward_all_exposures_gate")
+        user = StatsigUser(generate_random_user_id())
+        statsig.check_gate(user, "default_not_forward_all_exposures_gate")
+        statsig.shutdown()
+
+        self.assertEqual(1, len(self._events))
+
+    def test_sample_non_allocated_layer(self, mock_request):
+        options = StatsigOptions(
+            api=_network_stub.host,
+            tier=StatsigEnvironmentTier.production,
+            disable_diagnostics=True)
+        self.stub_network(mock_request, "on")
+        statsig.initialize("secret-key", options=options)
+        user = StatsigUser(generate_random_user_id())
+        layer = statsig.get_layer(user, "not_allocated_layer")
+        layer.get("param", "default")  # sampled by initial
+        user = StatsigUser(generate_random_user_id())
+        layer = statsig.get_layer(user, "not_allocated_layer")
+        layer.get("param", "default")
         statsig.shutdown()
 
         self.assertEqual(1, len(self._events))

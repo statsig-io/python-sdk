@@ -1,6 +1,7 @@
 import json
 import threading
 from concurrent.futures import wait, ThreadPoolExecutor
+from enum import Enum
 from typing import List, Optional, Dict, Set, Tuple
 
 from . import globals
@@ -13,6 +14,12 @@ from .statsig_error_boundary import _StatsigErrorBoundary
 from .statsig_network import _StatsigNetwork
 from .statsig_options import DataSource, StatsigOptions
 from .utils import djb2_hash
+
+
+class EntityType(Enum):
+    GATE = "feature_gates"
+    CONFIG = "dynamic_configs"
+    LAYER = "layer_configs"
 
 
 class _SpecStore:
@@ -202,9 +209,9 @@ class _SpecStore:
                             rule["conditions"][i]["fast_target_value"][str(val)] = True
 
         self.unsupported_configs.clear()
-        new_gates = get_parsed_specs("feature_gates")
-        new_configs = get_parsed_specs("dynamic_configs")
-        new_layers = get_parsed_specs("layer_configs")
+        new_gates = get_parsed_specs(EntityType.GATE.value)
+        new_configs = get_parsed_specs(EntityType.CONFIG.value)
+        new_layers = get_parsed_specs(EntityType.LAYER.value)
 
         new_experiment_to_layer = {}
         layers_dict = specs_json.get("layers", {})
@@ -353,7 +360,8 @@ class _SpecStore:
                 strategies.insert(0, DataSource.DATASTORE)
             if self._options.bootstrap_values:
                 if data_store is not None:
-                    globals.logger.debug("data_store gets priority over bootstrap_values. bootstrap_values will be ignored")
+                    globals.logger.debug(
+                        "data_store gets priority over bootstrap_values. bootstrap_values will be ignored")
                 else:
                     strategies.insert(0, DataSource.BOOTSTRAP)
             if self._options.fallback_to_statsig_api:

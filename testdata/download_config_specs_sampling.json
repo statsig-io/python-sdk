@@ -48,27 +48,24 @@
       },
       "rules": [
         {
-          "name": "1kNmlB23wylPFZi1M0Divl",
-          "groupName": "statsig email",
+          "name": "33qGYzVZr1MchRe4Ncj6MO",
           "passPercentage": 100,
           "conditions": [
             {
-              "type": "user_field",
-              "targetValue": [
-                "@statsig.com"
-              ],
-              "operator": "str_contains_any",
-              "field": "email",
-              "additionalValues": {}
+              "type": "public",
+              "targetValue": null,
+              "operator": null,
+              "field": null,
+              "additionalValues": {},
+              "isDeviceBased": false,
+              "idType": "userID"
             }
           ],
-          "returnValue": {
-            "number": 7,
-            "string": "statsig",
-            "boolean": false
-          },
-          "id": "1kNmlB23wylPFZi1M0Divl",
-          "salt": "f2ac6975-174d-497e-be7f-599fea626132",
+          "returnValue": {},
+          "id": "33qGYzVZr1MchRe4Ncj6MO",
+          "salt": "55a3430e-b239-4941-8208-951f5a9f8496",
+          "isDeviceBased": false,
+          "idType": "userID",
           "samplingRate": 101
         }
       ]
@@ -1307,7 +1304,24 @@
       ]
     }
   ],
-  "layer_configs": [],
+  "layers": {
+    "not_allocated_layer": []
+  },
+  "layer_configs": [
+    {
+      "name": "not_allocated_layer",
+      "type": "dynamic_config",
+      "salt": "b39af118-3f2c-4645-a4e4-7f7c96225ecc",
+      "enabled": true,
+      "defaultValue": {
+        "param": "ello"
+      },
+      "rules": [],
+      "isDeviceBased": false,
+      "idType": "userID",
+      "entity": "layer"
+    }
+  ],
   "has_updates": true,
   "time": 1631638014811,
   "id_lists": {
@@ -1315,6 +1329,6 @@
     "list_2": true
   },
   "sdk_configs": {
-    "default_sampling_rate": 101
+    "special_case_sampling_rate": 101
   }
 }

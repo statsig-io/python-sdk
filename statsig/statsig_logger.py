@@ -101,7 +101,7 @@ class _StatsigLogger:
         if is_manual_exposure:
             event.metadata["isManualExposure"] = "true"
         if sampling_rate is not None:
-            event.statsigMetadata = {"samplingRate": sampling_rate}
+            event.statsigMetadata["samplingRate"] = sampling_rate
         if shadow_logged is not None:
             event.statsigMetadata["shadowLogged"] = shadow_logged
         if sampling_mode is not None:
@@ -138,7 +138,7 @@ class _StatsigLogger:
         if is_manual_exposure:
             event.metadata["isManualExposure"] = "true"
         if sampling_rate is not None:
-            event.statsigMetadata = {"samplingRate": sampling_rate}
+            event.statsigMetadata["samplingRate"] = sampling_rate
         if shadow_logged is not None:
             event.statsigMetadata["shadowLogged"] = shadow_logged
         if sampling_mode is not None:
@@ -158,6 +158,9 @@ class _StatsigLogger:
             parameter_name: str,
             config_evaluation: _ConfigEvaluation,
             is_manual_exposure=False,
+            sampling_rate=None,
+            shadow_logged=None,
+            sampling_mode=None,
     ):
         event = StatsigEvent(user, _LAYER_EXPOSURE_EVENT)
 
@@ -178,8 +181,15 @@ class _StatsigLogger:
         if not self._is_unique_exposure(user, _LAYER_EXPOSURE_EVENT, metadata):
             return
         event.metadata = metadata
+        event.statsigMetadata = {}
         if is_manual_exposure:
             event.metadata["isManualExposure"] = "true"
+        if sampling_rate is not None:
+            event.statsigMetadata["samplingRate"] = sampling_rate
+        if shadow_logged is not None:
+            event.statsigMetadata["shadowLogged"] = shadow_logged
+        if sampling_mode is not None:
+            event.statsigMetadata["samplingMode"] = sampling_mode
 
         event._secondary_exposures = [] if exposures is None else exposures
 
