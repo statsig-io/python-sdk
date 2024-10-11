@@ -1,4 +1,5 @@
-import concurrent.futures
+import threading
+from typing import List
 
 from . import globals
 from .batch_event_queue import EventBatchProcessor, BatchEventLogs
@@ -17,7 +18,7 @@ MIN_SUCCESS_BACKOFF_INTERVAL_SECONDS = 1.0
 class LoggerWorker:
     def __init__(self, net: _StatsigNetwork, error_boundary, options: StatsigOptions, statsig_metadata, shutdown_event,
                  diagnostics: Diagnostics, event_batch_processor: EventBatchProcessor):
-        self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
+        self.max_worker_count = 2
         self._statsig_metadata = statsig_metadata
         self._batching_interval = globals.STATSIG_BATCHING_INTERVAL_SECONDS
         self._log_interval = globals.STATSIG_LOGGING_INTERVAL_SECONDS
@@ -31,20 +32,25 @@ class LoggerWorker:
         self._shutdown_event = shutdown_event
         self._net = net
         self.event_batch_processor = event_batch_processor
-        self.worker_thread = None
+        self.worker_threads: List[threading.Thread] = []
         self._dropped_events_count_logging_thread = None
         self.spawn_bg_threads_if_needed()
 
     def spawn_bg_threads_if_needed(self):
         if self._local_mode:
             return
-        if self.worker_thread is None or not self.worker_thread.is_alive():
-            self.worker_thread = spawn_background_thread(
-                "logger_worker_thread",
-                self._process_queue,
-                (self._shutdown_event,),
-                self._error_boundary,
-            )
+        for i in range(self.max_worker_count):
+            if len(self.worker_threads) <= i or self.worker_threads[i] is None or not self.worker_threads[i].is_alive():
+                worker_thread = spawn_background_thread(
+                    f"log_event_worker_thread_{i}",
+                    self._process_queue,
+                    (self._shutdown_event,),
+                    self._error_boundary,
+                )
+                if len(self.worker_threads) <= i:
+                    self.worker_threads.append(worker_thread)
+                else:
+                    self.worker_threads[i] = worker_thread
         if self._dropped_events_count_logging_thread is None or not self._dropped_events_count_logging_thread.is_alive():
             self._dropped_events_count_logging_thread = spawn_background_thread(
                 "logger_worker_batch_queue_and_log_dropped_events_thread",
@@ -68,12 +74,12 @@ class LoggerWorker:
         for batch in event_batches:
             self._flush_to_server(batch)
         self._send_and_reset_dropped_events_count()
-        if self.worker_thread is not None:
-            self.worker_thread.join(THREAD_JOIN_TIMEOUT)
+        for worker_thread in self.worker_threads:
+            if worker_thread is not None:
+                worker_thread.join(THREAD_JOIN_TIMEOUT)
         if self._dropped_events_count_logging_thread is not None:
             self._dropped_events_count_logging_thread.join(THREAD_JOIN_TIMEOUT)
         self.event_batch_processor.shutdown()
-        self._executor.shutdown()
 
     def _process_queue(self, shutdown_event):
         while True:

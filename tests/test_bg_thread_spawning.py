@@ -2,8 +2,8 @@ import unittest
 from typing import Callable, List
 from unittest.mock import patch
 
-from statsig import StatsigOptions, StatsigServer, StatsigUser, StatsigEvent
 from network_stub import NetworkStub
+from statsig import StatsigOptions, StatsigServer, StatsigUser, StatsigEvent
 
 _api_override = "http://evaluation-details-test"
 _network_stub = NetworkStub(_api_override)
@@ -60,11 +60,11 @@ class TestBackgroundThreadSpawning(unittest.TestCase):
 
     def _logger_none_restart_test(self, actions: List[Callable]):
         for action in actions:
-            self._server._logger._logger_worker.worker_thread = None
+            self._server._logger._logger_worker.worker_threads = []
 
             action()
 
-            self.assertIsNotNone(self._server._logger._logger_worker.worker_thread)
+            self.assertEqual(len(self._server._logger._logger_worker.worker_threads), 2)
 
     def _logger_local_mode_restart_test(self, actions: List[Callable]):
         for action in actions:
@@ -82,11 +82,13 @@ class TestBackgroundThreadSpawning(unittest.TestCase):
             return False
 
         for action in actions:
-            self._server._logger._logger_worker.worker_thread.is_alive = always_false
+            for worker_thread in self._server._logger._logger_worker.worker_threads:
+                worker_thread.is_alive = always_false
 
             action()
 
-            self.assertTrue(self._server._logger._logger_worker.worker_thread.is_alive())
+            for worker_thread in self._server._logger._logger_worker.worker_threads:
+                self.assertTrue(worker_thread.is_alive())
 
     def _spec_store_none_restart_test(self, actions: List[Callable]):
         for action in actions:

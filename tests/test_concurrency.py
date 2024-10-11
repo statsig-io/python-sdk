@@ -1,11 +1,11 @@
+import json
+import os
 import random
 import threading
 import time
-import os
 import unittest
-import json
-
 from unittest.mock import patch
+
 from gzip_helpers import GzipHelpers
 from network_stub import NetworkStub
 from statsig import statsig, StatsigUser, StatsigOptions, StatsigEvent, StatsigEnvironmentTier
@@ -20,6 +20,7 @@ class TestStatsigConcurrency(unittest.TestCase):
     _idlist_sync_count = 0
     _download_id_list_count = 0
     _event_count = 0
+    _event_count_lock = threading.Lock()
 
     @classmethod
     @patch('requests.request', side_effect=_network_stub.mock)
@@ -57,7 +58,8 @@ class TestStatsigConcurrency(unittest.TestCase):
             "list_1", 202, id_list_download_callback)
 
         def log_event_callback(url: str, **kwargs):
-            cls._event_count += len(GzipHelpers.decode_body(kwargs)["events"])
+            with cls._event_count_lock:
+                cls._event_count += len(GzipHelpers.decode_body(kwargs)["events"])
 
         cls._network_stub.stub_request_with_function(
             "log_event", 202, log_event_callback)

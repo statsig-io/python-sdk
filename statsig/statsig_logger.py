@@ -67,7 +67,6 @@ class _StatsigLogger:
                 (self._shutdown_event,),
                 self._error_boundary,
             )
-
         self._logger_worker.spawn_bg_threads_if_needed()
 
     def log(self, event):
