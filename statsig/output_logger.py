@@ -12,36 +12,13 @@ class LogLevel(IntEnum):
     EXCEPTION = 50
 
 
-LOG_COLORS = {
-    LogLevel.DEBUG: "\033[90m",
-    LogLevel.INFO: "\033[94m",
-    LogLevel.WARNING: "\033[33m",
-    LogLevel.ERROR: "\033[91m",
-    LogLevel.EXCEPTION: "\033[95m"
-}
-RESET_COLOR = "\033[0m"
-
-
 class OutputLogger:
     def __init__(self, name):
         self._disabled = 'unittest' in sys.modules
         self._logger = logging.getLogger(name)
         self._log_level = LogLevel.INFO
 
-        handler = logging.StreamHandler(sys.stdout)
-        handler.setFormatter(self._CustomFormatter())
-        self._logger.addHandler(handler)
         self._logger.setLevel(logging.DEBUG)
-
-    class _CustomFormatter(logging.Formatter):
-        def format(self, record):
-            try:
-                log_level = LogLevel[record.levelname] if record.levelname in LogLevel.__members__ else LogLevel.DEBUG
-                color = LOG_COLORS.get(log_level, LOG_COLORS[LogLevel.DEBUG])
-                message = super().format(record)
-                return f"{color}{message}{RESET_COLOR}"
-            except Exception:
-                return None
 
     def _wrap_logging_method(self, log_method, level):
         """Wraps a logging method in a try-except block."""
