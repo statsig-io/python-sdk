@@ -102,13 +102,14 @@ class StatsigOptions:
             logging_interval: int = DEFAULT_LOGGING_INTERVAL,  # deprecated
             disable_diagnostics: bool = False,
             custom_logger: Optional[OutputLogger] = None,
-            enable_debug_logs=False,
+            enable_debug_logs=False,  # deprecated
             disable_all_logging=False,
             evaluation_callback: Optional[Callable[[Union[Layer, DynamicConfig, FeatureGate]], None]] = None,
             retry_queue_size: int = DEFAULT_RETRY_QUEUE_SIZE,
             proxy_configs: Optional[Dict[NetworkEndpoint, ProxyConfig]] = None,
             fallback_to_statsig_api: Optional[bool] = False,
-            out_of_sync_threshold_in_s: Optional[float] = None , # If config is out of sync for {threshold} s, we enforce to fallback logic you defined
+            out_of_sync_threshold_in_s: Optional[float] = None,
+            # If config is out of sync for {threshold} s, we enforce to fallback logic you defined
             initialize_sources: Optional[List[DataSource]] = None,
             config_sync_sources: Optional[List[DataSource]] = None,
             output_logger_level: Optional[LogLevel] = LogLevel.WARNING,

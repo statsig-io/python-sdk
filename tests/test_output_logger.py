@@ -1,3 +1,4 @@
+import logging
 import time
 import unittest
 from collections import defaultdict
@@ -22,25 +23,25 @@ class MockOutputLogger(OutputLogger):
         self.info(message)
 
     def debug(self, msg, *args, **kwargs):
-        if self._log_level <= LogLevel.DEBUG and not self._disabled:
+        if self._logger.isEnabledFor(logging.DEBUG) and not self._disabled:
             sanitized_msg, sanitized_args, sanitized_kwargs = self._sanitize_args(msg, *args, **kwargs)
             self.add_url(sanitized_args)
             self._logs['debug'].append(sanitized_msg)
 
     def info(self, msg, *args, **kwargs):
-        if self._log_level <= LogLevel.INFO and not self._disabled:
+        if self._logger.isEnabledFor(logging.INFO) and not self._disabled:
             sanitized_msg, sanitized_args, sanitized_kwargs = self._sanitize_args(msg, *args, **kwargs)
             self.add_url(sanitized_args)
             self._logs['info'].append(sanitized_msg)
 
     def warning(self, msg, *args, **kwargs):
-        if self._log_level <= LogLevel.WARNING and not self._disabled:
+        if self._logger.isEnabledFor(logging.WARNING) and not self._disabled:
             sanitized_msg, sanitized_args, sanitized_kwargs = self._sanitize_args(msg, *args, **kwargs)
             self.add_url(sanitized_args)
             self._logs['warning'].append(sanitized_msg)
 
     def error(self, msg, *args, **kwargs):
-        if self._log_level <= LogLevel.ERROR and not self._disabled:
+        if self._logger.isEnabledFor(logging.ERROR) and not self._disabled:
             sanitized_msg, sanitized_args, sanitized_kwargs = self._sanitize_args(msg, *args, **kwargs)
             self.add_url(sanitized_args)
             self._logs['error'].append(sanitized_msg)
@@ -83,14 +84,16 @@ class TestOutputLogger(unittest.TestCase):
     @patch('requests.request', side_effect=_network_stub.mock)
     def test_initialize_timeout(self, mock_request):
         logger = MockOutputLogger()
+        logger.set_log_level(LogLevel.INFO)
         options = StatsigOptions(api=_network_stub.host, init_timeout=0.1, disable_diagnostics=True,
                                  custom_logger=logger)
         statsig.initialize("secret-key", options)
         self.assertGreater(len(logger._logs.get("info")), 3)
 
     @patch('requests.request', side_effect=_network_stub.mock)
-    def test_initialize_failed_to_load_network(self, mock_request):
+    def test_initialize_failed_to_load_network_info(self, mock_request):
         logger = MockOutputLogger()
+        logger.set_log_level(LogLevel.INFO)
         options = StatsigOptions(api=_network_stub.host, disable_diagnostics=True, custom_logger=logger)
         statsig.initialize("secret-key", options)
         self.assertGreater(len(logger._logs.get("info")), 2)
