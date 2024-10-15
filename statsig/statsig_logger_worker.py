@@ -22,6 +22,7 @@ class LoggerWorker:
         self._statsig_metadata = statsig_metadata
         self._batching_interval = globals.STATSIG_BATCHING_INTERVAL_SECONDS
         self._log_interval = globals.STATSIG_LOGGING_INTERVAL_SECONDS
+        self.lock = threading.Lock()
         self.backoff_interval = globals.STATSIG_LOGGING_INTERVAL_SECONDS
         self.max_failure_backoff_interval = MAX_FAILURE_BACKOFF_INTERVAL_SECONDS
         self.min_success_backoff_interval = min(MIN_SUCCESS_BACKOFF_INTERVAL_SECONDS,
@@ -84,7 +85,7 @@ class LoggerWorker:
     def _process_queue(self, shutdown_event):
         while True:
             try:
-                if shutdown_event.wait(self._log_interval):
+                if shutdown_event.wait(self._get_curr_interval()):
                     break
                 self.flush_at_interval()
             except Exception as e:
@@ -149,24 +150,31 @@ class LoggerWorker:
     def _failure_backoff(self):
         if self._check_override_interval():
             return
-        self.backoff_interval = min(self.backoff_interval * BACKOFF_MULTIPLIER,
-                                    self.max_failure_backoff_interval)
-        self._log_interval = self.backoff_interval
-        globals.logger.info(f"Log event failure, backing off for {self._log_interval} seconds")
+        with self.lock:
+            self.backoff_interval = min(self.backoff_interval * BACKOFF_MULTIPLIER,
+                                        self.max_failure_backoff_interval)
+            self._log_interval = self.backoff_interval
+            globals.logger.info(f"Log event failure, backing off for {self._log_interval} seconds")
 
     def _success_backoff(self):
         if self._check_override_interval():
             return
-        if self._log_interval == globals.STATSIG_LOGGING_INTERVAL_SECONDS:
-            return
-        self.backoff_interval = max(self.backoff_interval / BACKOFF_MULTIPLIER,
-                                    self.min_success_backoff_interval)
-        self._log_interval = self.backoff_interval
-        globals.logger.info(f"Log event success, decreasing backoff to {self._log_interval} seconds")
+        with self.lock:
+            if self._log_interval == globals.STATSIG_LOGGING_INTERVAL_SECONDS:
+                return
+            self.backoff_interval = max(self.backoff_interval / BACKOFF_MULTIPLIER,
+                                        self.min_success_backoff_interval)
+            self._log_interval = self.backoff_interval
+            globals.logger.info(f"Log event success, decreasing backoff to {self._log_interval} seconds")
 
     def _check_override_interval(self):
-        override_interval = _SDK_Configs.get_config_num_value("event_logging_interval_seconds")
-        if override_interval is not None and override_interval > 0:
-            self._log_interval = float(override_interval)
-            return True
-        return False
+        with self.lock:
+            override_interval = _SDK_Configs.get_config_num_value("event_logging_interval_seconds")
+            if override_interval is not None and override_interval > 0:
+                self._log_interval = float(override_interval)
+                return True
+            return False
+
+    def _get_curr_interval(self):
+        with self.lock:
+            return self._log_interval
