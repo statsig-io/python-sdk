@@ -165,7 +165,7 @@ class TestEventSampling(unittest.TestCase):
         self.assertEqual(sampled_event["statsigMetadata"]["samplingMode"], 'shadow')
         not_sampled_event = self._events[2]
         self.assertEqual(not_sampled_event["statsigMetadata"].get("sampleRate"), None)
-        self.assertEqual(not_sampled_event["statsigMetadata"].get("shadowLogged"), "logged")
+        self.assertEqual(not_sampled_event["statsigMetadata"].get("shadowLogged"), None)
         self.assertEqual(not_sampled_event["statsigMetadata"]["samplingMode"], "shadow")
 
     def test_apply_shadow_sampling_in_production_logged(self, mock_request):
@@ -207,12 +207,12 @@ class TestEventSampling(unittest.TestCase):
         self.assertEqual(2, len(self._events))
         sampled_event = self._events[0]
         self.assertEqual(sampled_event["statsigMetadata"].get("sampleRate"), None)
-        self.assertEqual(sampled_event["statsigMetadata"].get("shadowLogged"), "logged")
+        self.assertEqual(sampled_event["statsigMetadata"].get("shadowLogged"), None)
         self.assertEqual(sampled_event["statsigMetadata"]["samplingMode"], "shadow")
 
         not_sampled_event = self._events[1]
         self.assertEqual(not_sampled_event["statsigMetadata"].get("sampleRate"), None)
-        self.assertEqual(not_sampled_event["statsigMetadata"].get("shadowLogged"), "logged")
+        self.assertEqual(not_sampled_event["statsigMetadata"].get("shadowLogged"), None)
         self.assertEqual(not_sampled_event["statsigMetadata"]["samplingMode"], "shadow")
 
     def test_do_not_apply_shadow_sampling_in_staging(self, mock_request):
@@ -230,12 +230,12 @@ class TestEventSampling(unittest.TestCase):
         self.assertEqual(2, len(self._events))
         sampled_event = self._events[0]
         self.assertEqual(sampled_event["statsigMetadata"].get("sampleRate"), None)
-        self.assertEqual(sampled_event["statsigMetadata"].get("shadowLogged"), 'logged')
+        self.assertEqual(sampled_event["statsigMetadata"].get("shadowLogged"), None)
         self.assertEqual(sampled_event["statsigMetadata"]["samplingMode"], "shadow")
 
         not_sampled_event = self._events[1]
         self.assertEqual(not_sampled_event["statsigMetadata"].get("sampleRate"), None)
-        self.assertEqual(not_sampled_event["statsigMetadata"].get("shadowLogged"), 'logged')
+        self.assertEqual(not_sampled_event["statsigMetadata"].get("shadowLogged"), None)
         self.assertEqual(not_sampled_event["statsigMetadata"]["samplingMode"], "shadow")
 
     def test_do_not_apply_sampling_to_all_exposure_forwarded_gate(self, mock_request):

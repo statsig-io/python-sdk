@@ -541,36 +541,39 @@ class StatsigServer:
             env = self._options.get_sdk_environment_tier()
             sampling_mode = _SDK_Configs.get_config_str_value("sampling_mode")
             special_case_sampling_rate = _SDK_Configs.get_config_int_value("special_case_sampling_rate")
+            special_case_rules = ["disabled", "default", ""]
 
             if sampling_mode is None or sampling_mode == "none" or env != "production":
-                return True, None, "logged"
+                return True, None, None
 
             if result.forward_all_exposures:
-                return True, None, "logged"
+                return True, None, None
 
             samplingSetKey = f"{name}_{result.rule_id}"
             if not self._sampling_key_set.contains(samplingSetKey):
                 self._sampling_key_set.add(samplingSetKey)
-                return True, None, "logged"
+                return True, None, None
+
+            should_sample = result.sample_rate is not None or result.rule_id in special_case_rules
+            if not should_sample:
+                return True, None, None
+
+            exposure_key = ""
+            if type == EntityType.GATE:
+                exposure_key = compute_dedupe_key_for_gate(name, result.rule_id, result.boolean_value,
+                                                           user.user_id, user.custom_ids)
+            elif type == EntityType.CONFIG:
+                exposure_key = compute_dedupe_key_for_config(name, result.rule_id, user.user_id, user.custom_ids)
+            elif type == EntityType.LAYER:
+                exposure_key = compute_dedupe_key_for_layer(name, result.allocated_experiment, param_name,
+                                                            result.rule_id,
+                                                            user.user_id, user.custom_ids)
 
             if result.sample_rate is not None:
-                exposure_key = ""
-                if type == EntityType.GATE:
-                    exposure_key = compute_dedupe_key_for_gate(name, result.rule_id, result.boolean_value,
-                                                               user.user_id, user.custom_ids)
-                elif type == EntityType.CONFIG:
-                    exposure_key = compute_dedupe_key_for_config(name, result.rule_id, user.user_id, user.custom_ids)
-                elif type == EntityType.LAYER:
-                    exposure_key = compute_dedupe_key_for_layer(name, result.allocated_experiment, param_name,
-                                                                result.rule_id,
-                                                                user.user_id, user.custom_ids)
                 shadow_should_log = is_hash_in_sampling_rate(exposure_key, result.sample_rate)
                 logged_sampling_rate = result.sample_rate
-
-            special_case_rules = ["disabled", "default", ""]
-
-            if result.rule_id in special_case_rules and special_case_sampling_rate is not None:
-                shadow_should_log = is_hash_in_sampling_rate(name, special_case_sampling_rate)
+            elif result.rule_id in special_case_rules and special_case_sampling_rate is not None:
+                shadow_should_log = is_hash_in_sampling_rate(exposure_key, special_case_sampling_rate)
                 logged_sampling_rate = special_case_sampling_rate
 
             shadow_logged = None if result.sample_rate is None else "logged" if shadow_should_log else "dropped"
@@ -579,7 +582,7 @@ class StatsigServer:
             if sampling_mode == "shadow":
                 return True, logged_sampling_rate, shadow_logged
 
-            return True, None, "logged"
+            return True, None, None
         except Exception as e:
             self._errorBoundary.log_exception("__determine_sampling", e, log_mode="debug")
             return True, None, None
