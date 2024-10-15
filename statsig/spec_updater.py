@@ -376,7 +376,7 @@ class SpecUpdater:
                 self.get_config_spec(strategy)
                 outof_sync = False
                 time_elapsed = time.time() * 1000 - self.last_update_time
-                if (self._enforce_sync_fallback_threshold_in_ms is not None and time_elapsed > self._enforce_sync_fallback_threshold_in_ms):
+                if self._enforce_sync_fallback_threshold_in_ms is not None and time_elapsed > self._enforce_sync_fallback_threshold_in_ms:
                     outof_sync = True
                 if prev_failure_count == self._sync_failure_count and not outof_sync:
                     globals.logger.log_process("Config Sync", f"Syncing config values with {strategy.value} successful")
