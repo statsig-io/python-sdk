@@ -1,7 +1,7 @@
 import time
+from dataclasses import dataclass, field
 from typing import Union, Optional
 
-from dataclasses import dataclass, field
 from .statsig_errors import StatsigValueError
 from .statsig_user import StatsigUser
 from .utils import to_raw_dict_or_none
@@ -16,7 +16,7 @@ class StatsigEvent:
     """
     user: Optional[StatsigUser]
     event_name: str
-    value: Union[str, int, None] = None
+    value: Union[str, int, float, None] = None
     metadata: Optional[dict] = None
     statsigMetadata: Optional[dict] = None
     _secondary_exposures: Optional[list] = None
