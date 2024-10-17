@@ -576,7 +576,7 @@ class StatsigServer:
                 shadow_should_log = is_hash_in_sampling_rate(exposure_key, special_case_sampling_rate)
                 logged_sampling_rate = special_case_sampling_rate
 
-            shadow_logged = None if result.sample_rate is None else "logged" if shadow_should_log else "dropped"
+            shadow_logged = None if logged_sampling_rate is None else "logged" if shadow_should_log else "dropped"
             if sampling_mode == "on":
                 return shadow_should_log, logged_sampling_rate, shadow_logged
             if sampling_mode == "shadow":
