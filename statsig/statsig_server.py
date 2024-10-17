@@ -1,16 +1,19 @@
 import dataclasses
 import threading
+import time
 from typing import Optional, Union, Tuple
 
 from . import globals
 from .config_evaluation import _ConfigEvaluation
 from .diagnostics import Context, Diagnostics, Marker
 from .dynamic_config import DynamicConfig
+from .evaluation_details import DataSource
 from .evaluator import _Evaluator
 from .feature_gate import FeatureGate
 from .layer import Layer
 from .sdk_configs import _SDK_Configs
 from .spec_store import _SpecStore, EntityType
+from .statsig_context import InitContext
 from .statsig_error_boundary import _StatsigErrorBoundary
 from .statsig_errors import StatsigNameError, StatsigRuntimeError, StatsigValueError
 from .statsig_event import StatsigEvent
@@ -22,9 +25,26 @@ from .statsig_user import StatsigUser
 from .ttl_set import TTLSet
 from .utils import HashingAlgorithm, compute_dedupe_key_for_gate, is_hash_in_sampling_rate, \
     compute_dedupe_key_for_config, compute_dedupe_key_for_layer
+from .version import __version__
 
 RULESETS_SYNC_INTERVAL = 10
 IDLISTS_SYNC_INTERVAL = 60
+
+
+class InitializeDetails:
+    duration: int
+    source: str
+    init_success: bool
+    store_populated: bool
+    error: Optional[Exception]
+
+    def __init__(self, duration: int, source: str, init_success: bool, store_populated: bool,
+                 error: Optional[Exception]):
+        self.duration = duration
+        self.source = source
+        self.init_success = init_success
+        self.error = error
+        self.store_populated = store_populated
 
 
 class StatsigServer:
@@ -48,26 +68,46 @@ class StatsigServer:
     def is_initialized(self):
         return self._initialized
 
-    def initialize(self, sdkKey: str, options: Optional[StatsigOptions] = None):
+    def initialize(self, sdkKey: str, options: Optional[StatsigOptions] = None) -> InitializeDetails:
         if self._initialized:
             globals.logger.info("Statsig is already initialized.")
-            return
+            return InitializeDetails(0, self.get_init_source(), True, self.is_store_populated(), None)
 
         if sdkKey is None or not sdkKey.startswith("secret-"):
             raise StatsigValueError(
                 "Invalid key provided. You must use a Server Secret Key from the Statsig console."
             )
 
-        self._initialize_impl(sdkKey, options)
+        environment_tier = options.get_sdk_environment_tier() if isinstance(options, StatsigOptions) else 'unknown'
+        globals.logger.info(
+            f"Initializing Statsig SDK (v{__version__}) instance. "
+            f"Current environment tier: {environment_tier}."
+        )
+
+        init_details = self._initialize_impl(sdkKey, options)
+
+        if init_details.init_success:
+            if init_details.store_populated:
+                globals.logger.info(
+                    f"Statsig SDK instance initialized successfully with data from {init_details.source}")
+            else:
+                globals.logger.error(
+                    "Statsig SDK instance initialized, but config store is not populated. The SDK is using default values for evaluation.")
+        else:
+            globals.logger.error("Statsig SDK instance Initialized failed!")
+
+        return init_details
 
     def _initialize_impl(self, sdk_key: str, options: Optional[StatsigOptions]):
         threw_error = False
         try:
+            init_context = InitContext()
             diagnostics = Diagnostics()
             diagnostics.add_marker(Marker().overall().start())
 
             self._errorBoundary.set_api_key(sdk_key)
             self._errorBoundary.set_diagnostics(diagnostics)
+            self._errorBoundary.set_init_context(init_context)
             if options is None:
                 options = StatsigOptions()
             self._options = options
@@ -118,12 +158,24 @@ class StatsigServer:
         finally:
             diagnostics.add_marker(Marker().overall().end({"success": not threw_error}))
             diagnostics.log_diagnostics(Context.INITIALIZE)
+            init_context.source = self.get_init_source()
+            init_context.store_populated = self.is_store_populated()
+            init_context.success = not threw_error
+
+        return InitializeDetails(int(time.time() * 1000) - init_context.start_time, init_context.source,
+                                 init_context.success, init_context.store_populated, init_context.error)
 
     def is_store_populated(self):
-        return self._spec_store.last_update_time() > 0
+        try:
+            return self._spec_store.last_update_time() > 0
+        except Exception:
+            return False
 
     def get_init_source(self):
-        return self._spec_store.init_source
+        try:
+            return self._spec_store.init_source
+        except Exception:
+            return DataSource.UNINITIALIZED
 
     def get_feature_gate(self, user: StatsigUser, gate_name: str, log_exposure=True):
         def task():

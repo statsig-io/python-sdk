@@ -26,7 +26,7 @@ def _safe_add_evaluation_to_event(
     if evaluation_details is None or event is None or event.metadata is None:
         return
 
-    event.metadata["reason"] = evaluation_details.reason
+    event.metadata["reason"] = evaluation_details.detailed_reason()
     event.metadata["configSyncTime"] = evaluation_details.config_sync_time
     event.metadata["initTime"] = evaluation_details.init_time
     event.metadata["serverTime"] = evaluation_details.server_time

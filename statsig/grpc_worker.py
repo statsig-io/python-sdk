@@ -2,6 +2,7 @@ from typing import Optional, Callable
 
 import grpc
 
+from .evaluation_details import DataSource
 from .grpc.generated.statsig_forward_proxy_pb2 import ConfigSpecRequest  # pylint: disable=no-name-in-module
 from .grpc.generated.statsig_forward_proxy_pb2_grpc import StatsigForwardProxyStub
 from .interface_network import IStatsigNetworkWorker, NetworkProtocol
@@ -28,9 +29,9 @@ class GRPCWorker(IStatsigNetworkWorker):
         request = ConfigSpecRequest(sdkKey=self.sdk_key, sinceTime=since_time)
         try:
             response = self.stub.getConfigSpec(request)
-            on_complete(response.spec, None)
+            on_complete(DataSource.NETWORK, response.spec, None)
         except Exception as e:
-            on_complete(None, e)
+            on_complete(DataSource.NETWORK, None, e)
 
     def get_id_lists(self, on_complete: Callable, log_on_exception: Optional[bool] = False,
                      init_timeout: Optional[int] = None):

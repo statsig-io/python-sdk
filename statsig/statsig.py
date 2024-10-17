@@ -6,20 +6,20 @@ from .dynamic_config import DynamicConfig
 from .layer import Layer
 from .statsig_event import StatsigEvent
 from .statsig_options import StatsigOptions
-from .statsig_server import StatsigServer
+from .statsig_server import StatsigServer, InitializeDetails
 from .statsig_user import StatsigUser
 from .utils import HashingAlgorithm
-from .version import __version__
 
 __instance = StatsigServer()
 
 
-def initialize(secret_key: str, options: Optional[StatsigOptions] = None):
+def initialize(secret_key: str, options: Optional[StatsigOptions] = None) -> InitializeDetails:
     """
     Initializes the global Statsig instance with the given SDK key and options
 
     :param secret_key: The server SDK key copied from console.statsig.com
     :param options: The StatsigOptions object used to configure the SDK
+    :return: The initialization details
     """
     if options is None:
         options = StatsigOptions()
@@ -29,22 +29,7 @@ def initialize(secret_key: str, options: Optional[StatsigOptions] = None):
     elif options.output_logger_level is not None:
         globals.set_log_level(options.output_logger_level)
 
-    globals.logger.info(
-        f"Initializing Statsig SDK (v{__version__}) instance. "
-        f"Current environment tier: {options.get_sdk_environment_tier()}."
-    )
-
-    __instance.initialize(secret_key, options)
-
-    if __instance.is_initialized():
-        if __instance.is_store_populated():
-            globals.logger.info(
-                f"Statsig SDK instance initialized successfully with data from {__instance.get_init_source()}")
-        else:
-            globals.logger.error(
-                "Statsig SDK instance initialized, but config store is not populated. The SDK is using default values for evaluation.")
-    else:
-        globals.logger.error("Statsig SDK instance Initialized failed!")
+    return __instance.initialize(secret_key, options)
 
 
 def is_initialized():

@@ -147,6 +147,10 @@ class LoggerWorker:
         else:
             self._success_backoff()
 
+    def _get_curr_interval(self):
+        with self.lock:
+            return self._log_interval
+
     def _failure_backoff(self):
         if self._check_override_interval():
             return
@@ -174,7 +178,3 @@ class LoggerWorker:
                 self._log_interval = float(override_interval)
                 return True
             return False
-
-    def _get_curr_interval(self):
-        with self.lock:
-            return self._log_interval

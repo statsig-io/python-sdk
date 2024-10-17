@@ -6,6 +6,7 @@ import requests
 
 from . import globals
 from .diagnostics import Diagnostics, Key, Context, Marker
+from .statsig_context import InitContext
 from .statsig_errors import StatsigNameError, StatsigRuntimeError, StatsigValueError
 from .statsig_options import StatsigOptions
 
@@ -21,6 +22,7 @@ class _StatsigErrorBoundary:
         self._seen = set()
         self._is_silent = is_silent
         self._executor = ThreadPoolExecutor(max_workers=1)
+        self._init_context = None
 
     def set_statsig_options_and_metadata(
             self, statsig_options: StatsigOptions, statsig_metadata: dict
@@ -33,6 +35,9 @@ class _StatsigErrorBoundary:
 
     def set_api_key(self, api_key):
         self._api_key = api_key
+
+    def set_init_context(self, init_context: InitContext):
+        self._init_context = init_context
 
     def capture(self, tag: str, task, recover, extra: Optional[dict] = None):
         markerID = None
@@ -52,6 +57,8 @@ class _StatsigErrorBoundary:
         except (StatsigValueError, StatsigNameError, StatsigRuntimeError) as e:
             raise e
         except Exception as e:
+            if self._init_context is not None:
+                self._init_context.error = e
             self.log_exception(tag, e, extra)
             self._end_diagnostics(markerID, key, False, configName)
             return recover()
@@ -83,6 +90,9 @@ class _StatsigErrorBoundary:
                     globals.logger.warning(full_error_message)
                 elif log_mode == "debug":
                     globals.logger.debug(full_error_message)
+
+            if self._init_context is not None:
+                self._init_context.error = exception
 
             if (hasattr(self._options, "disable_all_logging") and self._options.disable_all_logging):
                 return

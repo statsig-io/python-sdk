@@ -1,4 +1,4 @@
-from .evaluation_details import EvaluationDetails, EvaluationReason
+from .evaluation_details import EvaluationDetails, EvaluationReason, DataSource
 
 
 class _ConfigEvaluation:
@@ -35,7 +35,7 @@ class _ConfigEvaluation:
         self.explicit_parameters = explicit_parameters
         self.is_experiment_group = is_experiment_group is True
         if evaluation_details is None:
-            evaluation_details = EvaluationDetails(0, 0, EvaluationReason.unrecognized)
+            evaluation_details = EvaluationDetails(0, 0, DataSource.UNINITIALIZED, EvaluationReason.none)
         self.evaluation_details = evaluation_details
         self.group_name = group_name
         self.sample_rate = sample_rate

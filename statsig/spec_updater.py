@@ -5,13 +5,13 @@ from typing import Optional, Callable, List, Any, Tuple
 
 from . import globals
 from .diagnostics import Diagnostics, Marker, Context, Key
-from .evaluation_details import EvaluationReason
+from .evaluation_details import DataSource
 from .interface_data_store import IDataStore
 from .interface_network import IStreamingListeners
 from .statsig_error_boundary import _StatsigErrorBoundary
 from .statsig_errors import StatsigValueError, StatsigNameError
 from .statsig_network import _StatsigNetwork
-from .statsig_options import DataSource, StatsigOptions
+from .statsig_options import StatsigOptions
 from .thread_util import spawn_background_thread, THREAD_JOIN_TIMEOUT
 from .utils import djb2_hash
 
@@ -84,9 +84,9 @@ class SpecUpdater:
         self.id_lists_listener = listener
 
     def register_process_dcs_listener(self, listener: Callable):
-        def dcs_listener_with_lock(spec_json, reason: EvaluationReason) -> bool:
+        def dcs_listener_with_lock(spec_json, source: DataSource) -> bool:
             with self._dcs_process_lock:
-                return listener(spec_json, reason)
+                return listener(spec_json, source)
 
         self.dcs_listener = dcs_listener_with_lock
 
@@ -118,7 +118,7 @@ class SpecUpdater:
                 self._log_process("Done loading specs")
                 _, parse_success = False, False
                 if self.dcs_listener is not None:
-                    _, parse_success = self.dcs_listener(cache, EvaluationReason.data_adapter)
+                    _, parse_success = self.dcs_listener(cache, DataSource.DATASTORE)
                 self._diagnostics.add_marker(
                     Marker()
                     .data_store_config_specs()
@@ -147,7 +147,7 @@ class SpecUpdater:
             self._sync_failure_count += 1
         return success
 
-    def _on_dcs_complete(self, specs: dict, error: Optional[Exception]):
+    def _on_dcs_complete(self, data_source: DataSource, specs: Optional[dict], error: Optional[Exception]):
         def process() -> Tuple[bool, Optional[Exception]]:
             if error is not None:
                 return False, error
@@ -162,7 +162,7 @@ class SpecUpdater:
                 self._log_process("Done loading specs")
                 has_update, parse_success = False, False
                 if self.dcs_listener is not None:
-                    has_update, parse_success = self.dcs_listener(specs, EvaluationReason.network)
+                    has_update, parse_success = self.dcs_listener(specs, data_source)
                 if has_update:
                     self._save_to_storage_adapter(specs)
                 return parse_success, None
@@ -221,7 +221,7 @@ class SpecUpdater:
             if specs is None or not self.is_specs_json_valid(specs):
                 return
             if self.dcs_listener is not None:
-                _, success = self.dcs_listener(specs, EvaluationReason.bootstrap)
+                _, success = self.dcs_listener(specs, DataSource.BOOTSTRAP)
 
         except ValueError:
             # JSON decoding failed, just let background thread update rulesets
@@ -327,7 +327,7 @@ class SpecUpdater:
                 if self.last_update_time > lcut:
                     return
                 if self.dcs_listener is not None:
-                    self.dcs_listener(specs, EvaluationReason.network)
+                    self.dcs_listener(specs, DataSource.NETWORK)
 
             def on_error_dcs(e: Exception):
                 # pylint: disable=unused-argument

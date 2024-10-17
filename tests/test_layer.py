@@ -1,7 +1,7 @@
 import unittest
 
 from statsig import Layer
-from statsig.evaluation_details import EvaluationDetails, EvaluationReason
+from statsig.evaluation_details import EvaluationDetails, EvaluationReason, DataSource
 
 
 class TestLayer(unittest.TestCase):
@@ -56,10 +56,10 @@ class TestLayer(unittest.TestCase):
             "bool": True,
             "arr": [17],
         }, "default", evaluation_details=EvaluationDetails(123, 123,
-                                                           EvaluationReason.network))
+                                                           DataSource.NETWORK))
 
         self.assertEqual(layer.get_evaluation_details().config_sync_time, 123)
-        self.assertEqual(layer.get_evaluation_details().reason, EvaluationReason.network)
+        self.assertEqual(layer.get_evaluation_details().source, DataSource.NETWORK)
 
         layer = Layer._create('no_eval', {
             "str": "string",
@@ -75,17 +75,17 @@ class TestLayer(unittest.TestCase):
             "num": 4,
             "bool": True,
             "arr": [17],
-        }, "default", evaluation_details=EvaluationDetails(123, 123, EvaluationReason.uninitialized))
+        }, "default", evaluation_details=EvaluationDetails(123, 123, DataSource.UNINITIALIZED))
 
         self.assertEqual(layer.get_evaluation_details().config_sync_time, 123)
-        self.assertEqual(layer.get_evaluation_details().reason, EvaluationReason.uninitialized)
+        self.assertEqual(layer.get_evaluation_details().source, DataSource.UNINITIALIZED)
 
         layer = Layer._create('error', {
             "str": "string",
             "num": 4,
             "bool": True,
             "arr": [17],
-        }, "default", evaluation_details=EvaluationDetails(123, 123, EvaluationReason.error))
+        }, "default", evaluation_details=EvaluationDetails(123, 123, DataSource.UNINITIALIZED, EvaluationReason.error))
 
         self.assertEqual(layer.get_evaluation_details().config_sync_time, 123)
         self.assertEqual(layer.get_evaluation_details().reason, EvaluationReason.error)

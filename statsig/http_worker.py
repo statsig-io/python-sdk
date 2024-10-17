@@ -9,6 +9,7 @@ import requests
 
 from . import globals
 from .diagnostics import Diagnostics, Marker
+from .evaluation_details import DataSource
 from .interface_network import IStatsigNetworkWorker, NetworkProtocol, NetworkEndpoint
 from .sdk_configs import _SDK_Configs
 from .statsig_error_boundary import _StatsigErrorBoundary
@@ -48,9 +49,9 @@ class HttpWorker(IStatsigNetworkWorker):
             headers=None, init_timeout=init_timeout, log_on_exception=log_on_exception,
             tag="download_config_specs")
         if response is not None and self._is_success_code(response.status_code):
-            on_complete(response.json() or {}, None)
+            on_complete(DataSource.NETWORK, response.json() or {}, None)
             return
-        on_complete(None, None)
+        on_complete(DataSource.NETWORK, None, None)
 
     def get_dcs_fallback(self, on_complete: Callable, since_time=0, log_on_exception=False, init_timeout=None):
         response = self._get_request(
@@ -58,9 +59,9 @@ class HttpWorker(IStatsigNetworkWorker):
             headers=None, init_timeout=init_timeout, log_on_exception=log_on_exception,
             tag="download_config_specs")
         if response is not None and self._is_success_code(response.status_code):
-            on_complete(response.json() or {}, None)
+            on_complete(DataSource.STATSIG_NETWORK, response.json() or {}, None)
             return
-        on_complete(None, None)
+        on_complete(DataSource.STATSIG_NETWORK, None, None)
 
     def get_id_lists(self, on_complete: Callable, log_on_exception=False, init_timeout=None):
         response = self._post_request(

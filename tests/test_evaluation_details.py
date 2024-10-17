@@ -3,10 +3,10 @@ import os
 import unittest
 from unittest.mock import patch
 
-from statsig import StatsigOptions, StatsigServer, _Evaluator, StatsigUser, IDataStore
-from statsig.evaluation_details import EvaluationReason
 from gzip_helpers import GzipHelpers
 from network_stub import NetworkStub
+from statsig import StatsigOptions, StatsigServer, _Evaluator, StatsigUser, IDataStore
+from statsig.evaluation_details import DataSource
 
 with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), '../testdata/download_config_specs.json')) as r:
     CONFIG_SPECS_RESPONSE = r.read()
@@ -62,7 +62,7 @@ class TestEvaluationDetails(unittest.TestCase):
         self._assert_event_equal = assert_event_equal
 
     def test_uninitialized(self, mock_request, mock_time):
-        self._evaluator._spec_store.init_reason = EvaluationReason.uninitialized
+        self._evaluator._spec_store.init_source = DataSource.UNINITIALIZED
 
         self._server.check_gate(self._user, "always_on_gate")
         self._server.get_config(self._user, "test_config")
@@ -96,15 +96,15 @@ class TestEvaluationDetails(unittest.TestCase):
         self.assertEqual(len(self._events), 3)
         self._assert_event_equal(self._events[0], {
             "eventName": "statsig::gate_exposure",
-            "reason": "Unrecognized"
+            "reason": "Network:Unrecognized"
         })
         self._assert_event_equal(self._events[1], {
             "eventName": "statsig::config_exposure",
-            "reason": "Unrecognized",
+            "reason": "Network:Unrecognized",
         })
         self._assert_event_equal(self._events[2], {
             "eventName": "statsig::config_exposure",
-            "reason": "Unrecognized"
+            "reason": "Network:Unrecognized"
         })
 
     def test_network(self, mock_request, mock_time):
@@ -140,11 +140,11 @@ class TestEvaluationDetails(unittest.TestCase):
         self.assertEqual(len(self._events), 2)
         self._assert_event_equal(self._events[0], {
             "eventName": "statsig::gate_exposure",
-            "reason": "LocalOverride"
+            "reason": "Network:LocalOverride"
         })
         self._assert_event_equal(self._events[1], {
             "eventName": "statsig::config_exposure",
-            "reason": "LocalOverride",
+            "reason": "Network:LocalOverride",
         })
 
     def test_bootstrap(self, mock_request, mock_time):

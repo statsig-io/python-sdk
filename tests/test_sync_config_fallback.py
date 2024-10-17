@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from network_stub import NetworkStub
 from statsig import StatsigOptions, statsig, StatsigUser
-from statsig.evaluation_details import EvaluationDetails, EvaluationReason
+from statsig.evaluation_details import EvaluationDetails
 from statsig.statsig_options import DataSource
 
 _network_stub = NetworkStub("http://test-sync-config-fallback", mock_statsig_api=True)
@@ -64,7 +64,7 @@ class TestSyncConfigFallback(unittest.TestCase):
         statsig.initialize("secret-key", options)
         gate = statsig.get_feature_gate(self.test_user, "always_on_gate")
         eval_detail: EvaluationDetails = gate.get_evaluation_details()
-        self.assertEqual(eval_detail.reason, EvaluationReason.network)
+        self.assertEqual(eval_detail.source, DataSource.NETWORK)
         self.assertEqual(eval_detail.config_sync_time, 1631638014811)
         time.sleep(1.1)
         self.assertFalse(self.__class__.statsig_dcs_called)
@@ -75,7 +75,7 @@ class TestSyncConfigFallback(unittest.TestCase):
         statsig.initialize("secret-key", options)
         gate = statsig.get_feature_gate(self.test_user, "always_on_gate")
         eval_detail: EvaluationDetails = gate.get_evaluation_details()
-        self.assertEqual(eval_detail.reason, EvaluationReason.network)
+        self.assertEqual(eval_detail.source, DataSource.NETWORK)
         self.assertEqual(eval_detail.config_sync_time, 1631638014811)
         time.sleep(1.1)
         self.assertTrue(self.__class__.statsig_dcs_called)
@@ -86,7 +86,7 @@ class TestSyncConfigFallback(unittest.TestCase):
         statsig.initialize("secret-key", options)
         gate = statsig.get_feature_gate(self.test_user, "always_on_gate")
         eval_detail: EvaluationDetails = gate.get_evaluation_details()
-        self.assertEqual(eval_detail.reason, EvaluationReason.network)
+        self.assertEqual(eval_detail.source, DataSource.NETWORK)
         self.assertEqual(eval_detail.config_sync_time, 1631638014811)
         time.sleep(1.1)
         self.assertFalse(self.__class__.statsig_dcs_called)
@@ -95,8 +95,8 @@ class TestSyncConfigFallback(unittest.TestCase):
         self.__class__.status_code = 400
         options = StatsigOptions(api_for_download_config_specs=_network_stub.host, fallback_to_statsig_api=True,
                                  rulesets_sync_interval=1)
-        statsig.initialize("secret-key", options)
-        self.assertEqual(statsig.get_instance()._spec_store.init_source, DataSource.STATSIG_NETWORK)
+        init_context = statsig.initialize("secret-key", options)
+        self.assertEqual(init_context.source, DataSource.STATSIG_NETWORK)
         self.get_gate_and_validate()
         self.wait_for_sync_and_validate()
 
@@ -145,7 +145,7 @@ class TestSyncConfigFallback(unittest.TestCase):
     def get_gate_and_validate(self):
         gate = statsig.get_feature_gate(self.test_user, "always_on_gate")
         eval_detail: EvaluationDetails = gate.get_evaluation_details()
-        self.assertEqual(eval_detail.reason, EvaluationReason.network)
+        self.assertEqual(eval_detail.source, DataSource.STATSIG_NETWORK)
         self.assertEqual(eval_detail.config_sync_time, 1631638014811)
         self.assertTrue(self.__class__.dcs_called)
         self.assertTrue(self.__class__.statsig_dcs_called)

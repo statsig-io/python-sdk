@@ -7,12 +7,12 @@ from typing import List, Optional, Dict, Set, Tuple
 from . import globals
 from .constants import Const
 from .diagnostics import Context, Diagnostics, Marker
-from .evaluation_details import EvaluationReason
+from .evaluation_details import EvaluationReason, DataSource
 from .sdk_configs import _SDK_Configs
 from .spec_updater import SpecUpdater
 from .statsig_error_boundary import _StatsigErrorBoundary
 from .statsig_network import _StatsigNetwork
-from .statsig_options import DataSource, StatsigOptions
+from .statsig_options import StatsigOptions
 from .utils import djb2_hash
 
 
@@ -37,8 +37,8 @@ class _SpecStore:
             diagnostics: Diagnostics,
     ):
         self.initial_update_time = 0
-        self.init_reason = EvaluationReason.uninitialized
-        self.init_source = DataSource.NETWORK
+        self.init_reason = EvaluationReason.none
+        self.init_source = DataSource.UNINITIALIZED
         self._options = options
         self._statsig_metadata = statsig_metadata
         self._error_boundary = error_boundary
@@ -140,11 +140,11 @@ class _SpecStore:
         initialize_strategies = self._get_initialize_strategy()
         for strategy in initialize_strategies:
             self.spec_updater.get_config_spec(strategy, True)
-            if self.init_reason is EvaluationReason.bootstrap or self.last_update_time() != 0:
+            if self.init_source is DataSource.BOOTSTRAP or self.last_update_time() != 0:
                 self.init_source = strategy
                 break
 
-    def _process_specs(self, specs_json, reason: EvaluationReason) -> Tuple[bool, bool]:  # has update, parse success
+    def _process_specs(self, specs_json, source: DataSource) -> Tuple[bool, bool]:  # has update, parse success
         self._log_process("Processing specs...")
         if specs_json.get("has_updates", False) is False:
             globals.logger.debug("Received update: %s", "No Update")
@@ -229,7 +229,7 @@ class _SpecStore:
         self._layers = new_layers
         self._experiment_to_layer = new_experiment_to_layer
         self.spec_updater.last_update_time = specs_json.get("time", 0)
-        self.init_reason = reason
+        self.init_source = source
         globals.logger.debug("Received update: %s", self.spec_updater.last_update_time)
 
         flags = specs_json.get("sdk_flags", {})

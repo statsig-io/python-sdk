@@ -10,6 +10,7 @@ import grpc
 
 from . import globals
 from .diagnostics import Marker, Diagnostics
+from .evaluation_details import DataSource
 from .grpc.generated.statsig_forward_proxy_pb2 import (ConfigSpecRequest)  # pylint: disable=no-name-in-module
 from .grpc.generated.statsig_forward_proxy_pb2_grpc import StatsigForwardProxyStub
 from .interface_network import (
@@ -224,7 +225,7 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
                     }
                 )
             )
-            on_complete(json.loads(dcs_data.spec), None)
+            on_complete(DataSource.NETWORK, json.loads(dcs_data.spec), None)
         except Exception as e:
             self.error_boundary.log_exception("grpcWebSocket:initialize", e)
             self._diagnostics.add_marker(
@@ -239,7 +240,7 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
                     }
                 )
             )
-            on_complete(None, e)
+            on_complete(DataSource.NETWORK, None, e)
 
     def get_id_lists(
             self,

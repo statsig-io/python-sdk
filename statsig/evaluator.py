@@ -3,7 +3,7 @@ import re
 import time
 from datetime import datetime
 from hashlib import sha256
-from typing import Dict
+from typing import Dict, Optional
 
 from ip3country import CountryLookup
 from ua_parser import user_agent_parser
@@ -11,7 +11,7 @@ from ua_parser import user_agent_parser
 from . import globals
 from .client_initialize_formatter import ClientInitializeResponseFormatter
 from .config_evaluation import _ConfigEvaluation
-from .evaluation_details import EvaluationDetails, EvaluationReason
+from .evaluation_details import EvaluationDetails, EvaluationReason, DataSource
 from .spec_store import _SpecStore
 from .statsig_user import StatsigUser
 from .utils import HashingAlgorithm, sha256_hash
@@ -105,20 +105,23 @@ class _Evaluator:
             .get_formatted_response(self.__eval_config, user, self._spec_store, self, hash, client_sdk_key,
                                     include_local_override)
 
-    def _create_evaluation_details(self, reason: EvaluationReason):
-        if reason == EvaluationReason.uninitialized:
-            return EvaluationDetails(0, 0, reason)
+    def _create_evaluation_details(self,
+                                   reason: EvaluationReason = EvaluationReason.none,
+                                   source: Optional[DataSource] = None):
+        if source is None:
+            source = self._spec_store.init_source
+        if source == DataSource.UNINITIALIZED:
+            return EvaluationDetails(0, 0, source, reason)
 
         return EvaluationDetails(
-            self._spec_store.last_update_time(), self._spec_store.initial_update_time, reason)
+            self._spec_store.last_update_time(), self._spec_store.initial_update_time, source, reason)
 
     def __lookup_gate_override(self, user, gate):
         gate_overrides = self._gate_overrides.get(gate)
         if gate_overrides is None:
             return None
 
-        eval_details = self._create_evaluation_details(
-            EvaluationReason.local_override)
+        eval_details = self._create_evaluation_details(EvaluationReason.local_override)
         override = self.__lookup_override(gate_overrides, user)
         if override is not None:
             return _ConfigEvaluation(boolean_value=override, rule_id="override",
@@ -139,8 +142,7 @@ class _Evaluator:
         if config_overrides is None:
             return None
 
-        eval_details = self._create_evaluation_details(
-            EvaluationReason.local_override)
+        eval_details = self._create_evaluation_details(EvaluationReason.local_override)
         override = self.__lookup_override(config_overrides, user)
         if override is not None:
             return _ConfigEvaluation(json_value=override, rule_id="override",
@@ -160,8 +162,7 @@ class _Evaluator:
         if layer_overrides is None:
             return None
 
-        eval_details = self._create_evaluation_details(
-            EvaluationReason.local_override)
+        eval_details = self._create_evaluation_details(EvaluationReason.local_override)
         override = self.__lookup_override(layer_overrides, user)
         if override is not None:
             return _ConfigEvaluation(json_value=override, rule_id="override",
@@ -185,21 +186,18 @@ class _Evaluator:
     def unsupported_or_unrecognized(self, config_name):
         if config_name in self._spec_store.unsupported_configs:
             return _ConfigEvaluation(
-                evaluation_details=self._create_evaluation_details(
-                    EvaluationReason.unsupported))
+                evaluation_details=self._create_evaluation_details(EvaluationReason.unsupported))
         return _ConfigEvaluation(
-            evaluation_details=self._create_evaluation_details(
-                EvaluationReason.unrecognized))
+            evaluation_details=self._create_evaluation_details(EvaluationReason.unrecognized))
 
     def check_gate(self, user, gate, end_result=None, is_nested=False):
         override = self.__lookup_gate_override(user, gate)
         if override is not None:
             return override
 
-        if self._spec_store.init_reason == EvaluationReason.uninitialized:
+        if self._spec_store.init_source == DataSource.UNINITIALIZED:
             return _ConfigEvaluation(
-                evaluation_details=self._create_evaluation_details(
-                    EvaluationReason.uninitialized))
+                evaluation_details=self._create_evaluation_details())
         eval_gate = self._spec_store.get_gate(gate)
         if eval_gate is None:
             globals.logger.debug(f"Gate {gate} not found in the store. Are you sure the gate name is correct?")
@@ -214,10 +212,9 @@ class _Evaluator:
         if override is not None:
             return override
 
-        if self._spec_store.init_reason == EvaluationReason.uninitialized:
+        if self._spec_store.init_source == DataSource.UNINITIALIZED:
             return _ConfigEvaluation(
-                evaluation_details=self._create_evaluation_details(
-                    EvaluationReason.uninitialized))
+                evaluation_details=self._create_evaluation_details())
 
         eval_config = self._spec_store.get_config(config_name)
         if eval_config is None:
@@ -234,10 +231,9 @@ class _Evaluator:
         if override is not None:
             return override
 
-        if self._spec_store.init_reason == EvaluationReason.uninitialized:
-            return _ConfigEvaluation(
-                evaluation_details=self._create_evaluation_details(
-                    EvaluationReason.uninitialized))
+        if self._spec_store.init_source == DataSource.UNINITIALIZED:
+            return _ConfigEvaluation(evaluation_details=
+                                     self._create_evaluation_details())
 
         eval_layer = self._spec_store.get_layer(layer_name)
         if eval_layer is None:
@@ -249,18 +245,15 @@ class _Evaluator:
 
     def __eval_config(self, user, config, end_result, is_nested=False):
         if config is None:
-            end_result.evaluation_details = self._create_evaluation_details(
-                EvaluationReason.unrecognized)
+            end_result.evaluation_details = self._create_evaluation_details(EvaluationReason.unrecognized)
             return
         try:
             self.__evaluate(user, config, end_result, is_nested)
-            end_result.evaluation_details = self._create_evaluation_details(
-                self._spec_store.init_reason)
+            end_result.evaluation_details = self._create_evaluation_details()
         except RecursionError:
             raise
         except Exception:
-            end_result.evaluation_details = self._create_evaluation_details(
-                EvaluationReason.error)
+            end_result.evaluation_details = self._create_evaluation_details(EvaluationReason.error)
             end_result.rule_id = "error"
 
     def __check_id_in_list(self, id, list_name):

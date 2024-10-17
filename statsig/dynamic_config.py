@@ -1,7 +1,7 @@
 from typing import Optional
 
+from statsig.evaluation_details import EvaluationDetails, EvaluationReason, DataSource
 from statsig.statsig_user import StatsigUser
-from statsig.evaluation_details import EvaluationDetails, EvaluationReason
 
 
 class DynamicConfig:
@@ -19,7 +19,7 @@ class DynamicConfig:
         self.rule_id = rule
         self.group_name = group_name
         if evaluation_details is None:
-            evaluation_details = EvaluationDetails(0, 0, EvaluationReason.uninitialized)
+            evaluation_details = EvaluationDetails(0, 0, DataSource.UNINITIALIZED, EvaluationReason.none)
         self.evaluation_details = evaluation_details
         if secondary_exposures is None:
             secondary_exposures = []

@@ -2,6 +2,7 @@ from enum import Enum
 from typing import List, Optional, Union, Callable, Dict, Any
 
 from .dynamic_config import DynamicConfig
+from .evaluation_details import DataSource
 from .feature_gate import FeatureGate
 from .interface_data_store import IDataStore
 from .interface_network import NetworkProtocol, NetworkEndpoint
@@ -60,13 +61,6 @@ class ProxyConfig:
         self.tls_client_cert_path = tls_client_cert_path
         self.tls_client_key_path = tls_client_key_path
         self.tls_ca_cert_path = tls_ca_cert_path
-
-
-class DataSource(str, Enum):
-    DATASTORE = "datastore"
-    BOOTSTRAP = "bootstrap"
-    NETWORK = "network"
-    STATSIG_NETWORK = "statsig_network"
 
 
 DEFAULT_PROXY_CONFIG = {
