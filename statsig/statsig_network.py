@@ -169,7 +169,7 @@ class _StatsigNetwork:
             init_timeout: Optional[int] = None,
     ):
         if self.statsig_options.local_mode:
-            globals.logger.warning("Local mode is enabled. Not fetching DCS.")
+            globals.logger.warning("Local mode is enabled. Not fetching DCS with fallback.")
             return
         dcs_proxy = self.statsig_options.proxy_configs.get(NetworkEndpoint.DOWNLOAD_CONFIG_SPECS)
         is_proxy_dcs = (
@@ -198,7 +198,7 @@ class _StatsigNetwork:
             init_timeout: Optional[int] = None,
     ):
         if self.statsig_options.local_mode:
-            globals.logger.warning("Local mode is enabled. Not fetching ID Lists.")
+            globals.logger.warning("Local mode is enabled. Not fetching ID Lists with fallback.")
             return
         if not self.statsig_options.fallback_to_statsig_api:
             return

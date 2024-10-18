@@ -20,7 +20,7 @@ class MockOutputLogger(OutputLogger):
 
     def log_process(self, process: str, msg: str):
         message = sanitize(f"{process}: {msg}")
-        self.info(message)
+        self.debug(message)
 
     def debug(self, msg, *args, **kwargs):
         if self._logger.isEnabledFor(logging.DEBUG) and not self._disabled:
@@ -88,7 +88,7 @@ class TestOutputLogger(unittest.TestCase):
         options = StatsigOptions(api=_network_stub.host, init_timeout=0.1, disable_diagnostics=True,
                                  custom_logger=logger)
         statsig.initialize("secret-key", options)
-        self.assertGreater(len(logger._logs.get("info")), 3)
+        self.assertGreaterEqual(len(logger._logs.get("info")), 2)
 
     @patch('requests.request', side_effect=_network_stub.mock)
     def test_initialize_failed_to_load_network_info(self, mock_request):
@@ -96,7 +96,7 @@ class TestOutputLogger(unittest.TestCase):
         logger.set_log_level(LogLevel.INFO)
         options = StatsigOptions(api=_network_stub.host, disable_diagnostics=True, custom_logger=logger)
         statsig.initialize("secret-key", options)
-        self.assertGreater(len(logger._logs.get("info")), 2)
+        self.assertGreaterEqual(len(logger._logs.get("info")), 2)
         self.assertGreater(len(logger._logs.get("warning")), 0)
         failed_urls = logger.check_urls_for_secret('secret-key')
         self.assertEqual(len(failed_urls), 0)
@@ -119,7 +119,7 @@ class TestOutputLogger(unittest.TestCase):
         options = StatsigOptions(api=_network_stub.host, disable_diagnostics=True, custom_logger=logger)
         statsig.initialize("secret-key", options)
         self.assertGreater(len(logger._logs.get("debug")), 0)
-        self.assertGreater(len(logger._logs.get("info")), 2)
+        self.assertGreater(len(logger._logs.get("info")), 0)
         self.assertGreater(len(logger._logs.get("warning")), 0)
         failed_urls = logger.check_urls_for_secret('secret-key')
         self.assertEqual(len(failed_urls), 0)

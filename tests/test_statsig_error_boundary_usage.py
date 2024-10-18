@@ -1,12 +1,12 @@
 import unittest
+from unittest.mock import patch
 
 from statsig.dynamic_config import DynamicConfig
 from statsig.layer import Layer
-from statsig.spec_updater import SpecUpdater
 from statsig.statsig_event import StatsigEvent
+from statsig.statsig_options import StatsigOptions
 from statsig.statsig_server import StatsigServer
 from statsig.statsig_user import StatsigUser
-from unittest.mock import patch
 
 
 def mocked_post(*args, **kwargs):
@@ -63,12 +63,12 @@ class TestStatsigErrorBoundaryUsage(unittest.TestCase):
     def test_errors_with_initialize(self, mock_post):
         statsig = StatsigServer()
         TestStatsigErrorBoundaryUsage.requests = []
-        statsig.initialize("secret-key", "_BAD_OPTIONS_")
+        statsig.initialize("secret-key", StatsigOptions(proxy_configs="proxy_configs"))
 
         self.assertEqual(len(_get_requests(statsig)), 1)
         trace = _get_requests(self._instance)[0]['body']['info']
         self.assertIn(
-            "AttributeError: 'str' object has no attribute \'proxy_configs\'", trace)
+            "AttributeError: \'str\' object has no attribute \'get\'", trace)
         self.assertTrue(statsig._initialized)
 
     def test_errors_with_check_gate(self, mock_post):

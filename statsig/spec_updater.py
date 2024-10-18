@@ -250,7 +250,7 @@ class SpecUpdater:
                 init_timeout = self._options.init_timeout
 
             self._network.get_id_lists(on_complete, False, init_timeout)
-            if result[0] is False:
+            if result[0] is False and self._options.fallback_to_statsig_api:
                 self._network.get_id_lists_fallback(on_complete, False, init_timeout)
 
         except Exception as e:

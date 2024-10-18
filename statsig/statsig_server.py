@@ -78,13 +78,28 @@ class StatsigServer:
                 "Invalid key provided. You must use a Server Secret Key from the Statsig console."
             )
 
-        environment_tier = options.get_sdk_environment_tier() if isinstance(options, StatsigOptions) else 'unknown'
+        if options is None or not isinstance(options, StatsigOptions):
+            options = StatsigOptions()
+
+        environment_tier = options.get_sdk_environment_tier() or 'unknown'
         globals.logger.info(
             f"Initializing Statsig SDK (v{__version__}) instance. "
             f"Current environment tier: {environment_tier}."
         )
 
         init_details = self._initialize_impl(sdkKey, options)
+        self._post_init_logging(options, init_details)
+
+        return init_details
+
+    def _post_init_logging(self, options: StatsigOptions, init_details: InitializeDetails):
+        if options.local_mode:
+            if init_details.init_success:
+                globals.logger.info(
+                    "Statsig SDK instance initialized in local mode. No data will be fetched from the Statsig servers.")
+            else:
+                globals.logger.error("Statsig SDK instance failed to initialize in local mode.")
+            return
 
         if init_details.init_success:
             if init_details.store_populated:
@@ -95,8 +110,6 @@ class StatsigServer:
                     "Statsig SDK instance initialized, but config store is not populated. The SDK is using default values for evaluation.")
         else:
             globals.logger.error("Statsig SDK instance Initialized failed!")
-
-        return init_details
 
     def _initialize_impl(self, sdk_key: str, options: Optional[StatsigOptions]):
         threw_error = False
@@ -599,6 +612,9 @@ class StatsigServer:
                 return True, None, None
 
             if result.forward_all_exposures:
+                return True, None, None
+
+            if result.rule_id.endswith((':override', ':id_override')):
                 return True, None, None
 
             samplingSetKey = f"{name}_{result.rule_id}"

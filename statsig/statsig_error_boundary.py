@@ -78,7 +78,7 @@ class _StatsigErrorBoundary:
             exception: Exception,
             extra: Optional[dict] = None,
             bypass_dedupe: bool = False,
-            log_mode: Optional[str] = "warning",  # warn/debug based on error severity
+            log_mode: Optional[str] = "warning",  # warn/debug/none based on error severity
     ):
         try:
             stack_trace = traceback.format_exc()

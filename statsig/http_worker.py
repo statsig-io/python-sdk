@@ -211,10 +211,9 @@ class HttpWorker(IStatsigNetworkWorker):
                 globals.logger.warning(
                     f"Request to {url} failed with code {response.status_code}"
                 )
-                globals.logger.warning(response.text)
             return response
         except Exception as err:
-            globals.logger.debug(f"Request to {url} failed with error {err}")
+            globals.logger.warning(f"Request to {url} failed with error {err}")
             if create_marker is not None:
                 self.__diagnostics.add_marker(
                     create_marker().end(
@@ -235,6 +234,7 @@ class HttpWorker(IStatsigNetworkWorker):
                     "request:" + tag,
                     err,
                     {"timeoutMs": timeout * 1000, "httpMethod": method},
+                    log_mode="none",
                 )
             return None
 
