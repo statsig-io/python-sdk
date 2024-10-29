@@ -80,6 +80,7 @@ class _StatsigLogger:
             gate,
             value,
             rule_id,
+            version,
             secondary_exposures,
             evaluation_details: EvaluationDetails,
             is_manual_exposure=False,
@@ -93,6 +94,9 @@ class _StatsigLogger:
             "gateValue": "true" if value else "false",
             "ruleID": rule_id,
         }
+
+        if version is not None:
+            event.metadata["configVersion"] = version
         event.statsigMetadata = {}
         if not self._is_unique_exposure(user, _GATE_EXPOSURE_EVENT, event.metadata):
             return
@@ -118,6 +122,8 @@ class _StatsigLogger:
             user,
             config,
             rule_id,
+            passed_rule,
+            version,
             secondary_exposures,
             evaluation_details: EvaluationDetails,
             is_manual_exposure=False,
@@ -129,7 +135,10 @@ class _StatsigLogger:
         event.metadata = {
             "config": config,
             "ruleID": rule_id,
+            "rulePassed": "true" if passed_rule else "false",
         }
+        if version is not None:
+            event.metadata["configVersion"] = version
         event.statsigMetadata = {}
 
         if not self._is_unique_exposure(user, _CONFIG_EXPOSURE_EVENT, event.metadata):
@@ -177,6 +186,8 @@ class _StatsigLogger:
             "parameterName": parameter_name,
             "isExplicitParameter": "true" if is_explicit else "false",
         }
+        if config_evaluation.version is not None:
+            metadata["configVersion"] = config_evaluation.version
         if not self._is_unique_exposure(user, _LAYER_EXPOSURE_EVENT, metadata):
             return
         event.metadata = metadata

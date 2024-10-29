@@ -203,7 +203,7 @@ class _Evaluator:
             globals.logger.debug(f"Gate {gate} not found in the store. Are you sure the gate name is correct?")
             return self.unsupported_or_unrecognized(gate)
         if end_result is None:
-            end_result = _ConfigEvaluation()
+            end_result = _ConfigEvaluation(version=eval_gate.get("version", None))
         self.__eval_config(user, eval_gate, end_result, is_nested)
         return end_result
 
@@ -222,7 +222,7 @@ class _Evaluator:
                 f"{'Config' if is_exp else 'Experiment'} {config_name} not found in the store. Are you sure the config name is correct?"
             )
             return self.unsupported_or_unrecognized(config_name)
-        result = _ConfigEvaluation()
+        result = _ConfigEvaluation(version=eval_config.get("version", None))
         self.__eval_config(user, eval_config, result)
         return result
 
@@ -239,7 +239,7 @@ class _Evaluator:
         if eval_layer is None:
             globals.logger.debug(f"Layer {layer_name} not found in the store. Are you sure the layer name is correct?")
             return self.unsupported_or_unrecognized(layer_name)
-        result = _ConfigEvaluation()
+        result = _ConfigEvaluation(version=eval_layer.get("version", None))
         self.__eval_config(user, eval_layer, result)
         return result
 

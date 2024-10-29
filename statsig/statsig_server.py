@@ -234,6 +234,7 @@ class StatsigServer:
             gate_name,
             result.boolean_value,
             result.rule_id,
+            result.version,
             result.secondary_exposures,
             result.evaluation_details,
             is_manual_exposure=True,
@@ -255,7 +256,9 @@ class StatsigServer:
                 result.user,
                 group_name=result.group_name,
                 evaluation_details=result.evaluation_details,
-                secondary_exposures=result.secondary_exposures
+                secondary_exposures=result.secondary_exposures,
+                passed_rule=result.boolean_value,
+                version=result.version,
             )
             self.safe_eval_callback(dynamicConfig)
             return dynamicConfig
@@ -274,6 +277,8 @@ class StatsigServer:
             user,
             config_name,
             result.rule_id,
+            result.boolean_value,
+            result.version,
             result.secondary_exposures,
             result.evaluation_details,
             is_manual_exposure=True,
@@ -285,6 +290,8 @@ class StatsigServer:
             user,
             config_eval.name,
             config_eval.rule_id,
+            config_eval.passed_rule,
+            config_eval.version,
             config_eval.secondary_exposures,
             config_eval.evaluation_details,
             is_manual_exposure=True,
@@ -308,6 +315,8 @@ class StatsigServer:
                 group_name=result.group_name,
                 evaluation_details=result.evaluation_details,
                 secondary_exposures=result.secondary_exposures,
+                passed_rule=result.boolean_value,
+                version=result.version,
             )
             self.safe_eval_callback(dynamicConfig)
             return dynamicConfig
@@ -326,6 +335,8 @@ class StatsigServer:
             user,
             experiment_name,
             result.rule_id,
+            result.boolean_value,
+            result.version,
             result.secondary_exposures,
             result.evaluation_details,
             is_manual_exposure=True,
@@ -569,6 +580,7 @@ class StatsigServer:
                 gate_name,
                 result.boolean_value,
                 result.rule_id,
+                result.version,
                 result.secondary_exposures,
                 result.evaluation_details,
                 sampling_rate=logged_sampling_rate,
@@ -590,6 +602,8 @@ class StatsigServer:
                 user,
                 config_name,
                 result.rule_id,
+                result.boolean_value,
+                result.version,
                 result.secondary_exposures,
                 result.evaluation_details,
                 sampling_rate=logged_sampling_rate,

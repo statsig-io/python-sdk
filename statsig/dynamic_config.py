@@ -7,7 +7,7 @@ from statsig.statsig_user import StatsigUser
 class DynamicConfig:
     def __init__(self, data, name, rule, user: Optional[StatsigUser] = None, group_name=None,
                  evaluation_details: Optional[EvaluationDetails] = None,
-                 secondary_exposures=None):
+                 secondary_exposures=None, passed_rule=None, version=None):
         if data is None:
             data = {}
         self.value = data
@@ -25,6 +25,8 @@ class DynamicConfig:
             secondary_exposures = []
         self.secondary_exposures = secondary_exposures
         self.user = user
+        self.passed_rule = passed_rule
+        self.version = version
 
     def get(self, key, default=None):
         """Returns the value of the config at the given key

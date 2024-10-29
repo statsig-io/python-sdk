@@ -7,6 +7,7 @@ class _ConfigEvaluation:
                  boolean_value=False,
                  json_value=None,
                  rule_id="",
+                 version=None,
                  secondary_exposures=None,
                  allocated_experiment=None,
                  explicit_parameters=None,
@@ -41,3 +42,4 @@ class _ConfigEvaluation:
         self.sample_rate = sample_rate
         self.user = user
         self.forward_all_exposures = forward_all_exposures
+        self.version = version
