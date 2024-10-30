@@ -96,7 +96,7 @@ class _StatsigLogger:
         }
 
         if version is not None:
-            event.metadata["configVersion"] = version
+            event.metadata["configVersion"] = str(version)
         event.statsigMetadata = {}
         if not self._is_unique_exposure(user, _GATE_EXPOSURE_EVENT, event.metadata):
             return
@@ -138,7 +138,7 @@ class _StatsigLogger:
             "rulePassed": "true" if passed_rule else "false",
         }
         if version is not None:
-            event.metadata["configVersion"] = version
+            event.metadata["configVersion"] = str(version)
         event.statsigMetadata = {}
 
         if not self._is_unique_exposure(user, _CONFIG_EXPOSURE_EVENT, event.metadata):
@@ -187,7 +187,7 @@ class _StatsigLogger:
             "isExplicitParameter": "true" if is_explicit else "false",
         }
         if config_evaluation.version is not None:
-            metadata["configVersion"] = config_evaluation.version
+            metadata["configVersion"] = str(config_evaluation.version)
         if not self._is_unique_exposure(user, _LAYER_EXPOSURE_EVENT, metadata):
             return
         event.metadata = metadata
