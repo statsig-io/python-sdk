@@ -8,3 +8,7 @@ class StatsigRuntimeError(RuntimeError):
 
 class StatsigNameError(NameError):
     pass
+
+
+class StatsigTimeoutError(TimeoutError):
+    pass

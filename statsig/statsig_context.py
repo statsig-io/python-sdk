@@ -10,6 +10,7 @@ class InitContext:
     error: Optional[Exception]
     source: DataSource
     store_populated: bool
+    timed_out: bool
 
     def __init__(self):
         self.start_time = int(time.time() * 1000)
@@ -17,3 +18,4 @@ class InitContext:
         self.error = None
         self.source = DataSource.UNINITIALIZED
         self.store_populated = False
+        self.timed_out = False

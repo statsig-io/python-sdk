@@ -107,6 +107,7 @@ class StatsigOptions:
             initialize_sources: Optional[List[DataSource]] = None,
             config_sync_sources: Optional[List[DataSource]] = None,
             output_logger_level: Optional[LogLevel] = LogLevel.WARNING,
+            overall_init_timeout: Optional[float] = None,
     ):
         self.data_store = data_store
         self._environment: Union[None, dict] = None
@@ -152,6 +153,7 @@ class StatsigOptions:
         self.initialize_sources = initialize_sources
         self.config_sync_sources = config_sync_sources
         self.output_logger_level = output_logger_level
+        self.overall_init_timeout = overall_init_timeout
         self._logging_copy: Dict[str, Any] = {}
         self._set_logging_copy()
         self._attributes_changed = False
@@ -218,5 +220,7 @@ class StatsigOptions:
             logging_copy["event_queue_size"] = self.event_queue_size
         if self.retry_queue_size != DEFAULT_RETRY_QUEUE_SIZE:
             logging_copy["retry_queue_size"] = self.retry_queue_size
+        if self.overall_init_timeout is not None:
+            logging_copy["overall_init_timeout"] = self.overall_init_timeout
         self._logging_copy = logging_copy
         self._attributes_changed = False

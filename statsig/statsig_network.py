@@ -80,7 +80,7 @@ class _StatsigNetwork:
     ):
         self.sdk_key = sdk_key
         self.error_boundary = error_boundary
-        self.statsig_options = options
+        self.options = options
         self.diagnostics = diagnostics
         self.shutdown_event = shutdown_event
         self.statsig_metadata = statsig_metadata
@@ -91,7 +91,7 @@ class _StatsigNetwork:
         self.id_list_worker: IStatsigNetworkWorker = defaultHttpWorker
         self.log_event_worker: IStatsigNetworkWorker = defaultHttpWorker
         self.http_worker: IStatsigNetworkWorker = defaultHttpWorker
-        for endpoint, config in options.proxy_configs.items():
+        for endpoint, config in self.options.proxy_configs.items():
             protocol = config.protocol
             if protocol == NetworkProtocol.GRPC:
                 self.load_grpc_worker(endpoint, config)
@@ -107,7 +107,7 @@ class _StatsigNetwork:
         grpc_webhook_worker = grpc_webhook_worker_class(
             self.sdk_key,
             config,
-            self.statsig_options,
+            self.options,
             self.error_boundary,
             self.diagnostics,
             self.shutdown_event,
@@ -156,7 +156,7 @@ class _StatsigNetwork:
             log_on_exception: Optional[bool] = False,
             init_timeout: Optional[int] = None,
     ):
-        if self.statsig_options.local_mode:
+        if self.options.local_mode:
             globals.logger.warning("Local mode is enabled. Not fetching DCS.")
             return
         self.dcs_worker.get_dcs(on_complete, since_time, log_on_exception, init_timeout)
@@ -168,14 +168,14 @@ class _StatsigNetwork:
             log_on_exception: Optional[bool] = False,
             init_timeout: Optional[int] = None,
     ):
-        if self.statsig_options.local_mode:
+        if self.options.local_mode:
             globals.logger.warning("Local mode is enabled. Not fetching DCS with fallback.")
             return
-        dcs_proxy = self.statsig_options.proxy_configs.get(NetworkEndpoint.DOWNLOAD_CONFIG_SPECS)
+        dcs_proxy = self.options.proxy_configs.get(NetworkEndpoint.DOWNLOAD_CONFIG_SPECS)
         is_proxy_dcs = (
                 dcs_proxy
                 and dcs_proxy.proxy_address != STATSIG_CDN
-                or self.statsig_options.api_for_download_config_specs != STATSIG_CDN
+                or self.options.api_for_download_config_specs != STATSIG_CDN
         )
         if is_proxy_dcs:
             self.http_worker.get_dcs_fallback(on_complete, since_time, log_on_exception, init_timeout)
@@ -186,7 +186,7 @@ class _StatsigNetwork:
             log_on_exception: Optional[bool] = False,
             init_timeout: Optional[int] = None,
     ):
-        if self.statsig_options.local_mode:
+        if self.options.local_mode:
             globals.logger.warning("Local mode is enabled. Not fetching ID Lists.")
             return
         self.id_list_worker.get_id_lists(on_complete, log_on_exception, init_timeout)
@@ -197,28 +197,28 @@ class _StatsigNetwork:
             log_on_exception: Optional[bool] = False,
             init_timeout: Optional[int] = None,
     ):
-        if self.statsig_options.local_mode:
+        if self.options.local_mode:
             globals.logger.warning("Local mode is enabled. Not fetching ID Lists with fallback.")
             return
-        if not self.statsig_options.fallback_to_statsig_api:
+        if not self.options.fallback_to_statsig_api:
             return
-        id_list_proxy = self.statsig_options.proxy_configs.get(
+        id_list_proxy = self.options.proxy_configs.get(
             NetworkEndpoint.GET_ID_LISTS
         )
-        id_list_api_override = self.statsig_options.api_for_get_id_lists
+        id_list_api_override = self.options.api_for_get_id_lists
         is_id_lists_proxy = id_list_api_override != STATSIG_API or (
                 id_list_proxy and id_list_proxy.proxy_address != STATSIG_API)
         if is_id_lists_proxy:
             self.http_worker.get_id_lists_fallback(on_complete, log_on_exception, init_timeout)
 
     def get_id_list(self, on_complete: Any, url, headers, log_on_exception=False):
-        if self.statsig_options.local_mode:
+        if self.options.local_mode:
             globals.logger.warning("Local mode is enabled. Not fetching ID List.")
             return
         self.http_worker.get_id_list(on_complete, url, headers, log_on_exception)
 
     def log_events(self, payload, headers=None, log_on_exception=False, retry=0):
-        if self.statsig_options.local_mode:
+        if self.options.local_mode:
             globals.logger.warning("Local mode is enabled. Not logging events.")
             return None
         return self.log_event_worker.log_events(
@@ -226,13 +226,13 @@ class _StatsigNetwork:
         )
 
     def listen_for_dcs(self, listeners: IStreamingListeners, fallback: Callable):
-        if self.statsig_options.local_mode:
+        if self.options.local_mode:
             globals.logger.warning("Local mode is enabled. Not listening for DCS.")
             return
         if isinstance(self.dcs_worker, IStatsigWebhookWorker):
             self.dcs_worker.start_listen_for_config_spec(listeners)
             interval = (
-                    self.statsig_options.rulesets_sync_interval
+                    self.options.rulesets_sync_interval
                     or DEFAULT_RULESET_SYNC_INTERVAL
             )
             callbacks = StreamingFallback(
@@ -244,7 +244,7 @@ class _StatsigNetwork:
             self.dcs_worker.register_fallback_cb(callbacks)
 
     def listen_for_id_lists(self, listeners: IStreamingListeners):
-        if self.statsig_options.local_mode:
+        if self.options.local_mode:
             globals.logger.warning("Local mode is enabled. Not listening for ID Lists.")
             return
         if isinstance(self.id_list_worker, IStatsigWebhookWorker):

@@ -6,7 +6,7 @@ from typing import List, Optional, Dict, Set, Tuple
 
 from . import globals
 from .constants import Const
-from .diagnostics import Context, Diagnostics, Marker
+from .diagnostics import Diagnostics, Marker
 from .evaluation_details import EvaluationReason, DataSource
 from .sdk_configs import _SDK_Configs
 from .spec_updater import SpecUpdater
@@ -83,7 +83,6 @@ class _SpecStore:
         )
 
         self.spec_updater.download_id_lists(for_initialize=True)
-
         self.spec_updater.start_background_threads()
         self.spec_updater.initialized = True
 
@@ -342,13 +341,6 @@ class _SpecStore:
         if process is None:
             process = "Initialize" if not self.spec_updater.initialized else "Config Sync"
         globals.logger.log_process(process, msg)
-
-    def _get_current_context(self):
-        return (
-            Context.INITIALIZE
-            if not self.spec_updater.initialized
-            else Context.CONFIG_SYNC
-        )
 
     def _get_initialize_strategy(self) -> List[DataSource]:
         try:

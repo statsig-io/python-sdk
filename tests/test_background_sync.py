@@ -1,9 +1,10 @@
+import threading
 import time
 import unittest
-
 from unittest.mock import patch
-from statsig import StatsigServer, StatsigOptions, StatsigEnvironmentTier
+
 from network_stub import NetworkStub
+from statsig import StatsigServer, StatsigOptions, StatsigEnvironmentTier
 
 
 class TestBackgroundSync(unittest.TestCase):
@@ -364,23 +365,26 @@ class TestBackgroundSync(unittest.TestCase):
     def test_dcs_retry(self, mock_request):
         self.config_sync_count = 0
         self.idlist_sync_count = 0
+        self.lock = threading.Lock()
 
         def download_config_specs_response_callback(url: str, **kwargs):
-            self.config_sync_count += 1
-            if self.config_sync_count == 1:
-                return "{}"
-            return {
-                "dynamic_configs": [{"name": "config_1"}],
-                "feature_gates": [{"name": "gate_1"}, {"name": "gate_2"}],
-                "id_lists": {},
-                "has_updates": True,
-                "time": 1,
-            }
+            with self.lock:
+                self.config_sync_count += 1
+                if self.config_sync_count == 1:
+                    return "{}"
+                return {
+                    "dynamic_configs": [{"name": "config_1"}],
+                    "feature_gates": [{"name": "gate_1"}, {"name": "gate_2"}],
+                    "id_lists": {},
+                    "has_updates": True,
+                    "time": 1,
+                }
 
         def download_config_specs_code_callback(url: str, **kwargs):
-            if self.config_sync_count == 1:
-                return 500
-            return 200
+            with self.lock:
+                if self.config_sync_count == 1:
+                    return 500
+                return 200
 
         self._network_stub.stub_request_with_function(
             "download_config_specs/.*",

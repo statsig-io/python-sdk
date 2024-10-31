@@ -35,5 +35,5 @@ class EvaluationDetails:
 
     def detailed_reason(self):
         if self.reason == EvaluationReason.none:
-            return f"{self.source}"
-        return f"{self.source}:{self.reason}"
+            return f"{self.source.value}"
+        return f"{self.source.value}:{self.reason.value}"

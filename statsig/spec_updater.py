@@ -43,7 +43,7 @@ class SpecUpdater:
         self._statsig_metadata = statsig_metadata
         self._background_download_configs = None
         self._background_download_id_lists = None
-        self._config_sync_strategies = self._get_sync_dcs_strategies()
+        self._config_sync_strategies = [DataSource.NETWORK]
         self._dcs_process_lock = threading.Lock()
         if options.out_of_sync_threshold_in_s is not None:
             self._enforce_sync_fallback_threshold_in_ms: Optional[float] = options.out_of_sync_threshold_in_s * 1000
@@ -56,6 +56,7 @@ class SpecUpdater:
         self.dcs_listener: Optional[Callable] = None
         self.id_lists_listener: Optional[Callable] = None
         self.data_adapter = data_adapter
+        self._config_sync_strategies = self._get_sync_dcs_strategies()
 
     def get_config_spec(self, source: DataSource, for_initialize=False):
         try:

@@ -1,8 +1,8 @@
-import time
-import unittest
 import json
-
+import threading
+import unittest
 from unittest.mock import patch
+
 from network_stub import NetworkStub
 from statsig import statsig, StatsigUser, StatsigOptions
 
@@ -117,6 +117,7 @@ class TestStatsigE2EBootstrapped(BaseStatsigE2ETestCase, unittest.TestCase):
 
 @patch('requests.request', side_effect=_network_stub.mock)
 class TestBootstrapFailureFallBackToNetwork(BaseStatsigE2ETestCase, unittest.TestCase):
+    lock = threading.Lock()
     _download_config_specs_count = 0
 
     @classmethod
@@ -125,7 +126,8 @@ class TestBootstrapFailureFallBackToNetwork(BaseStatsigE2ETestCase, unittest.Tes
         super().setUpClass()
 
         def mock_dcs(url: str, **kwargs):
-            cls._download_config_specs_count += 1
+            with cls.lock:
+                cls._download_config_specs_count += 1
             return json.loads(CONFIG_SPECS_RESPONSE)
 
         _network_stub.stub_request_with_function(

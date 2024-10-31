@@ -21,10 +21,13 @@ class _Evaluator:
     def __init__(self, spec_store: _SpecStore):
         self._spec_store = spec_store
 
-        self._country_lookup = CountryLookup()
+        self._country_lookup: Optional[CountryLookup] = None
         self._gate_overrides: Dict[str, dict] = {}
         self._config_overrides: Dict[str, dict] = {}
         self._layer_overrides: Dict[str, dict] = {}
+
+    def initialize(self):
+        self._country_lookup = CountryLookup()
 
     def override_gate(self, gate, value, user_id=None):
         gate_overrides = self._gate_overrides.get(gate)
@@ -195,9 +198,6 @@ class _Evaluator:
         if override is not None:
             return override
 
-        if self._spec_store.init_source == DataSource.UNINITIALIZED:
-            return _ConfigEvaluation(
-                evaluation_details=self._create_evaluation_details())
         eval_gate = self._spec_store.get_gate(gate)
         if eval_gate is None:
             globals.logger.debug(f"Gate {gate} not found in the store. Are you sure the gate name is correct?")
@@ -211,10 +211,6 @@ class _Evaluator:
         override = self.__lookup_config_override(user, config_name)
         if override is not None:
             return override
-
-        if self._spec_store.init_source == DataSource.UNINITIALIZED:
-            return _ConfigEvaluation(
-                evaluation_details=self._create_evaluation_details())
 
         eval_config = self._spec_store.get_config(config_name)
         if eval_config is None:
@@ -230,10 +226,6 @@ class _Evaluator:
         override = self.__lookup_layer_override(user, layer_name)
         if override is not None:
             return override
-
-        if self._spec_store.init_source == DataSource.UNINITIALIZED:
-            return _ConfigEvaluation(evaluation_details=
-                                     self._create_evaluation_details())
 
         eval_layer = self._spec_store.get_layer(layer_name)
         if eval_layer is None:
@@ -376,6 +368,8 @@ class _Evaluator:
             if value is None:
                 ip = self.__get_from_user(user, "ip")
                 if ip is not None and field == "country":
+                    if not self._country_lookup:
+                        self._country_lookup = CountryLookup()
                     value = self._country_lookup.lookupStr(ip)
             if value is None:
                 return False

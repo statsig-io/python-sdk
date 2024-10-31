@@ -6,7 +6,6 @@ from unittest.mock import patch
 from gzip_helpers import GzipHelpers
 from network_stub import NetworkStub
 from statsig import StatsigOptions, StatsigServer, _Evaluator, StatsigUser, IDataStore
-from statsig.evaluation_details import DataSource
 
 with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), '../testdata/download_config_specs.json')) as r:
     CONFIG_SPECS_RESPONSE = r.read()
@@ -25,7 +24,7 @@ class TestEvaluationDetails(unittest.TestCase):
     @patch('requests.request', side_effect=_network_stub.mock)
     def setUp(self, mock_request) -> None:
         server = StatsigServer()
-        options = StatsigOptions(
+        self.options = StatsigOptions(
             api=_api_override,
             disable_diagnostics=True
         )
@@ -41,9 +40,7 @@ class TestEvaluationDetails(unittest.TestCase):
         _network_stub.stub_request_with_value(
             "download_config_specs/.*", 200, json.loads(CONFIG_SPECS_RESPONSE))
 
-        server.initialize("secret-key", options)
         self._server = server
-        self._evaluator = server._evaluator
 
         def assert_event_equal(event: dict, values: dict,
                                skip_sync_times: bool = False):
@@ -62,7 +59,9 @@ class TestEvaluationDetails(unittest.TestCase):
         self._assert_event_equal = assert_event_equal
 
     def test_uninitialized(self, mock_request, mock_time):
-        self._evaluator._spec_store.init_source = DataSource.UNINITIALIZED
+        self._server.initialize("secret-key", StatsigOptions(
+            api=_api_override, disable_diagnostics=True, api_for_download_config_specs="bad-url"
+        ))
 
         self._server.check_gate(self._user, "always_on_gate")
         self._server.get_config(self._user, "test_config")
@@ -74,18 +73,19 @@ class TestEvaluationDetails(unittest.TestCase):
         self.assertEqual(len(self._events), 3)
         self._assert_event_equal(self._events[0], {
             "eventName": "statsig::gate_exposure",
-            "reason": "Uninitialized"
+            "reason": "Uninitialized:Unrecognized"
         }, True)
         self._assert_event_equal(self._events[1], {
             "eventName": "statsig::config_exposure",
-            "reason": "Uninitialized",
+            "reason": "Uninitialized:Unrecognized",
         }, True)
         self._assert_event_equal(self._events[2], {
             "eventName": "statsig::config_exposure",
-            "reason": "Uninitialized"
+            "reason": "Uninitialized:Unrecognized"
         }, True)
 
     def test_unrecognized(self, mock_request, mock_time):
+        self._server.initialize("secret-key", self.options)
         self._server.check_gate(self._user, "not_a_gate")
         self._server.get_config(self._user, "not_a_config")
         self._server.get_experiment(self._user, "not_an_experiment")
@@ -108,6 +108,7 @@ class TestEvaluationDetails(unittest.TestCase):
         })
 
     def test_network(self, mock_request, mock_time):
+        self._server.initialize("secret-key", self.options)
         self._server.check_gate(self._user, "always_on_gate")
         self._server.get_config(self._user, "test_config")
         self._server.get_experiment(self._user, "sample_experiment")
@@ -130,6 +131,7 @@ class TestEvaluationDetails(unittest.TestCase):
         })
 
     def test_local_override(self, mock_request, mock_time):
+        self._server.initialize("secret-key", self.options)
         self._server.override_gate("always_on_gate", False)
         self._server.override_config("sample_experiment", {})
 
@@ -213,6 +215,7 @@ class TestEvaluationDetails(unittest.TestCase):
         })
 
     def test_logging(self, mock_request, mock_time):
+        self._server.initialize("secret-key", self.options)
         self._server.check_gate(self._user, "always_on_gate")
         self._server.get_config(self._user, "test_config")
         self._server.get_experiment(self._user, "sample_experiment")

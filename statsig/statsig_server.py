@@ -1,6 +1,7 @@
 import dataclasses
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import Optional, Union, Tuple
 
 from . import globals
@@ -15,7 +16,7 @@ from .sdk_configs import _SDK_Configs
 from .spec_store import _SpecStore, EntityType
 from .statsig_context import InitContext
 from .statsig_error_boundary import _StatsigErrorBoundary
-from .statsig_errors import StatsigNameError, StatsigRuntimeError, StatsigValueError
+from .statsig_errors import StatsigNameError, StatsigRuntimeError, StatsigValueError, StatsigTimeoutError
 from .statsig_event import StatsigEvent
 from .statsig_logger import _StatsigLogger
 from .statsig_metadata import _StatsigMetadata
@@ -37,14 +38,16 @@ class InitializeDetails:
     init_success: bool
     store_populated: bool
     error: Optional[Exception]
+    timed_out: bool
 
     def __init__(self, duration: int, source: str, init_success: bool, store_populated: bool,
-                 error: Optional[Exception]):
+                 error: Optional[Exception], timed_out: bool = False):
         self.duration = duration
         self.source = source
         self.init_success = init_success
         self.error = error
         self.store_populated = store_populated
+        self.timed_out = timed_out
 
 
 class StatsigServer:
@@ -61,6 +64,7 @@ class StatsigServer:
     _evaluator: _Evaluator
 
     def __init__(self) -> None:
+        self._executor = ThreadPoolExecutor(max_workers=1)
         self._initialized = False
 
         self._errorBoundary = _StatsigErrorBoundary()
@@ -109,12 +113,15 @@ class StatsigServer:
                 globals.logger.error(
                     "Statsig SDK instance initialized, but config store is not populated. The SDK is using default values for evaluation.")
         else:
-            globals.logger.error("Statsig SDK instance Initialized failed!")
+            if init_details.timed_out:
+                globals.logger.error("Statsig SDK instance initialization timed out.")
+            else:
+                globals.logger.error("Statsig SDK instance Initialized failed!")
 
     def _initialize_impl(self, sdk_key: str, options: Optional[StatsigOptions]):
         threw_error = False
+        init_context = InitContext()
         try:
-            init_context = InitContext()
             diagnostics = Diagnostics()
             diagnostics.add_marker(Marker().overall().start())
 
@@ -157,12 +164,27 @@ class StatsigServer:
             self._evaluator = _Evaluator(self._spec_store)
             self._sampling_key_set = TTLSet(self.__shutdown_event)
 
-            self._spec_store.initialize()
-            self._initialized = True
+            init_timeout = options.overall_init_timeout
+            if init_timeout is not None:
+                future = self._executor.submit(self._initialize_instance)
+                try:
+                    future.result(timeout=init_timeout)
+                except Exception as e:
+                    raise StatsigTimeoutError() from e
+            else:
+                self._initialize_instance()
 
         except (StatsigValueError, StatsigNameError, StatsigRuntimeError) as e:
             threw_error = True
             raise e
+
+        except StatsigTimeoutError:
+            globals.logger.warning(
+                "Statsig SDK instance initialization timed out. Initializing store in the background.")
+            self._executor.submit(self._initialize_instance)
+            threw_error = True
+            init_context.timed_out = True
+            self._initialized = True
 
         except Exception as e:
             threw_error = True
@@ -176,7 +198,13 @@ class StatsigServer:
             init_context.success = not threw_error
 
         return InitializeDetails(int(time.time() * 1000) - init_context.start_time, init_context.source,
-                                 init_context.success, init_context.store_populated, init_context.error)
+                                 init_context.success, init_context.store_populated, init_context.error,
+                                 init_context.timed_out)
+
+    def _initialize_instance(self):
+        self._evaluator.initialize()
+        self._spec_store.initialize()
+        self._initialized = True
 
     def is_store_populated(self):
         try:
@@ -423,6 +451,7 @@ class StatsigServer:
 
     def shutdown(self):
         def task():
+            globals.logger.info("Shutting down Statsig SDK instance.")
             self.__shutdown_event.set()
             self._logger.shutdown()
             self._spec_store.shutdown()

@@ -85,7 +85,8 @@ class NetworkStub:
         url: ParseResult = urlparse(args[2])
         request_host = f"{url.scheme}://{url.hostname}"
 
-        if request_host != instance.host and (instance.mock_statsig_api and request_host not in STATSIG_APIS):
+        if not instance.mock_statsig_api and request_host != instance.host or (
+                instance.mock_statsig_api and (request_host != instance.host and request_host not in STATSIG_APIS)):
             return
 
         stubs = instance._statsig_stubs if request_host in STATSIG_APIS and instance.mock_statsig_api else instance._stubs
