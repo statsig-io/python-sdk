@@ -4,8 +4,8 @@ import unittest
 from unittest.mock import patch
 from urllib.parse import urlparse
 
-from statsig import statsig, StatsigOptions, StatsigUser
 from network_stub import NetworkStub
+from statsig import statsig, StatsigOptions, StatsigUser
 from statsig.interface_network import NetworkEndpoint, NetworkProtocol
 from statsig.statsig_options import ProxyConfig
 
@@ -99,13 +99,14 @@ class TestApiOverrides(unittest.TestCase):
 
     def test_override_api_only(self, mock_request):
         options = StatsigOptions(api=_api_stubs["api"].host)
-        statsig.initialize("secret-test", options)
+        init_details = statsig.initialize("secret-test", options)
         statsig.check_gate(StatsigUser("test_user"), "always_on_gate")
         statsig.flush()
         self.assertTrue(self.api_override)
         self.assertFalse(self.log_event_override)
         self.assertFalse(self.dcs_override)
         statsig.shutdown()
+        self.assertTrue(_api_stubs["api"].host in init_details.dcs_api)
 
     def test_override_log_event_only(self, mock_request):
         options = StatsigOptions(api_for_log_event=_api_stubs["log_event"].host)
@@ -121,13 +122,14 @@ class TestApiOverrides(unittest.TestCase):
         options = StatsigOptions(
             api_for_download_config_specs=_api_stubs
             ["download_config_specs"].host)
-        statsig.initialize("secret-test", options)
+        init_details = statsig.initialize("secret-test", options)
         statsig.check_gate(StatsigUser("test_user"), "always_on_gate")
         statsig.flush()
         self.assertFalse(self.api_override)
         self.assertFalse(self.log_event_override)
         self.assertTrue(self.dcs_override)
         statsig.shutdown()
+        self.assertTrue(_api_stubs["download_config_specs"].host in init_details.dcs_api)
 
     def test_override_all(self, mock_request):
         options = StatsigOptions(
@@ -136,7 +138,7 @@ class TestApiOverrides(unittest.TestCase):
             api_for_download_config_specs=_api_stubs["download_config_specs"].host,
             api_for_get_id_lists=_api_stubs["get_id_lists"].host
         )
-        statsig.initialize("secret-test", options)
+        init_details = statsig.initialize("secret-test", options)
         statsig.check_gate(StatsigUser("test_user"), "always_on_gate")
         statsig.flush()
         self.assertFalse(self.api_override)
@@ -144,6 +146,7 @@ class TestApiOverrides(unittest.TestCase):
         self.assertTrue(self.dcs_override)
         self.assertTrue(self.get_id_lists_override)
         statsig.shutdown()
+        self.assertTrue(_api_stubs["download_config_specs"].host in init_details.dcs_api)
 
     def test_dcs_proxy_address_override(self, mock_request):
         options = StatsigOptions(
@@ -153,10 +156,11 @@ class TestApiOverrides(unittest.TestCase):
                     protocol=NetworkProtocol.HTTP
                 )
             })
-        statsig.initialize("secret-test", options)
+        init_details = statsig.initialize("secret-test", options)
         self.assertFalse(self.dcs_override)
         self.assertTrue(self.dcs_proxy_override)
         statsig.shutdown()
+        self.assertTrue(_api_stubs["dcs_proxy"].host in init_details.dcs_api)
 
     def test_id_list_proxy_address_override(self, mock_request):
         options = StatsigOptions(
@@ -206,7 +210,7 @@ class TestApiOverrides(unittest.TestCase):
                     protocol=NetworkProtocol.HTTP
                 )
             })
-        statsig.initialize("secret-test", options)
+        init_details = statsig.initialize("secret-test", options)
         statsig.check_gate(StatsigUser("test_user"), "always_on_gate")
         statsig.flush()
         self.assertFalse(self.api_override)
@@ -216,3 +220,4 @@ class TestApiOverrides(unittest.TestCase):
         self.assertTrue(self.id_list_proxy_override)
         self.assertTrue(self.log_event_proxy_override)
         statsig.shutdown()
+        self.assertTrue(_api_stubs["dcs_proxy"].host in init_details.dcs_api)

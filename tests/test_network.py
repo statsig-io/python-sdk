@@ -1,15 +1,15 @@
 import unittest
-
 from uuid import uuid4
 
+from statsig import StatsigOptions
+from statsig import globals
+from statsig.diagnostics import Diagnostics
 from statsig.http_worker import HttpWorker
+from statsig.statsig_context import InitContext
 from statsig.statsig_error_boundary import _StatsigErrorBoundary
 from statsig.statsig_event import StatsigEvent
 from statsig.statsig_metadata import _StatsigMetadata
 from statsig.statsig_user import StatsigUser
-from statsig.diagnostics import Diagnostics
-from statsig import globals
-from statsig import StatsigOptions
 
 
 class TestNetworkHTTPWorker(unittest.TestCase):
@@ -20,7 +20,7 @@ class TestNetworkHTTPWorker(unittest.TestCase):
         globals.logger._disabled = False
         metadata = _StatsigMetadata.get()
         cls.net = HttpWorker("secret-test", StatsigOptions(disable_diagnostics=True), metadata,
-                             _StatsigErrorBoundary(), Diagnostics())
+                             _StatsigErrorBoundary(), Diagnostics(), InitContext())
         cls.net._raise_on_error = True
 
     @classmethod

@@ -12,6 +12,7 @@ from .diagnostics import Diagnostics, Marker
 from .evaluation_details import DataSource
 from .interface_network import IStatsigNetworkWorker, NetworkProtocol, NetworkEndpoint
 from .sdk_configs import _SDK_Configs
+from .statsig_context import InitContext
 from .statsig_error_boundary import _StatsigErrorBoundary
 from .statsig_options import StatsigOptions, STATSIG_API, STATSIG_CDN
 
@@ -28,9 +29,11 @@ class HttpWorker(IStatsigNetworkWorker):
             options: StatsigOptions,
             statsig_metadata: dict,
             error_boundary: _StatsigErrorBoundary,
-            diagnostics: Diagnostics
+            diagnostics: Diagnostics,
+            context: InitContext
     ):
         self._executor = ThreadPoolExecutor(max_workers=2)
+        self._context = context
         self.__sdk_key = sdk_key
         self.__configure_endpoints(options)
         self.__req_timeout = options.timeout or REQUEST_TIMEOUT
@@ -48,6 +51,7 @@ class HttpWorker(IStatsigNetworkWorker):
             url=f"{self.__api_for_download_config_specs}download_config_specs/{self.__sdk_key}.json?sinceTime={since_time}",
             headers=None, init_timeout=init_timeout, log_on_exception=log_on_exception,
             tag="download_config_specs")
+        self._context.dcs_api = self.__api_for_download_config_specs
         if response is not None and self._is_success_code(response.status_code):
             on_complete(DataSource.NETWORK, response.json() or {}, None)
             return
@@ -58,6 +62,7 @@ class HttpWorker(IStatsigNetworkWorker):
             url=f"{STATSIG_CDN}download_config_specs/{self.__sdk_key}.json?sinceTime={since_time}",
             headers=None, init_timeout=init_timeout, log_on_exception=log_on_exception,
             tag="download_config_specs")
+        self._context.dcs_api = STATSIG_CDN
         if response is not None and self._is_success_code(response.status_code):
             on_complete(DataSource.STATSIG_NETWORK, response.json() or {}, None)
             return

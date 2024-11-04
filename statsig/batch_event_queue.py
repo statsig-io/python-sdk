@@ -8,7 +8,6 @@ from .diagnostics import Context
 from .sdk_configs import _SDK_Configs
 from .statsig_event import StatsigEvent
 from .statsig_options import StatsigOptions, DEFAULT_EVENT_QUEUE_SIZE
-from .thread_util import THREAD_JOIN_TIMEOUT
 
 
 @dataclass
@@ -34,9 +33,7 @@ class EventBatchProcessor:
         self._shutdown_event = shutdown_event
         self._batching_interval = globals.STATSIG_BATCHING_INTERVAL_SECONDS
         self._error_boundary = error_boundary
-        self._batching_thread = None
         self._dropped_events_count = 0
-        self._dropped_events_count_logging_thread = None
 
     def add_to_batched_events_queue(self, batched_events):
         with self._lock:
@@ -104,12 +101,6 @@ class EventBatchProcessor:
         with self._lock:
             copy_events = list(self._batched_events_queue)
             return copy_events
-
-    def shutdown(self):
-        if self._batching_thread is not None:
-            self._batching_thread.join(THREAD_JOIN_TIMEOUT)
-        if self._dropped_events_count_logging_thread is not None:
-            self._dropped_events_count_logging_thread.join(THREAD_JOIN_TIMEOUT)
 
     def _add_diagnostics_event(self, context: Context):
         if self._local_mode or not self._diagnostics.should_log_diagnostics(context):

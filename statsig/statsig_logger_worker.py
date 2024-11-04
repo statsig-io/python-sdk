@@ -80,7 +80,6 @@ class LoggerWorker:
                 worker_thread.join(THREAD_JOIN_TIMEOUT)
         if self._dropped_events_count_logging_thread is not None:
             self._dropped_events_count_logging_thread.join(THREAD_JOIN_TIMEOUT)
-        self.event_batch_processor.shutdown()
 
     def _process_queue(self, shutdown_event):
         while True:
@@ -105,7 +104,8 @@ class LoggerWorker:
         count = self.event_batch_processor.get_dropped_event_count()
         if count > 0:
             message = (
-                f"Dropped {count} events due to events input higher than event flushing qps"
+                    f"Dropped {count} events due to events input higher than event flushing qps. " +
+                    "To learn more about event handling, visit https://docs.statsig.com/debugging#maximizing-event-throughput"
             )
             self._error_boundary.log_exception(
                 "statsig::log_event_dropped_event_count",

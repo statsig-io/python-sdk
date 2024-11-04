@@ -13,6 +13,7 @@ from .interface_network import (
     IStatsigNetworkWorker,
     IStatsigWebhookWorker,
 )
+from .statsig_context import InitContext
 from .statsig_error_boundary import _StatsigErrorBoundary
 from .statsig_options import (
     DEFAULT_RULESET_SYNC_INTERVAL,
@@ -77,15 +78,17 @@ class _StatsigNetwork:
             error_boundary: _StatsigErrorBoundary,
             diagnostics: Diagnostics,
             shutdown_event,
+            context: InitContext
     ):
         self.sdk_key = sdk_key
+        self.context = context
         self.error_boundary = error_boundary
         self.options = options
         self.diagnostics = diagnostics
         self.shutdown_event = shutdown_event
         self.statsig_metadata = statsig_metadata
         defaultHttpWorker: IStatsigNetworkWorker = HttpWorker(
-            sdk_key, options, statsig_metadata, error_boundary, diagnostics
+            sdk_key, options, statsig_metadata, error_boundary, diagnostics, context
         )
         self.dcs_worker: IStatsigNetworkWorker = defaultHttpWorker
         self.id_list_worker: IStatsigNetworkWorker = defaultHttpWorker
@@ -111,6 +114,7 @@ class _StatsigNetwork:
             self.error_boundary,
             self.diagnostics,
             self.shutdown_event,
+            self.context
         )
         if endpoint == NetworkEndpoint.DOWNLOAD_CONFIG_SPECS:
             self.dcs_worker = grpc_webhook_worker
@@ -127,7 +131,7 @@ class _StatsigNetwork:
         grpc_worker_module = importlib.import_module("statsig.grpc_worker")
         grpc_worker_class = getattr(grpc_worker_module, 'GRPCWorker')
         grpc_worker = grpc_worker_class(
-            self.sdk_key, config
+            self.sdk_key, config, self.context
         )
         if endpoint == NetworkEndpoint.DOWNLOAD_CONFIG_SPECS:
             self.dcs_worker = grpc_worker

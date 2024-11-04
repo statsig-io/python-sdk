@@ -20,6 +20,7 @@ from .interface_network import (
     IStreamingListeners,
     IStatsigWebhookWorker,
 )
+from .statsig_context import InitContext
 from .statsig_error_boundary import _StatsigErrorBoundary
 from .statsig_errors import StatsigNameError
 from .statsig_options import ProxyConfig, StatsigOptions, AuthenticationMode
@@ -63,7 +64,9 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
             error_boundary: _StatsigErrorBoundary,
             diagnostics: Diagnostics,
             shutdown_event,
+            context: InitContext
     ):
+        self.context = context
         self._diagnostics = diagnostics
         self.initialized = False
         self.sdk_key = sdk_key
@@ -203,6 +206,7 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
             log_on_exception: Optional[bool] = False,
             init_timeout: Optional[int] = None,
     ):
+        self.context.dcs_api = self.proxy_config.proxy_address
         self._diagnostics.add_marker(
             Marker().download_config_specs().network_request().start()
         )

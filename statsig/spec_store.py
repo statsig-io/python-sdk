@@ -10,6 +10,7 @@ from .diagnostics import Diagnostics, Marker
 from .evaluation_details import EvaluationReason, DataSource
 from .sdk_configs import _SDK_Configs
 from .spec_updater import SpecUpdater
+from .statsig_context import InitContext
 from .statsig_error_boundary import _StatsigErrorBoundary
 from .statsig_network import _StatsigNetwork
 from .statsig_options import StatsigOptions
@@ -35,6 +36,7 @@ class _SpecStore:
             shutdown_event: threading.Event,
             sdk_key: str,
             diagnostics: Diagnostics,
+            context: InitContext
     ):
         self.initial_update_time = 0
         self.init_reason = EvaluationReason.none
@@ -65,6 +67,7 @@ class _SpecStore:
             error_boundary,
             statsig_metadata,
             shutdown_event,
+            context
         )
 
         self.spec_updater.register_process_network_id_lists_listener(

@@ -39,14 +39,16 @@ class InitializeDetails:
     store_populated: bool
     error: Optional[Exception]
     timed_out: bool
+    dcs_api: Optional[str]
 
     def __init__(self, duration: int, source: str, init_success: bool, store_populated: bool,
-                 error: Optional[Exception], timed_out: bool = False):
+                 error: Optional[Exception], dcs_api: Optional[str] = None, timed_out: bool = False):
         self.duration = duration
         self.source = source
         self.init_success = init_success
         self.error = error
         self.store_populated = store_populated
+        self.dcs_api = dcs_api
         self.timed_out = timed_out
 
 
@@ -108,7 +110,10 @@ class StatsigServer:
         if init_details.init_success:
             if init_details.store_populated:
                 globals.logger.info(
-                    f"Statsig SDK instance initialized successfully with data from {init_details.source}")
+                    f"Statsig SDK instance initialized successfully with data from {init_details.source}"
+                    + (f"[{init_details.dcs_api}]" if init_details.dcs_api else "")
+                    + "."
+                )
             else:
                 globals.logger.error(
                     "Statsig SDK instance initialized, but config store is not populated. The SDK is using default values for evaluation.")
@@ -137,7 +142,8 @@ class StatsigServer:
                 self._options, self.__statsig_metadata
             )
             self._network = _StatsigNetwork(
-                sdk_key, self._options, self.__statsig_metadata, self._errorBoundary, diagnostics, self.__shutdown_event
+                sdk_key, self._options, self.__statsig_metadata, self._errorBoundary, diagnostics,
+                self.__shutdown_event, init_context
             )
             self._logger = _StatsigLogger(
                 self._network,
@@ -158,7 +164,8 @@ class StatsigServer:
                 self._errorBoundary,
                 self.__shutdown_event,
                 sdk_key,
-                diagnostics
+                diagnostics,
+                init_context
             )
 
             self._evaluator = _Evaluator(self._spec_store)
@@ -199,7 +206,8 @@ class StatsigServer:
 
         return InitializeDetails(int(time.time() * 1000) - init_context.start_time, init_context.source,
                                  init_context.success, init_context.store_populated, init_context.error,
-                                 init_context.timed_out)
+                                 init_context.dcs_api, init_context.timed_out)
+
 
     def _initialize_instance(self):
         self._evaluator.initialize()

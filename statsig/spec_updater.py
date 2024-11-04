@@ -8,6 +8,7 @@ from .diagnostics import Diagnostics, Marker, Context, Key
 from .evaluation_details import DataSource
 from .interface_data_store import IDataStore
 from .interface_network import IStreamingListeners
+from .statsig_context import InitContext
 from .statsig_error_boundary import _StatsigErrorBoundary
 from .statsig_errors import StatsigValueError, StatsigNameError
 from .statsig_network import _StatsigNetwork
@@ -32,6 +33,7 @@ class SpecUpdater:
             error_boundary: _StatsigErrorBoundary,
             statsig_metadata: dict,
             shutdown_event: threading.Event,
+            context: InitContext
     ):
         self._shutdown_event = shutdown_event
         self._sync_failure_count = 0
@@ -43,7 +45,7 @@ class SpecUpdater:
         self._statsig_metadata = statsig_metadata
         self._background_download_configs = None
         self._background_download_id_lists = None
-        self._config_sync_strategies = [DataSource.NETWORK]
+        self._config_sync_strategies = self._get_sync_dcs_strategies()
         self._dcs_process_lock = threading.Lock()
         if options.out_of_sync_threshold_in_s is not None:
             self._enforce_sync_fallback_threshold_in_ms: Optional[float] = options.out_of_sync_threshold_in_s * 1000
@@ -56,7 +58,7 @@ class SpecUpdater:
         self.dcs_listener: Optional[Callable] = None
         self.id_lists_listener: Optional[Callable] = None
         self.data_adapter = data_adapter
-        self._config_sync_strategies = self._get_sync_dcs_strategies()
+        self.context = context
 
     def get_config_spec(self, source: DataSource, for_initialize=False):
         try:
@@ -94,7 +96,6 @@ class SpecUpdater:
     def load_config_specs_from_storage_adapter(self) -> bool:
         def load():
             try:
-                self._log_process("Loading specs from adapter")
                 if self._options.data_store is None:
                     return False
 
@@ -380,17 +381,27 @@ class SpecUpdater:
                 if self._enforce_sync_fallback_threshold_in_ms is not None and time_elapsed > self._enforce_sync_fallback_threshold_in_ms:
                     outof_sync = True
                 if prev_failure_count == self._sync_failure_count and not outof_sync:
-                    globals.logger.log_process("Config Sync", f"Syncing config values with {strategy.value} successful")
+                    globals.logger.log_process(
+                        "Config Sync",
+                        f"Syncing config values with {strategy.value}"
+                        + (f"[{self.context.dcs_api}]" if self.context.dcs_api else "")
+                        + " successful"
+                    )
                     break
                 if i < len(self._config_sync_strategies) - 1:
                     globals.logger.log_process(
                         "Config Sync",
-                        f"Syncing config values failed with {strategy.value}, falling back to next available configured config sync method"
+                        f"Syncing config values failed with {strategy.value}"
+                        + (f"[{self.context.dcs_api}]" if self.context.dcs_api else "")
+                        + ", falling back to next available configured config sync method"
                     )
+
                 else:
                     globals.logger.log_process(
                         "Config Sync",
-                        f"Syncing config values failed with {strategy.value}. No more strategies left. The next sync will be in {interval} seconds."
+                        f"Syncing config values failed with {strategy.value}"
+                        + (f"[{self.context.dcs_api}]" if self.context.dcs_api else "")
+                        + f". No more strategies left. The next sync will be in {interval} seconds."
                     )
 
         self._background_download_configs = spawn_background_thread(
