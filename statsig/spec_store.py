@@ -2,7 +2,7 @@ import json
 import threading
 from concurrent.futures import wait, ThreadPoolExecutor
 from enum import Enum
-from typing import List, Optional, Dict, Set, Tuple
+from typing import List, Optional, Dict, Set, Tuple, Union
 
 from . import globals
 from .constants import Const
@@ -54,6 +54,7 @@ class _SpecStore:
         self._experiment_to_layer: Dict[str, str] = {}
         self._sdk_keys_to_app_ids: Dict[str, str] = {}
         self._hashed_sdk_keys_to_app_ids: Dict[str, str] = {}
+        self._default_environment: Union[None, str] = None
 
         self._id_lists: Dict[str, dict] = {}
         self.unsupported_configs: Set[str] = set()
@@ -137,6 +138,9 @@ class _SpecStore:
         if target_app_id is not None:
             return target_app_id
         return self._sdk_keys_to_app_ids.get(sdk_key)
+
+    def get_default_environment(self):
+        return self._default_environment
 
     def _initialize_specs(self):
         initialize_strategies = self._get_initialize_strategy()
@@ -232,6 +236,7 @@ class _SpecStore:
         self._experiment_to_layer = new_experiment_to_layer
         self.spec_updater.last_update_time = specs_json.get("time", 0)
         self.init_source = source
+        self._default_environment = specs_json.get("default_environment", None)
         globals.logger.debug("Received update: %s", self.spec_updater.last_update_time)
 
         flags = specs_json.get("sdk_flags", {})

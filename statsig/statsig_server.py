@@ -708,8 +708,11 @@ class StatsigServer:
 
     def __normalize_user(self, user):
         userCopy = dataclasses.replace(user)
+        default_env = self._spec_store.get_default_environment()
         if self._options is not None and self._options._environment is not None:
             userCopy._statsig_environment = self._options._environment
+        if userCopy._statsig_environment is None and default_env is not None:
+            userCopy._statsig_environment = {"tier": default_env}
         return userCopy
 
     def _sync(self, sync_func, interval):

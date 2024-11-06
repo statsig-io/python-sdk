@@ -49,6 +49,8 @@ class TestStatsigErrorBoundaryUsage(unittest.TestCase):
 
             def spawn_bg_threads_if_needed(self):
                 pass
+            def get_default_environment(self):
+                return None
 
         # Setup to cause crashes
         self._instance._spec_store = FakeWithSpawnMethod()
