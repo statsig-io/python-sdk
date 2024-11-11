@@ -6,6 +6,7 @@ from .evaluation_details import DataSource
 from .feature_gate import FeatureGate
 from .interface_data_store import IDataStore
 from .interface_network import NetworkProtocol, NetworkEndpoint
+from .interface_observability_client import ObservabilityClient
 from .layer import Layer
 from .output_logger import OutputLogger, LogLevel
 from .statsig_environment_tier import StatsigEnvironmentTier
@@ -108,6 +109,7 @@ class StatsigOptions:
             config_sync_sources: Optional[List[DataSource]] = None,
             output_logger_level: Optional[LogLevel] = LogLevel.WARNING,
             overall_init_timeout: Optional[float] = None,
+            observability_client: Optional[ObservabilityClient] = None,
     ):
         self.data_store = data_store
         self._environment: Union[None, dict] = None
@@ -154,6 +156,7 @@ class StatsigOptions:
         self.config_sync_sources = config_sync_sources
         self.output_logger_level = output_logger_level
         self.overall_init_timeout = overall_init_timeout
+        self.observability_client = observability_client
         self._logging_copy: Dict[str, Any] = {}
         self._set_logging_copy()
         self._attributes_changed = False
@@ -222,5 +225,7 @@ class StatsigOptions:
             logging_copy["retry_queue_size"] = self.retry_queue_size
         if self.overall_init_timeout is not None:
             logging_copy["overall_init_timeout"] = self.overall_init_timeout
+        if self.observability_client is not None:
+            logging_copy["observability_client"] = "SET"
         self._logging_copy = logging_copy
         self._attributes_changed = False

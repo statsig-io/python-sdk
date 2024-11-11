@@ -51,7 +51,7 @@ class HttpWorker(IStatsigNetworkWorker):
             url=f"{self.__api_for_download_config_specs}download_config_specs/{self.__sdk_key}.json?sinceTime={since_time}",
             headers=None, init_timeout=init_timeout, log_on_exception=log_on_exception,
             tag="download_config_specs")
-        self._context.dcs_api = self.__api_for_download_config_specs
+        self._context.source_api = self.__api_for_download_config_specs
         if response is not None and self._is_success_code(response.status_code):
             on_complete(DataSource.NETWORK, response.json() or {}, None)
             return
@@ -62,7 +62,7 @@ class HttpWorker(IStatsigNetworkWorker):
             url=f"{STATSIG_CDN}download_config_specs/{self.__sdk_key}.json?sinceTime={since_time}",
             headers=None, init_timeout=init_timeout, log_on_exception=log_on_exception,
             tag="download_config_specs")
-        self._context.dcs_api = STATSIG_CDN
+        self._context.source_api = STATSIG_CDN
         if response is not None and self._is_success_code(response.status_code):
             on_complete(DataSource.STATSIG_NETWORK, response.json() or {}, None)
             return

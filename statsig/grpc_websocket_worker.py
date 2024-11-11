@@ -206,7 +206,7 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
             log_on_exception: Optional[bool] = False,
             init_timeout: Optional[int] = None,
     ):
-        self.context.dcs_api = self.proxy_config.proxy_address
+        self.context.source_api = self.proxy_config.proxy_address
         self._diagnostics.add_marker(
             Marker().download_config_specs().network_request().start()
         )

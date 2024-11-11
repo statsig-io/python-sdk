@@ -384,7 +384,7 @@ class SpecUpdater:
                     globals.logger.log_process(
                         "Config Sync",
                         f"Syncing config values with {strategy.value}"
-                        + (f"[{self.context.dcs_api}]" if self.context.dcs_api else "")
+                        + (f"[{self.context.source_api}]" if self.context.source_api else "")
                         + " successful"
                     )
                     break
@@ -392,7 +392,7 @@ class SpecUpdater:
                     globals.logger.log_process(
                         "Config Sync",
                         f"Syncing config values failed with {strategy.value}"
-                        + (f"[{self.context.dcs_api}]" if self.context.dcs_api else "")
+                        + (f"[{self.context.source_api}]" if self.context.source_api else "")
                         + ", falling back to next available configured config sync method"
                     )
 
@@ -400,7 +400,7 @@ class SpecUpdater:
                     globals.logger.log_process(
                         "Config Sync",
                         f"Syncing config values failed with {strategy.value}"
-                        + (f"[{self.context.dcs_api}]" if self.context.dcs_api else "")
+                        + (f"[{self.context.source_api}]" if self.context.source_api else "")
                         + f". No more strategies left. The next sync will be in {interval} seconds."
                     )
 

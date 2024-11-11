@@ -106,7 +106,7 @@ class TestApiOverrides(unittest.TestCase):
         self.assertFalse(self.log_event_override)
         self.assertFalse(self.dcs_override)
         statsig.shutdown()
-        self.assertTrue(_api_stubs["api"].host in init_details.dcs_api)
+        self.assertTrue(_api_stubs["api"].host in init_details.init_source_api)
 
     def test_override_log_event_only(self, mock_request):
         options = StatsigOptions(api_for_log_event=_api_stubs["log_event"].host)
@@ -129,7 +129,7 @@ class TestApiOverrides(unittest.TestCase):
         self.assertFalse(self.log_event_override)
         self.assertTrue(self.dcs_override)
         statsig.shutdown()
-        self.assertTrue(_api_stubs["download_config_specs"].host in init_details.dcs_api)
+        self.assertTrue(_api_stubs["download_config_specs"].host in init_details.init_source_api)
 
     def test_override_all(self, mock_request):
         options = StatsigOptions(
@@ -146,7 +146,7 @@ class TestApiOverrides(unittest.TestCase):
         self.assertTrue(self.dcs_override)
         self.assertTrue(self.get_id_lists_override)
         statsig.shutdown()
-        self.assertTrue(_api_stubs["download_config_specs"].host in init_details.dcs_api)
+        self.assertTrue(_api_stubs["download_config_specs"].host in init_details.init_source_api)
 
     def test_dcs_proxy_address_override(self, mock_request):
         options = StatsigOptions(
@@ -160,7 +160,7 @@ class TestApiOverrides(unittest.TestCase):
         self.assertFalse(self.dcs_override)
         self.assertTrue(self.dcs_proxy_override)
         statsig.shutdown()
-        self.assertTrue(_api_stubs["dcs_proxy"].host in init_details.dcs_api)
+        self.assertTrue(_api_stubs["dcs_proxy"].host in init_details.init_source_api)
 
     def test_id_list_proxy_address_override(self, mock_request):
         options = StatsigOptions(
@@ -220,4 +220,4 @@ class TestApiOverrides(unittest.TestCase):
         self.assertTrue(self.id_list_proxy_override)
         self.assertTrue(self.log_event_proxy_override)
         statsig.shutdown()
-        self.assertTrue(_api_stubs["dcs_proxy"].host in init_details.dcs_api)
+        self.assertTrue(_api_stubs["dcs_proxy"].host in init_details.init_source_api)

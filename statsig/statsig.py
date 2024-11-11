@@ -1,12 +1,13 @@
 from typing import Optional
 
-from . import globals, FeatureGate
+from . import FeatureGate
 from .client_initialize_formatter import ClientInitializeResponse
 from .dynamic_config import DynamicConfig
+from .initialize_details import InitializeDetails
 from .layer import Layer
 from .statsig_event import StatsigEvent
 from .statsig_options import StatsigOptions
-from .statsig_server import StatsigServer, InitializeDetails
+from .statsig_server import StatsigServer
 from .statsig_user import StatsigUser
 from .utils import HashingAlgorithm
 
@@ -21,14 +22,6 @@ def initialize(secret_key: str, options: Optional[StatsigOptions] = None) -> Ini
     :param options: The StatsigOptions object used to configure the SDK
     :return: The initialization details
     """
-    if options is None:
-        options = StatsigOptions()
-
-    if options.custom_logger is not None:
-        globals.set_logger(options.custom_logger)
-    elif options.output_logger_level is not None:
-        globals.set_log_level(options.output_logger_level)
-
     return __instance.initialize(secret_key, options)
 
 

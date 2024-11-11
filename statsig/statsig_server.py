@@ -11,6 +11,7 @@ from .dynamic_config import DynamicConfig
 from .evaluation_details import DataSource
 from .evaluator import _Evaluator
 from .feature_gate import FeatureGate
+from .initialize_details import InitializeDetails
 from .layer import Layer
 from .sdk_configs import _SDK_Configs
 from .spec_store import _SpecStore, EntityType
@@ -32,26 +33,6 @@ RULESETS_SYNC_INTERVAL = 10
 IDLISTS_SYNC_INTERVAL = 60
 
 
-class InitializeDetails:
-    duration: int
-    source: str
-    init_success: bool
-    store_populated: bool
-    error: Optional[Exception]
-    timed_out: bool
-    dcs_api: Optional[str]
-
-    def __init__(self, duration: int, source: str, init_success: bool, store_populated: bool,
-                 error: Optional[Exception], dcs_api: Optional[str] = None, timed_out: bool = False):
-        self.duration = duration
-        self.source = source
-        self.init_success = init_success
-        self.error = error
-        self.store_populated = store_populated
-        self.dcs_api = dcs_api
-        self.timed_out = timed_out
-
-
 class StatsigServer:
     _initialized: bool
 
@@ -66,7 +47,7 @@ class StatsigServer:
     _evaluator: _Evaluator
 
     def __init__(self) -> None:
-        self._executor = ThreadPoolExecutor(max_workers=1)
+        self._executor = ThreadPoolExecutor(max_workers=2)
         self._initialized = False
 
         self._errorBoundary = _StatsigErrorBoundary()
@@ -75,6 +56,11 @@ class StatsigServer:
         return self._initialized
 
     def initialize(self, sdkKey: str, options: Optional[StatsigOptions] = None) -> InitializeDetails:
+        if options is None or not isinstance(options, StatsigOptions):
+            options = StatsigOptions()
+
+        globals.init_logger(options)
+
         if self._initialized:
             globals.logger.info("Statsig is already initialized.")
             return InitializeDetails(0, self.get_init_source(), True, self.is_store_populated(), None)
@@ -84,9 +70,6 @@ class StatsigServer:
                 "Invalid key provided. You must use a Server Secret Key from the Statsig console."
             )
 
-        if options is None or not isinstance(options, StatsigOptions):
-            options = StatsigOptions()
-
         environment_tier = options.get_sdk_environment_tier() or 'unknown'
         globals.logger.info(
             f"Initializing Statsig SDK (v{__version__}) instance. "
@@ -94,34 +77,9 @@ class StatsigServer:
         )
 
         init_details = self._initialize_impl(sdkKey, options)
-        self._post_init_logging(options, init_details)
+        globals.logger.log_post_init(options, init_details)
 
         return init_details
-
-    def _post_init_logging(self, options: StatsigOptions, init_details: InitializeDetails):
-        if options.local_mode:
-            if init_details.init_success:
-                globals.logger.info(
-                    "Statsig SDK instance initialized in local mode. No data will be fetched from the Statsig servers.")
-            else:
-                globals.logger.error("Statsig SDK instance failed to initialize in local mode.")
-            return
-
-        if init_details.init_success:
-            if init_details.store_populated:
-                globals.logger.info(
-                    f"Statsig SDK instance initialized successfully with data from {init_details.source}"
-                    + (f"[{init_details.dcs_api}]" if init_details.dcs_api else "")
-                    + "."
-                )
-            else:
-                globals.logger.error(
-                    "Statsig SDK instance initialized, but config store is not populated. The SDK is using default values for evaluation.")
-        else:
-            if init_details.timed_out:
-                globals.logger.error("Statsig SDK instance initialization timed out.")
-            else:
-                globals.logger.error("Statsig SDK instance Initialized failed!")
 
     def _initialize_impl(self, sdk_key: str, options: Optional[StatsigOptions]):
         threw_error = False
@@ -206,8 +164,7 @@ class StatsigServer:
 
         return InitializeDetails(int(time.time() * 1000) - init_context.start_time, init_context.source,
                                  init_context.success, init_context.store_populated, init_context.error,
-                                 init_context.dcs_api, init_context.timed_out)
-
+                                 init_context.source_api, init_context.timed_out)
 
     def _initialize_instance(self):
         self._evaluator.initialize()
@@ -465,6 +422,7 @@ class StatsigServer:
             self._spec_store.shutdown()
             self._network.shutdown()
             self._errorBoundary.shutdown()
+            globals.logger.shutdown()
             self._initialized = False
 
         self._errorBoundary.swallow("shutdown", task)

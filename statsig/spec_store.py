@@ -58,6 +58,7 @@ class _SpecStore:
 
         self._id_lists: Dict[str, dict] = {}
         self.unsupported_configs: Set[str] = set()
+        self.context = context
 
         self.spec_updater = SpecUpdater(
             network,
@@ -152,8 +153,13 @@ class _SpecStore:
 
     def _process_specs(self, specs_json, source: DataSource) -> Tuple[bool, bool]:  # has update, parse success
         self._log_process("Processing specs...")
+        prev_lcut = self.spec_updater.last_update_time
         if specs_json.get("has_updates", False) is False:
-            globals.logger.debug("Received update: %s", "No Update")
+            globals.logger.log_config_sync_update(self.spec_updater.initialized, False,
+                                                  self.spec_updater.last_update_time,
+                                                  prev_lcut,
+                                                  self.context.source,
+                                                  self.context.source_api)
             return False, True
         if not self.spec_updater.is_specs_json_valid(specs_json):
             self._log_process("Failed to process specs")
@@ -236,9 +242,14 @@ class _SpecStore:
         self._experiment_to_layer = new_experiment_to_layer
         self.spec_updater.last_update_time = specs_json.get("time", 0)
         self.init_source = source
+        self.context.source = source
         self._default_environment = specs_json.get("default_environment", None)
-        globals.logger.debug("Received update: %s", self.spec_updater.last_update_time)
-
+        if self.spec_updater.last_update_time > prev_lcut:
+            globals.logger.log_config_sync_update(self.spec_updater.initialized, True,
+                                                  self.spec_updater.last_update_time,
+                                                  prev_lcut,
+                                                  self.context.source,
+                                                  self.context.source_api)
         flags = specs_json.get("sdk_flags", {})
         _SDK_Configs.set_flags(flags)
         configs = specs_json.get("sdk_configs", {})

@@ -30,7 +30,7 @@ class GRPCWorker(IStatsigNetworkWorker):
                 init_timeout: Optional[int] = None):
         request = ConfigSpecRequest(sdkKey=self.sdk_key, sinceTime=since_time)
         try:
-            self.context.dcs_api = self.proxy_config.proxy_address
+            self.context.source_api = self.proxy_config.proxy_address
             response = self.stub.getConfigSpec(request)
             on_complete(DataSource.NETWORK, response.spec, None)
         except Exception as e:

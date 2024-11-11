@@ -10,7 +10,7 @@ class InitContext:
     error: Optional[Exception]
     source: DataSource
     store_populated: bool
-    dcs_api: Optional[str]
+    source_api: Optional[str]
     timed_out: bool
 
     def __init__(self):
@@ -19,5 +19,5 @@ class InitContext:
         self.error = None
         self.source = DataSource.UNINITIALIZED
         self.store_populated = False
-        self.dcs_api = None
+        self.source_api = None
         self.timed_out = False
