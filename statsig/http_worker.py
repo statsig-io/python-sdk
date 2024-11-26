@@ -96,7 +96,9 @@ class HttpWorker(IStatsigNetworkWorker):
 
     def get_id_list(self, on_complete, url, headers, log_on_exception=False):
         resp = self._get_request(url, headers, log_on_exception, tag="get_id_list")
-        on_complete(resp)
+        if resp is not None and self._is_success_code(resp.status_code):
+            return on_complete(resp)
+        return on_complete(None)
 
     def log_events(self, payload, headers=None, log_on_exception=False, retry=0):
         disable_compression = _SDK_Configs.on("stop_log_event_compression")
