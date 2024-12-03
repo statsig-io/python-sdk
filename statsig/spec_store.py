@@ -166,8 +166,8 @@ class _SpecStore:
             return False, False
         if specs_json.get("time", 0) < self.last_update_time():
             return False, False
-        copy = json.dumps(specs_json)
         if callable(self._options.rules_updated_callback):
+            copy = json.dumps(specs_json)
             self._options.rules_updated_callback(copy)
 
         def get_parsed_specs(key: str):
