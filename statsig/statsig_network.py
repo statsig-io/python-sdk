@@ -42,7 +42,7 @@ class StreamingFallback(IStreamingFallback):
         if self._background_job is not None and self._background_job.is_alive():
             return
         self.started = True
-        globals.logger.error(
+        globals.logger.warning(
             f"gRPC streaming falling back to polling for {self._name}. "
             "Please check if the gRPC server is running and ensure the correct server address is configured."
         )
