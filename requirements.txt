@@ -7,3 +7,4 @@ protobuf==4.24.4
 requests
 semver
 pyfarmhash
+ijson

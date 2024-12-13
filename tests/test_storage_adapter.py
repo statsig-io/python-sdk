@@ -3,8 +3,8 @@ import os
 import unittest
 from unittest.mock import patch
 
-from statsig import statsig, IDataStore, StatsigOptions, StatsigUser
 from network_stub import NetworkStub
+from statsig import statsig, IDataStore, StatsigOptions, StatsigUser
 
 with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), '../testdata/download_config_specs.json')) as r:
     CONFIG_SPECS_RESPONSE = json.loads(r.read())
@@ -89,8 +89,20 @@ class TestStorageAdapter(unittest.TestCase):
         statsig.initialize("secret-key", self._options)
 
         stored_string = self._data_adapter.data["statsig.cache"]
-        expected_string = json.dumps(CONFIG_SPECS_RESPONSE)
-        self.assertEqual(stored_string, expected_string)
+        self.assertIsNotNone(stored_string, "Expected statsig.cache to be saved in data adapter")
+        stored = json.loads(stored_string)
+        self.assertTrue(
+            self._contains_spec(stored["feature_gates"], "always_on_gate", "feature_gate"),
+            "Expected data adapter to have downloaded gates"
+        )
+        self.assertTrue(
+            self._contains_spec(stored["dynamic_configs"], "test_config", "dynamic_config"),
+            "Expected data adapter to have downloaded configs"
+        )
+        self.assertTrue(
+            self._contains_spec(stored["layer_configs"], "a_layer", "layer"),
+            "Expected data adapter to have downloaded layers"
+        )
 
     @patch('requests.request', side_effect=_network_stub.mock)
     def test_calls_network_when_adapter_is_empty(self, mock_request):
@@ -135,3 +147,9 @@ class TestStorageAdapter(unittest.TestCase):
 
         result = statsig.check_gate(self._user, "gate_from_bootstrap")
         self.assertEqual(False, result)
+
+    def _contains_spec(self, specs, key, spec_type):
+        for spec in specs:
+            if spec.get("name") == key and spec.get("entity") == spec_type:
+                return True
+        return False

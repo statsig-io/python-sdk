@@ -1,4 +1,6 @@
 import gzip
+import io
+import json
 import re
 from io import BytesIO
 from typing import Callable, Union, Optional
@@ -12,7 +14,7 @@ class NetworkStub:
     mock_statsig_api: bool
 
     class StubResponse:
-        def __init__(self, status, data=None, headers=None):
+        def __init__(self, status, data=None, headers=None, raw=None):
             if headers is None:
                 headers = {}
 
@@ -21,6 +23,7 @@ class NetworkStub:
             self.headers = headers
             self._json = data
             self.text = data
+            self.raw = raw
 
         def json(self):
             return self._json
@@ -107,8 +110,17 @@ class NetworkStub:
 
                 if isinstance(response_body, str):
                     headers["content-length"] = len(response_body)
+                    byte_body = response_body.encode("utf-8")
+                else:
+                    byte_body = json.dumps(response_body).encode("utf-8")
 
-                return NetworkStub.StubResponse(response_code, response_body, headers)
+                try:
+                    raw = io.BytesIO(byte_body)
+                except Exception as e:
+                    print(f"Error in creating raw response: {e}")
+                    raw = None
+
+                return NetworkStub.StubResponse(response_code, response_body, headers, raw)
 
         return NetworkStub.StubResponse(404)
 

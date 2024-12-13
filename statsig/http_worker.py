@@ -2,9 +2,11 @@ import gzip
 import json
 import time
 from concurrent.futures.thread import ThreadPoolExecutor
+from decimal import Decimal
 from io import BytesIO
 from typing import Callable, Tuple, Optional, Any
 
+import ijson
 import requests
 
 from . import globals
@@ -53,7 +55,7 @@ class HttpWorker(IStatsigNetworkWorker):
             tag="download_config_specs")
         self._context.source_api = self.__api_for_download_config_specs
         if response is not None and self._is_success_code(response.status_code):
-            on_complete(DataSource.NETWORK, response.json() or {}, None)
+            on_complete(DataSource.NETWORK, self._stream_response_into_result_dict(response) or {}, None)
             return
         on_complete(DataSource.NETWORK, None, None)
 
@@ -64,7 +66,7 @@ class HttpWorker(IStatsigNetworkWorker):
             tag="download_config_specs")
         self._context.source_api = STATSIG_CDN
         if response is not None and self._is_success_code(response.status_code):
-            on_complete(DataSource.STATSIG_NETWORK, response.json() or {}, None)
+            on_complete(DataSource.STATSIG_NETWORK, self._stream_response_into_result_dict(response) or {}, None)
             return
         on_complete(DataSource.STATSIG_NETWORK, None, None)
 
@@ -78,7 +80,7 @@ class HttpWorker(IStatsigNetworkWorker):
             tag="get_id_lists",
         )
         if response is not None and self._is_success_code(response.status_code):
-            return on_complete(response.json() or {}, None)
+            return on_complete(self._stream_response_into_result_dict(response) or {}, None)
         return on_complete(None, None)
 
     def get_id_lists_fallback(self, on_complete: Callable, log_on_exception=False, init_timeout=None):
@@ -91,7 +93,7 @@ class HttpWorker(IStatsigNetworkWorker):
             tag="get_id_lists",
         )
         if response is not None and self._is_success_code(response.status_code):
-            return on_complete(response.json() or {}, None)
+            return on_complete(self._stream_response_into_result_dict(response) or {}, None)
         return on_complete(None, None)
 
     def get_id_list(self, on_complete, url, headers, log_on_exception=False):
@@ -189,7 +191,7 @@ class HttpWorker(IStatsigNetworkWorker):
                 timeout = self.__req_timeout
 
             def request_task():
-                return requests.request(method, url, data=payload, headers=headers, timeout=timeout)
+                return requests.request(method, url, data=payload, headers=headers, timeout=timeout, stream=True)
 
             response = None
             if init_timeout is not None:
@@ -244,6 +246,32 @@ class HttpWorker(IStatsigNetworkWorker):
                     log_mode="none",
                 )
             return None
+
+    def _stream_response_into_result_dict(self, response):
+        result = {}
+        try:
+            if response.headers.get("Content-Encoding") == "gzip":
+                stream = gzip.GzipFile(fileobj=response.raw)
+            else:
+                stream = response.raw
+            for k, v in ijson.kvitems(stream, ""):
+                v = self._convert_decimals_to_floats(v)
+                result[k] = v
+            return result
+        except Exception as e:
+            globals.logger.warning(
+                f"Failed to stream response into result dict from {response.url}. {e}"
+            )
+            return None
+
+    def _convert_decimals_to_floats(self, obj):
+        if isinstance(obj, Decimal):
+            return float(obj)
+        if isinstance(obj, dict):
+            return {k: self._convert_decimals_to_floats(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [self._convert_decimals_to_floats(v) for v in obj]
+        return obj
 
     def _is_success_code(self, status_code: int) -> bool:
         return 200 <= status_code < 300

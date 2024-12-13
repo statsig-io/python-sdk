@@ -1,11 +1,11 @@
-import unittest
-import os
 import json
+import os
+import unittest
 from unittest.mock import patch
 
+from gzip_helpers import GzipHelpers
 from network_stub import NetworkStub
 from statsig import statsig, StatsigUser, StatsigOptions, StatsigEnvironmentTier, Layer
-from gzip_helpers import GzipHelpers
 from test_case_with_extras import TestCaseWithExtras
 
 with open(os.path.join(os.path.abspath(os.path.dirname(__file__)),

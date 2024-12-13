@@ -1,7 +1,7 @@
 from typing import Optional
 
-from statsig.evaluation_details import EvaluationDetails, EvaluationReason, DataSource
-from statsig.statsig_user import StatsigUser
+from .evaluation_details import EvaluationDetails, EvaluationReason, DataSource
+from .statsig_user import StatsigUser
 
 
 class DynamicConfig:

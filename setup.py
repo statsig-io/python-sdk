@@ -40,6 +40,7 @@ setup(
         'ip3country',
         'grpcio',
         'protobuf',
+        'ijson',
     ],
     tests_require=test_deps,
     extras_require=extras,
