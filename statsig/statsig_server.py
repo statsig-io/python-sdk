@@ -2,7 +2,7 @@ import dataclasses
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
-from typing import Optional, Union, Tuple
+from typing import Optional, Union
 
 from . import globals
 from .config_evaluation import _ConfigEvaluation
@@ -13,8 +13,7 @@ from .evaluator import _Evaluator
 from .feature_gate import FeatureGate
 from .initialize_details import InitializeDetails
 from .layer import Layer
-from .sdk_configs import _SDK_Configs
-from .spec_store import _SpecStore, EntityType
+from .spec_store import _SpecStore
 from .statsig_context import InitContext
 from .statsig_error_boundary import _StatsigErrorBoundary
 from .statsig_errors import StatsigNameError, StatsigRuntimeError, StatsigValueError, StatsigTimeoutError
@@ -24,9 +23,7 @@ from .statsig_metadata import _StatsigMetadata
 from .statsig_network import _StatsigNetwork
 from .statsig_options import StatsigOptions
 from .statsig_user import StatsigUser
-from .ttl_set import TTLSet
-from .utils import HashingAlgorithm, compute_dedupe_key_for_gate, is_hash_in_sampling_rate, \
-    compute_dedupe_key_for_config, compute_dedupe_key_for_layer
+from .utils import HashingAlgorithm
 from .version import __version__
 
 RULESETS_SYNC_INTERVAL = 10
@@ -127,7 +124,6 @@ class StatsigServer:
             )
 
             self._evaluator = _Evaluator(self._spec_store)
-            self._sampling_key_set = TTLSet(self.__shutdown_event)
 
             init_timeout = options.overall_init_timeout
             if init_timeout is not None:
@@ -225,11 +221,7 @@ class StatsigServer:
         self._logger.log_gate_exposure(
             user,
             gate_name,
-            result.boolean_value,
-            result.rule_id,
-            result.version,
-            result.secondary_exposures,
-            result.evaluation_details,
+            result,
             is_manual_exposure=True,
         )
 
@@ -269,11 +261,7 @@ class StatsigServer:
         self._logger.log_config_exposure(
             user,
             config_name,
-            result.rule_id,
-            result.boolean_value,
-            result.version,
-            result.secondary_exposures,
-            result.evaluation_details,
+            result,
             is_manual_exposure=True,
         )
 
@@ -282,11 +270,15 @@ class StatsigServer:
         self._logger.log_config_exposure(
             user,
             config_eval.name,
-            config_eval.rule_id,
-            config_eval.passed_rule,
-            config_eval.version,
-            config_eval.secondary_exposures,
-            config_eval.evaluation_details,
+            _ConfigEvaluation(
+                config_eval.passed_rule,
+                config_eval.value,
+                config_eval.rule_id,
+                config_eval.version,
+                config_eval.secondary_exposures,
+                evaluation_details=config_eval.evaluation_details,
+
+            ),
             is_manual_exposure=True,
         )
 
@@ -327,11 +319,7 @@ class StatsigServer:
         self._logger.log_config_exposure(
             user,
             experiment_name,
-            result.rule_id,
-            result.boolean_value,
-            result.version,
-            result.secondary_exposures,
-            result.evaluation_details,
+            result,
             is_manual_exposure=True,
         )
 
@@ -347,14 +335,10 @@ class StatsigServer:
             result = self._evaluator.get_layer(normal_user, layer_name)
 
             def log_func(layer: Layer, parameter_name: str):
-                should_log, logged_sampling_rate, shadow_logged = self.__determine_sampling(
-                    EntityType.LAYER, layer_name, result, user, parameter_name)
 
-                if log_exposure and should_log:
+                if log_exposure:
                     self._logger.log_layer_exposure(
-                        normal_user, layer, parameter_name, result, sampling_rate=logged_sampling_rate,
-                        shadow_logged=shadow_logged,
-                        sampling_mode=_SDK_Configs.get_config_str_value("sampling_mode")
+                        normal_user, layer, parameter_name, result,
                     )
 
             layer = Layer._create(
@@ -566,21 +550,12 @@ class StatsigServer:
     def __check_gate(self, user: StatsigUser, gate_name: str, log_exposure=True):
         user = self.__normalize_user(user)
         result = self._evaluator.check_gate(user, gate_name)
-        should_log, logged_sampling_rate, shadow_logged = self.__determine_sampling(EntityType.GATE, gate_name, result,
-                                                                                    user)
 
-        if log_exposure and should_log:
+        if log_exposure:
             self._logger.log_gate_exposure(
                 user,
                 gate_name,
-                result.boolean_value,
-                result.rule_id,
-                result.version,
-                result.secondary_exposures,
-                result.evaluation_details,
-                sampling_rate=logged_sampling_rate,
-                shadow_logged=shadow_logged,
-                sampling_mode=_SDK_Configs.get_config_str_value("sampling_mode")
+                result,
             )
         return result
 
@@ -589,80 +564,14 @@ class StatsigServer:
 
         result = self._evaluator.get_config(user, config_name)
         result.user = user
-        should_log, logged_sampling_rate, shadow_logged = self.__determine_sampling(EntityType.CONFIG, config_name,
-                                                                                    result, user)
 
-        if log_exposure and should_log:
+        if log_exposure:
             self._logger.log_config_exposure(
                 user,
                 config_name,
-                result.rule_id,
-                result.boolean_value,
-                result.version,
-                result.secondary_exposures,
-                result.evaluation_details,
-                sampling_rate=logged_sampling_rate,
-                shadow_logged=shadow_logged,
-                sampling_mode=_SDK_Configs.get_config_str_value("sampling_mode")
+                result
             )
         return result
-
-    def __determine_sampling(self, type: EntityType, name: str, result: _ConfigEvaluation, user: StatsigUser,
-                             param_name="") -> Tuple[
-        bool, Optional[int], Optional[str]]:  # should_log, logged_sampling_rate, shadow_logged
-        try:
-            shadow_should_log, logged_sampling_rate = True, None
-            env = self._options.get_sdk_environment_tier()
-            sampling_mode = _SDK_Configs.get_config_str_value("sampling_mode")
-            special_case_sampling_rate = _SDK_Configs.get_config_int_value("special_case_sampling_rate")
-            special_case_rules = ["disabled", "default", ""]
-
-            if sampling_mode is None or sampling_mode == "none" or env != "production":
-                return True, None, None
-
-            if result.forward_all_exposures:
-                return True, None, None
-
-            if result.rule_id.endswith((':override', ':id_override')):
-                return True, None, None
-
-            samplingSetKey = f"{name}_{result.rule_id}"
-            if not self._sampling_key_set.contains(samplingSetKey):
-                self._sampling_key_set.add(samplingSetKey)
-                return True, None, None
-
-            should_sample = result.sample_rate is not None or result.rule_id in special_case_rules
-            if not should_sample:
-                return True, None, None
-
-            exposure_key = ""
-            if type == EntityType.GATE:
-                exposure_key = compute_dedupe_key_for_gate(name, result.rule_id, result.boolean_value,
-                                                           user.user_id, user.custom_ids)
-            elif type == EntityType.CONFIG:
-                exposure_key = compute_dedupe_key_for_config(name, result.rule_id, user.user_id, user.custom_ids)
-            elif type == EntityType.LAYER:
-                exposure_key = compute_dedupe_key_for_layer(name, result.allocated_experiment, param_name,
-                                                            result.rule_id,
-                                                            user.user_id, user.custom_ids)
-
-            if result.sample_rate is not None:
-                shadow_should_log = is_hash_in_sampling_rate(exposure_key, result.sample_rate)
-                logged_sampling_rate = result.sample_rate
-            elif result.rule_id in special_case_rules and special_case_sampling_rate is not None:
-                shadow_should_log = is_hash_in_sampling_rate(exposure_key, special_case_sampling_rate)
-                logged_sampling_rate = special_case_sampling_rate
-
-            shadow_logged = None if logged_sampling_rate is None else "logged" if shadow_should_log else "dropped"
-            if sampling_mode == "on":
-                return shadow_should_log, logged_sampling_rate, shadow_logged
-            if sampling_mode == "shadow":
-                return True, logged_sampling_rate, shadow_logged
-
-            return True, None, None
-        except Exception as e:
-            self._errorBoundary.log_exception("__determine_sampling", e, log_mode="debug")
-            return True, None, None
 
     def __normalize_user(self, user):
         userCopy = dataclasses.replace(user)
