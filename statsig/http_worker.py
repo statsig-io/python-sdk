@@ -55,7 +55,7 @@ class HttpWorker(IStatsigNetworkWorker):
             tag="download_config_specs")
         self._context.source_api = self.__api_for_download_config_specs
         if response is not None and self._is_success_code(response.status_code):
-            on_complete(DataSource.NETWORK, self._stream_response_into_result_dict(response) or {}, None)
+            on_complete(DataSource.NETWORK, self._stream_response_into_result_dict(response), None)
             return
         on_complete(DataSource.NETWORK, None, None)
 
@@ -66,7 +66,7 @@ class HttpWorker(IStatsigNetworkWorker):
             tag="download_config_specs")
         self._context.source_api = STATSIG_CDN
         if response is not None and self._is_success_code(response.status_code):
-            on_complete(DataSource.STATSIG_NETWORK, self._stream_response_into_result_dict(response) or {}, None)
+            on_complete(DataSource.STATSIG_NETWORK, self._stream_response_into_result_dict(response), None)
             return
         on_complete(DataSource.STATSIG_NETWORK, None, None)
 
@@ -80,7 +80,7 @@ class HttpWorker(IStatsigNetworkWorker):
             tag="get_id_lists",
         )
         if response is not None and self._is_success_code(response.status_code):
-            return on_complete(self._stream_response_into_result_dict(response) or {}, None)
+            return on_complete(self._stream_response_into_result_dict(response), None)
         return on_complete(None, None)
 
     def get_id_lists_fallback(self, on_complete: Callable, log_on_exception=False, init_timeout=None):
@@ -93,7 +93,7 @@ class HttpWorker(IStatsigNetworkWorker):
             tag="get_id_lists",
         )
         if response is not None and self._is_success_code(response.status_code):
-            return on_complete(self._stream_response_into_result_dict(response) or {}, None)
+            return on_complete(self._stream_response_into_result_dict(response), None)
         return on_complete(None, None)
 
     def get_id_list(self, on_complete, url, headers, log_on_exception=False):

@@ -154,7 +154,7 @@ class _SpecStore:
     def _process_specs(self, specs_json, source: DataSource) -> Tuple[bool, bool]:  # has update, parse success
         self._log_process("Processing specs...")
         prev_lcut = self.spec_updater.last_update_time
-        if specs_json.get("has_updates", False) is False:
+        if specs_json.get("has_updates") is not None and not specs_json.get("has_updates"):
             globals.logger.log_config_sync_update(self.spec_updater.initialized, False,
                                                   self.spec_updater.last_update_time,
                                                   prev_lcut,
@@ -381,6 +381,6 @@ class _SpecStore:
             return strategies
         except Exception:
             globals.logger.warning(
-                "Failed to get initialization sources, fallling back to always sync from statsig network "
+                "Failed to get initialization sources, falling back to always sync from statsig network "
             )
             return [DataSource.STATSIG_NETWORK]

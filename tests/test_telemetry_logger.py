@@ -92,7 +92,7 @@ class TestTelemetryLogger(unittest.TestCase):
 
     def test_no_update_counter(self, mock_request):
         _network_stub.stub_request_with_value(
-            "download_config_specs/.*", 200, {"has_updated": False})
+            "download_config_specs/.*", 200, {"has_updates": False})
         ob_client = MockObservabilityClient()
         options = StatsigOptions(api=_network_stub.host, observability_client=ob_client, rulesets_sync_interval=0.5)
         statsig.initialize("secret-key", options)
