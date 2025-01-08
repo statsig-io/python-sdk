@@ -154,7 +154,7 @@ class _SpecStore:
     def _process_specs(self, specs_json, source: DataSource) -> Tuple[bool, bool]:  # has update, parse success
         self._log_process("Processing specs...")
         prev_lcut = self.spec_updater.last_update_time
-        if specs_json.get("has_updates") is not None and not specs_json.get("has_updates"):
+        if specs_json.get("has_updates") is not None and not specs_json.get("has_updates"):  # 204 no update
             globals.logger.log_config_sync_update(self.spec_updater.initialized, False,
                                                   self.spec_updater.last_update_time,
                                                   prev_lcut,
@@ -162,9 +162,10 @@ class _SpecStore:
                                                   self.context.source_api)
             return False, True
         if not self.spec_updater.is_specs_json_valid(specs_json):
-            self._log_process("Failed to process specs")
+            self._log_process("Failed to process specs, invalid spec json")  # invalid json
             return False, False
-        if specs_json.get("time", 0) < self.last_update_time():
+        if specs_json.get("time", 0) < self.last_update_time():  # outdated lcut
+            self._log_process("Failed to process specs, lcut is older than current lcut")
             return False, False
         if callable(self._options.rules_updated_callback):
             copy = json.dumps(specs_json)

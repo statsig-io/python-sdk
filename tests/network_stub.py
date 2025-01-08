@@ -6,6 +6,9 @@ from io import BytesIO
 from typing import Callable, Union, Optional
 from urllib.parse import urlparse, ParseResult
 
+from requests import HTTPError
+from urllib3.exceptions import IncompleteRead
+
 STATSIG_APIS = ["https://api.statsigcdn.com", "https://statsigapi.net"]
 
 
@@ -14,19 +17,38 @@ class NetworkStub:
     mock_statsig_api: bool
 
     class StubResponse:
-        def __init__(self, status, data=None, headers=None, raw=None):
+        def __init__(self, status, data=None, headers=None, raw=None, url=None, options=None):
             if headers is None:
                 headers = {}
 
             self.status_code = status
-            self.ok = True
+            self.ok = 200 <= status < 300
             self.headers = headers
-            self._json = data
             self.text = data
-            self.raw = raw
+            self.url = url or "http://localhost"
+            self.raw = None
+            self._raw = raw
+            self._json = data
+            self._options = options or {}
+            self.set_raw()
 
         def json(self):
             return self._json
+
+        def set_raw(self):
+            if self._options.get("incompleteRead", False):
+                raise IncompleteRead(partial=237981, expected=384930)
+            self.raw = self._raw
+
+        def raise_for_status(self):
+            if not self.ok:
+                raise HTTPError(f"{self.status_code} raise for status error")
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            return False
 
     def __init__(self, host: str, mock_statsig_api=False):
         self.host = host
@@ -38,48 +60,55 @@ class NetworkStub:
         self._stubs = {}
 
     def stub_request_with_value(
-            self, path, response_code: int, response_body: Union[dict, str], headers: Optional[dict] = None):
+            self, path, response_code: int, response_body: Union[dict, str], headers: Optional[dict] = None,
+            options=None):
         if not isinstance(response_body, dict) and not isinstance(response_body, str):
             raise "Must provide a dictionary or string"
 
         self._stubs[path] = {
             "response_code": response_code,
             "response_body": response_body,
-            "headers": headers or {}
+            "headers": headers or {},
+            "options": options or {}
         }
 
     def stub_request_with_function(self, path, response_code: Union[int, Callable[[str, dict], int]],
-                                   response_func: Callable[[str, dict], object], headers: Optional[dict] = None):
+                                   response_func: Callable[[str, dict], object], headers: Optional[dict] = None,
+                                   options=None):
         if not callable(response_func):
             raise "Must provide a function"
 
         self._stubs[path] = {
             "response_code": response_code,
             "response_func": response_func,
-            "headers": headers or {}
+            "headers": headers or {},
+            "options": options or {}
         }
 
     def stub_statsig_api_request_with_value(
-            self, path, response_code: int, response_body: Union[dict, str], headers: Optional[dict] = None):
+            self, path, response_code: int, response_body: Union[dict, str], headers: Optional[dict] = None,
+            options=None):
         if not isinstance(response_body, dict) and not isinstance(response_body, str):
             raise "Must provide a dictionary or string"
 
         self._statsig_stubs[path] = {
             "response_code": response_code,
             "response_body": response_body,
-            "headers": headers or {}
+            "headers": headers or {},
+            "options": options or {}
         }
 
     def stub_statsig_api_request_with_function(self, path, response_code: Union[int, Callable[[str, dict], int]],
                                                response_func: Callable[[str, dict], object],
-                                               headers: Optional[dict] = None):
+                                               headers: Optional[dict] = None, options=None):
         if not callable(response_func):
             raise "Must provide a function"
 
         self._statsig_stubs[path] = {
             "response_code": response_code,
             "response_func": response_func,
-            "headers": headers or {}
+            "headers": headers or {},
+            "options": options or {}
         }
 
     def mock(*args, **kwargs):
@@ -97,6 +126,7 @@ class NetworkStub:
             if re.search(f".*{path}", url.path):
                 response_body = stub_data.get("response_body")
                 headers = stub_data.get("headers", {})
+                options = stub_data.get("options", {})
 
                 if "response_func" in stub_data:
                     response_body = stub_data["response_func"](url, **kwargs)
@@ -120,7 +150,7 @@ class NetworkStub:
                     print(f"Error in creating raw response: {e}")
                     raw = None
 
-                return NetworkStub.StubResponse(response_code, response_body, headers, raw)
+                return NetworkStub.StubResponse(response_code, response_body, headers, raw, options=options)
 
         return NetworkStub.StubResponse(404)
 

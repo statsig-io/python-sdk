@@ -34,34 +34,47 @@ class TestSyncConfigFallback(unittest.TestCase):
         self.__class__.statsig_dcs_called = False
         self.__class__.status_code = 200
 
-        def common_callback(url, **kwargs):
-            if 'statsig' in url.netloc:
-                self.__class__.statsig_dcs_called = True
-                return PARSED_CONFIG_SPEC
-            else:
-                self.__class__.dcs_called = True
+        def statsig_dcs_cb(url, **kwargs):
+            self.__class__.statsig_dcs_called = True
+            return PARSED_CONFIG_SPEC
 
+        _network_stub.stub_request_with_value("get_id_lists", 200, {})
+        _network_stub.stub_statsig_api_request_with_function(
+            "download_config_specs/.*", 200, statsig_dcs_cb)
+
+    def stub_network(self, status_code, incomplete_read=False, gzip=False):
+        self.__class__.status_code = status_code
+
+        def cb(url, **kwargs):
+            self.__class__.dcs_called = True
             if self.__class__.status_code == 200:
                 return PARSED_CONFIG_SPEC
-            if self.__class__.status_code == 300:
+            if self.__class__.status_code == 202:  # just for testing ok status code but invalid json
                 return "{jiBbRIsh;"
             if self.__class__.status_code == 400:
-                return "Bad Request"
+                return "{}"
             if self.__class__.status_code == 500:
                 raise Exception("Internal Server Error")
 
+        options = {}
+        if incomplete_read:
+            options["incompleteRead"] = True
+        headers = {}
+        if gzip:
+            headers["Content-Encoding"] = "gzip"
+
         _network_stub.stub_request_with_function(
-            "download_config_specs/.*", self.__class__.status_code, common_callback)
-        _network_stub.stub_statsig_api_request_with_function(
-            "download_config_specs/.*", 200, common_callback)
+            "download_config_specs/.*", self.__class__.status_code, cb, headers=headers, options=options)
 
     def tearDown(self):
         statsig.shutdown()
         _network_stub.reset()
 
     def test_default_sync_success(self, request_mock):
+        self.stub_network(200)
         options = StatsigOptions(api=_network_stub.host, fallback_to_statsig_api=True, rulesets_sync_interval=1)
-        statsig.initialize("secret-key", options)
+        init_detail = statsig.initialize("secret-key", options)
+        self.assertIsNone(init_detail.error)
         gate = statsig.get_feature_gate(self.test_user, "always_on_gate")
         eval_detail: EvaluationDetails = gate.get_evaluation_details()
         self.assertEqual(eval_detail.source, DataSource.NETWORK)
@@ -70,7 +83,8 @@ class TestSyncConfigFallback(unittest.TestCase):
         self.assertFalse(self.__class__.statsig_dcs_called)
 
     def test_fallback_when_out_of_sync(self, request_mock):
-        options = StatsigOptions(api_for_download_config_specs=_network_stub.host, fallback_to_statsig_api=True,
+        self.stub_network(200)
+        options = StatsigOptions(api=_network_stub.host, fallback_to_statsig_api=True,
                                  rulesets_sync_interval=1, out_of_sync_threshold_in_s=0.5)
         statsig.initialize("secret-key", options)
         gate = statsig.get_feature_gate(self.test_user, "always_on_gate")
@@ -81,7 +95,8 @@ class TestSyncConfigFallback(unittest.TestCase):
         self.assertTrue(self.__class__.statsig_dcs_called)
 
     def test_no_fallback_when_not_out_of_sync(self, request_mock):
-        options = StatsigOptions(api_for_download_config_specs=_network_stub.host, fallback_to_statsig_api=True,
+        self.stub_network(200)
+        options = StatsigOptions(api=_network_stub.host, fallback_to_statsig_api=True,
                                  rulesets_sync_interval=1, out_of_sync_threshold_in_s=4e10)
         statsig.initialize("secret-key", options)
         gate = statsig.get_feature_gate(self.test_user, "always_on_gate")
@@ -92,45 +107,61 @@ class TestSyncConfigFallback(unittest.TestCase):
         self.assertFalse(self.__class__.statsig_dcs_called)
 
     def test_fallback_when_dcs_400(self, request_mock):
-        self.__class__.status_code = 400
-        options = StatsigOptions(api_for_download_config_specs=_network_stub.host, fallback_to_statsig_api=True,
+        self.stub_network(400)
+        options = StatsigOptions(api=_network_stub.host, fallback_to_statsig_api=True,
                                  rulesets_sync_interval=1)
-        init_context = statsig.initialize("secret-key", options)
-        self.assertEqual(init_context.source, DataSource.STATSIG_NETWORK)
+        init_details = statsig.initialize("secret-key", options)
+        self.assertEqual(init_details.source, DataSource.STATSIG_NETWORK)
+        self.assertTrue("raise for status error" in str(init_details.error))
         self.get_gate_and_validate()
         self.wait_for_sync_and_validate()
 
     def test_fallback_when_dcs_500(self, request_mock):
-        self.__class__.status_code = 500
-        options = StatsigOptions(api_for_download_config_specs=_network_stub.host, fallback_to_statsig_api=True,
+        self.stub_network(500)
+        options = StatsigOptions(api=_network_stub.host, fallback_to_statsig_api=True,
                                  rulesets_sync_interval=1)
-        statsig.initialize("secret-key", options)
-        self.assertEqual(statsig.get_instance()._spec_store.init_source, DataSource.STATSIG_NETWORK)
+        init_context = statsig.initialize("secret-key", options)
+        self.assertEqual(init_context.source, DataSource.STATSIG_NETWORK)
+        self.assertIsInstance(init_context.error, Exception)
         self.get_gate_and_validate()
         self.wait_for_sync_and_validate()
 
     def test_fallback_when_dcs_invalid_json(self, request_mock):
-        self.__class__.status_code = 300
-        options = StatsigOptions(api_for_download_config_specs=_network_stub.host, fallback_to_statsig_api=True,
+        self.stub_network(202)
+        options = StatsigOptions(api=_network_stub.host, fallback_to_statsig_api=True,
+                                 rulesets_sync_interval=1)
+        init_context = statsig.initialize("secret-key", options)
+        self.assertEqual(init_context.source, DataSource.STATSIG_NETWORK)
+        self.assertIsInstance(init_context.error, Exception)
+        self.get_gate_and_validate()
+        self.wait_for_sync_and_validate()
+
+    def test_fallback_when_invalid_gzip_content(self, request_mock):
+        self.stub_network(202, gzip=True)
+        options = StatsigOptions(api=_network_stub.host, fallback_to_statsig_api=True,
                                  rulesets_sync_interval=1)
         statsig.initialize("secret-key", options)
         self.assertEqual(statsig.get_instance()._spec_store.init_source, DataSource.STATSIG_NETWORK)
         self.get_gate_and_validate()
         self.wait_for_sync_and_validate()
 
-    def test_fallback_when_invalid_gzip_content(self, request_mock):
-        def cb(url, **kwargs):
-            self.__class__.dcs_called = True
-            return "{jiBbRIsh;"
-
-        _network_stub.stub_request_with_function(
-            "download_config_specs/.*", 200, cb,
-            headers={"Content-Encoding": "gzip"}
-        )
-        options = StatsigOptions(api_for_download_config_specs=_network_stub.host, fallback_to_statsig_api=True,
+    def test_fallback_when_dcs_incomplete_read(self, request_mock):
+        self.stub_network(200, incomplete_read=True)
+        options = StatsigOptions(api=_network_stub.host, fallback_to_statsig_api=True,
                                  rulesets_sync_interval=1)
-        statsig.initialize("secret-key", options)
-        self.assertEqual(statsig.get_instance()._spec_store.init_source, DataSource.STATSIG_NETWORK)
+        init_context = statsig.initialize("secret-key", options)
+        self.assertEqual(init_context.source, DataSource.STATSIG_NETWORK)
+        self.assertIsInstance(init_context.error, Exception)
+        self.get_gate_and_validate()
+        self.wait_for_sync_and_validate()
+
+    def test_fallback_when_dcs_incomplete_read_gzip(self, request_mock):
+        self.stub_network(200, incomplete_read=True, gzip=True)
+        options = StatsigOptions(api=_network_stub.host, fallback_to_statsig_api=True,
+                                 rulesets_sync_interval=1)
+        init_context = statsig.initialize("secret-key", options)
+        self.assertEqual(init_context.source, DataSource.STATSIG_NETWORK)
+        self.assertIsInstance(init_context.error, Exception)
         self.get_gate_and_validate()
         self.wait_for_sync_and_validate()
 

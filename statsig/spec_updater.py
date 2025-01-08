@@ -1,11 +1,12 @@
 import json
 import threading
 import time
-from typing import Optional, Callable, List, Any, Tuple
+from typing import Optional, Callable, List, Tuple
 
 from . import globals
 from .diagnostics import Diagnostics, Marker, Context, Key
 from .evaluation_details import DataSource
+from .http_worker import RequestResult
 from .interface_data_store import IDataStore
 from .interface_network import IStreamingListeners
 from .statsig_context import InitContext
@@ -62,7 +63,8 @@ class SpecUpdater:
 
     def get_config_spec(self, source: DataSource, for_initialize=False):
         try:
-            self._log_process(f"Loading specs from {source.value}...")
+            self._log_process(f"Loading specs from {source.value}...",
+                              "Initialize" if for_initialize else "Config Sync")
             init_timeout = None
             if for_initialize:
                 init_timeout = self._options.init_timeout
@@ -162,7 +164,7 @@ class SpecUpdater:
                     Marker().download_config_specs().process().start()
                 )
                 self._log_process("Done loading specs")
-                has_update, parse_success = False, False
+                has_update, parse_success = False, False  # parce success can be true even if there is no update
                 if self.dcs_listener is not None:
                     has_update, parse_success = self.dcs_listener(specs, data_source)
                 if has_update:
@@ -182,7 +184,7 @@ class SpecUpdater:
 
         parse_success, error = process()
         if parse_success is False:
-            self._sync_failure_count += 1
+            self._sync_failure_count += 1  # increment sync failure to trigger fallback behavior
 
     def _log_process(self, msg, process=None):
         if process is None:
@@ -263,7 +265,7 @@ class SpecUpdater:
     def download_single_id_list(
             self, url, list_name, local_list, all_lists, start_index
     ):
-        def on_complete(resp: Any):
+        def on_complete(resp: RequestResult):
             if resp is None:
                 return
             threw_error = False
@@ -271,7 +273,7 @@ class SpecUpdater:
                 self._diagnostics.add_marker(
                     Marker().get_id_list().process().start({"url": url})
                 )
-                content_length_str = resp.headers.get("content-length")
+                content_length_str = resp.headers.get("content-length") if resp.headers else None
                 if content_length_str is None:
                     raise StatsigValueError("Content length invalid.")
                 content_length = int(content_length_str)
