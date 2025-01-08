@@ -167,7 +167,7 @@ class HttpWorker(IStatsigNetworkWorker):
     ) -> RequestResult:
         if self.__local_mode:
             globals.logger.debug("Using local mode. Dropping network request")
-            return RequestResult(data=None, status_code=200, success=True, error=None)
+            return RequestResult(data=None, status_code=None, success=False, error=None)
 
         create_marker = self._get_diagnostics_from_url_or_tag(url, tag)
         marker_id = str(self.__request_count) if (tag == "log_event") else None
