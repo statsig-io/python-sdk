@@ -374,7 +374,9 @@ class _Evaluator:
             if value is None:
                 return False
         elif type == "UA_BASED":
-            value = self.__get_from_user_agent(user, field)
+            value = self.__get_from_user(user, field)
+            if value is None:
+                value = self.__get_from_user_agent(user, field)
         elif type == "USER_FIELD":
             value = self.__get_from_user(user, field)
         elif type == "CURRENT_TIME":
