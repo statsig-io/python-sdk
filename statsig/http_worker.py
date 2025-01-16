@@ -2,35 +2,24 @@ import gzip
 import json
 import time
 from concurrent.futures.thread import ThreadPoolExecutor
-from dataclasses import dataclass
 from decimal import Decimal
 from io import BytesIO
-from typing import Callable, Tuple, Optional, Any, Dict, Union
+from typing import Callable, Tuple, Optional, Any, Dict
 
 import ijson
 import requests
-from requests.structures import CaseInsensitiveDict
 
 from . import globals
 from .diagnostics import Diagnostics, Marker
 from .evaluation_details import DataSource
 from .interface_network import IStatsigNetworkWorker, NetworkProtocol, NetworkEndpoint
+from .request_result import RequestResult
 from .sdk_configs import _SDK_Configs
 from .statsig_context import InitContext
 from .statsig_error_boundary import _StatsigErrorBoundary
 from .statsig_options import StatsigOptions, STATSIG_API, STATSIG_CDN
 
 REQUEST_TIMEOUT = 20
-
-
-@dataclass
-class RequestResult:
-    data: Optional[Dict[str, Any]]
-    success: bool
-    status_code: Optional[int]
-    text: Optional[str] = None
-    headers: Optional[Union[CaseInsensitiveDict, Dict[str, str]]] = None
-    error: Optional[Exception] = None
 
 
 class HttpWorker(IStatsigNetworkWorker):
@@ -114,7 +103,7 @@ class HttpWorker(IStatsigNetworkWorker):
             return on_complete(resp)
         return on_complete(None)
 
-    def log_events(self, payload, headers=None, log_on_exception=False, retry=0):
+    def log_events(self, payload, headers=None, log_on_exception=False, retry=0) -> RequestResult:
         disable_compression = _SDK_Configs.on("stop_log_event_compression")
         additional_headers = {
             'STATSIG-RETRY': str(retry),
@@ -127,9 +116,9 @@ class HttpWorker(IStatsigNetworkWorker):
             headers=additional_headers,
             payload=payload, log_on_exception=log_on_exception, init_timeout=None, zipped=not disable_compression,
             tag="log_event")
-        if response is None or response.status_code in self.__RETRY_CODES:
-            return payload
-        return None
+        if response.status_code in self.__RETRY_CODES:
+            response.retryable = True
+        return response
 
     def shutdown(self) -> None:
         self._executor.shutdown(wait=False)

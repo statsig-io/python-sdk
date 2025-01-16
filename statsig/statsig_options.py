@@ -110,6 +110,7 @@ class StatsigOptions:
             output_logger_level: Optional[LogLevel] = LogLevel.WARNING,
             overall_init_timeout: Optional[float] = None,
             observability_client: Optional[ObservabilityClient] = None,
+            sdk_error_callback: Optional[Callable[[str, Exception], None]] = None,
     ):
         self.data_store = data_store
         self._environment: Union[None, dict] = None
@@ -157,6 +158,7 @@ class StatsigOptions:
         self.output_logger_level = output_logger_level
         self.overall_init_timeout = overall_init_timeout
         self.observability_client = observability_client
+        self.sdk_error_callback = sdk_error_callback
         self._logging_copy: Dict[str, Any] = {}
         self._set_logging_copy()
         self._attributes_changed = False
@@ -203,7 +205,7 @@ class StatsigOptions:
             logging_copy["init_timeout"] = self.init_timeout
         if self.timeout:
             logging_copy["timeout"] = self.timeout
-        if (self.rulesets_sync_interval) != DEFAULT_RULESET_SYNC_INTERVAL:
+        if self.rulesets_sync_interval != DEFAULT_RULESET_SYNC_INTERVAL:
             logging_copy["rulesets_sync_interval"] = self.rulesets_sync_interval
         if self.idlists_sync_interval != DEFAULT_IDLIST_SYNC_INTERVAL:
             logging_copy["idlists_sync_interval"] = self.idlists_sync_interval
@@ -219,6 +221,8 @@ class StatsigOptions:
             logging_copy["logging_interval"] = self.logging_interval
         if self.disable_diagnostics:
             logging_copy["disable_diagnostics"] = self.disable_diagnostics
+        if self.disable_all_logging:
+            logging_copy["disable_all_logging"] = self.disable_all_logging
         if self.event_queue_size != DEFAULT_EVENT_QUEUE_SIZE:
             logging_copy["event_queue_size"] = self.event_queue_size
         if self.retry_queue_size != DEFAULT_RETRY_QUEUE_SIZE:
@@ -227,5 +231,15 @@ class StatsigOptions:
             logging_copy["overall_init_timeout"] = self.overall_init_timeout
         if self.observability_client is not None:
             logging_copy["observability_client"] = "SET"
+        if self.fallback_to_statsig_api:
+            logging_copy["fallback_to_statsig_api"] = self.fallback_to_statsig_api
+        if self.out_of_sync_threshold_in_s:
+            logging_copy["out_of_sync_threshold_in_s"] = self.out_of_sync_threshold_in_s
+        if self.initialize_sources:
+            logging_copy["initialize_sources"] = "SET"
+        if self.config_sync_sources:
+            logging_copy["config_sync_sources"] = "SET"
+        if self.sdk_error_callback:
+            logging_copy["sdk_error_callback"] = "SET"
         self._logging_copy = logging_copy
         self._attributes_changed = False

@@ -18,4 +18,6 @@ def init_logger(options: StatsigOptions):
         logger.set_log_level(options.output_logger_level)
     if options.observability_client is not None:
         logger.set_ob_client(options.observability_client)
+    if options.sdk_error_callback is not None:
+        logger.set_sdk_error_callback(options.sdk_error_callback)
     logger.init()

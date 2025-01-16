@@ -4,7 +4,7 @@ from typing import Any, Callable, Optional
 
 from . import globals
 from .diagnostics import Diagnostics
-from .http_worker import HttpWorker
+from .http_worker import HttpWorker, RequestResult
 from .interface_network import (
     IStreamingFallback,
     IStreamingListeners,
@@ -221,10 +221,10 @@ class _StatsigNetwork:
             return
         self.http_worker.get_id_list(on_complete, url, headers, log_on_exception)
 
-    def log_events(self, payload, headers=None, log_on_exception=False, retry=0):
+    def log_events(self, payload, headers=None, log_on_exception=False, retry=0) -> RequestResult:
         if self.options.local_mode:
             globals.logger.warning("Local mode is enabled. Not logging events.")
-            return None
+            return RequestResult(data=None, status_code=None, success=False, error=None)
         return self.log_event_worker.log_events(
             payload, headers=headers, log_on_exception=log_on_exception, retry=retry
         )

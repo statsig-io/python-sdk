@@ -118,24 +118,30 @@ class LoggerWorker:
     def _flush_to_server(self, batched_events: BatchEventLogs):
         if self._local_mode:
             return
-        res = self._net.log_events(batched_events.payload, retry=batched_events.retries,
-                                   log_on_exception=True, headers=batched_events.headers)
-        if res is not None:
-            if batched_events.retries >= 10:
-                message = (
-                    f"Failed to post {batched_events.event_count} logs after 10 retries, dropping the request"
-                )
-                self._error_boundary.log_exception(
-                    "statsig::log_event_failed",
-                    Exception(message),
-                    {"eventCount": batched_events.event_count, "error": message},
-                    bypass_dedupe=True
-                )
-                globals.logger.warning(message)
-                return
+        result = self._net.log_events(batched_events.payload, retry=batched_events.retries,
+                                      log_on_exception=True, headers=batched_events.headers)
 
-            self._failure_backoff()
+        if result.success:
+            globals.logger.increment("events_successfully_sent_count", batched_events.event_count)
+            self._success_backoff()
+            return
 
+        if batched_events.retries >= 10 or not result.retryable:
+            message = (
+                f"Failed to post {batched_events.event_count} logs. The request was either not retryable or failed after 10 retries, and has been dropped."
+            )
+            self._error_boundary.log_exception(
+                "statsig::log_event_failed",
+                Exception(message),
+                {"eventCount": batched_events.event_count, "error": message},
+                bypass_dedupe=True
+            )
+            globals.logger.warning(message)
+            return
+
+        self._failure_backoff()
+
+        if result.retryable:
             self.event_batch_processor.add_to_batched_events_queue(
                 BatchEventLogs(
                     batched_events.payload,
@@ -144,8 +150,6 @@ class LoggerWorker:
                     batched_events.retries + 1,
                 )
             )
-        else:
-            self._success_backoff()
 
     def _get_curr_interval(self):
         with self.lock:

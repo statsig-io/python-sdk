@@ -1,9 +1,12 @@
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Union, List, Dict
 
 from .statsig_environment_tier import StatsigEnvironmentTier
 from .statsig_errors import StatsigValueError
 from .utils import str_or_none, to_raw_dict_or_none, djb2_hash_for_dict
+
+JSONPrimitive = Union[str, int, float, bool, None]
+JSONValue = Union[JSONPrimitive, List['JSONValue'], Dict[str, 'JSONValue']]
 
 
 @dataclass
@@ -21,10 +24,10 @@ class StatsigUser:
     country: Optional[str] = None
     locale: Optional[str] = None
     app_version: Optional[str] = None
-    custom: Optional[dict] = None
-    private_attributes: Optional[dict] = None
-    custom_ids: Optional[dict] = None
-    _statsig_environment: Optional[dict] = None
+    custom: Optional[Dict[str, JSONValue]] = None
+    private_attributes: Optional[Dict[str, JSONValue]] = None
+    custom_ids: Optional[Dict[str, str]] = None
+    _statsig_environment: Optional[Dict[str, JSONValue]] = None
 
     def __post_init__(self):
         # ensure there is a user id or at least a custom ID, empty dict

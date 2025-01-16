@@ -4,6 +4,7 @@ import os
 import time
 import unittest
 from collections import defaultdict
+from datetime import datetime
 from typing import Optional, Any, Dict
 from unittest.mock import patch
 
@@ -127,3 +128,46 @@ class TestTelemetryLogger(unittest.TestCase):
         self.assertEqual(init_details.source, DataSource.NETWORK)
         gate = statsig.check_gate(StatsigUser("test_user"), "always_on_gate")
         self.assertTrue(gate)
+
+    def test_log_sdk_exception_counter(self, mock_request):
+        ob_client = MockObservabilityClient()
+        options = StatsigOptions(api=_network_stub.host, observability_client=ob_client)
+        statsig.initialize("secret-key", options)
+        statsig.check_gate(StatsigUser(user_id="123", custom={"time": datetime.now()}), "always_on_gate")
+        statsig.flush()
+        self.assertEqual(len(ob_client._logs['increment']), 1)
+        self.assertEqual(ob_client._logs['increment'][0][0], "statsig.sdk.sdk_exceptions_count")
+
+    def test_error_callback(self, mock_request):
+        def error_callback(tag: str, exception: Exception):
+            self.assertEqual(tag, "statsig::log_event_failed")
+            self.assertIsInstance(exception, Exception)
+
+        options = StatsigOptions(api=_network_stub.host, sdk_error_callback=error_callback)
+        statsig.initialize("secret-key", options)
+        statsig.check_gate(StatsigUser(user_id="123", custom={"time": datetime.now()}), "always_on_gate")
+        statsig.flush()
+
+    def test_always_throw_error_callback(self, mock_request):
+        def error_callback(tag: str, exception: Exception):
+            raise Exception("Always throw")
+
+        options = StatsigOptions(api=_network_stub.host, sdk_error_callback=error_callback)
+        init_details = statsig.initialize("secret-key", options)
+        self.assertEqual(init_details.init_success, True)
+        self.assertEqual(init_details.store_populated, True)
+        self.assertEqual(init_details.source, DataSource.NETWORK)
+        gate = statsig.check_gate(StatsigUser("test_user"), "always_on_gate")
+        self.assertTrue(gate)
+
+    def test_events_successfully_sent_count(self, mock_request):
+        _network_stub.stub_request_with_value(
+            "log_event", 200, {})
+        ob_client = MockObservabilityClient()
+        options = StatsigOptions(api=_network_stub.host, observability_client=ob_client)
+        statsig.initialize("secret-key", options)
+        statsig.check_gate(StatsigUser(user_id="123"), "always_on_gate")
+        statsig.flush()
+        self.assertEqual(len(ob_client._logs['increment']), 1)
+        self.assertEqual(ob_client._logs['increment'][0][0], "statsig.sdk.events_successfully_sent_count")
+        self.assertEqual(ob_client._logs['increment'][0][1], 2)  # diagnostic event + gate check

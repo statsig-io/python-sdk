@@ -106,6 +106,7 @@ class _StatsigErrorBoundary:
                 return
             self._seen.add(name)
 
+            globals.logger.log_sdk_exception(name, exception)
             self._executor.submit(
                 self._post_exception,
                 name,
