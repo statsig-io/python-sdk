@@ -2,7 +2,7 @@ import hashlib
 import json
 from enum import Enum
 from struct import unpack
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Mapping
 
 
 class HashingAlgorithm(Enum):
@@ -21,7 +21,7 @@ def to_raw_value(value):
     return value
 
 
-def to_raw_dict_or_none(field: Optional[dict]):
+def to_raw_dict_or_none(field: Optional[Mapping]):
     return {k: to_raw_value(v) for k, v in field.items()} if field is not None else None
 
 
