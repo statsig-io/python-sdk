@@ -76,6 +76,7 @@ class ClientInitializeResponseFormatter:
                 id_type = config_spec["idType"]
                 result["value"] = eval_result.json_value
                 result["group"] = eval_result.rule_id
+                result["passed"] = eval_result.boolean_value
                 result["is_device_based"] = id_type.lower(
                 ) == "stableid" if isinstance(id_type, str) else False
 
