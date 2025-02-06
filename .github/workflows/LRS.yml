@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+
       
 env:
   api_key: ${{ secrets.LRS_SERVER_KEY }}
@@ -27,7 +28,7 @@ jobs:
           repository: statsig-io/private-python-sdk
           ref: main
           token: ${{ secrets.ROIM }}
-          path: long-running-sdk/python
+          path: ./python/private-python-sdk
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
       - name: Set up Docker Buildx
@@ -44,7 +45,7 @@ jobs:
           context: .
           file: python/Dockerfile
           push: true
-          tags: statsig/statsig-forward-proxy:latest,statsig/long-running-sdk:${{ env.image_tag }}
+          tags: statsig/long-running-sdk:${{ env.image_tag }}
           github-token: ${{ secrets.GH_CI_CD_PAT }}
           build-args: 
             secret_key=${{env.api_key}}
