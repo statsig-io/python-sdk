@@ -111,6 +111,8 @@ class StatsigOptions:
             overall_init_timeout: Optional[float] = None,
             observability_client: Optional[ObservabilityClient] = None,
             sdk_error_callback: Optional[Callable[[str, Exception], None]] = None,
+            events_flushed_callback: Optional[
+                Callable[[bool, List[Dict], Optional[int], Optional[Exception]], None]] = None,
     ):
         self.data_store = data_store
         self._environment: Union[None, dict] = None
@@ -159,6 +161,7 @@ class StatsigOptions:
         self.overall_init_timeout = overall_init_timeout
         self.observability_client = observability_client
         self.sdk_error_callback = sdk_error_callback
+        self.events_flushed_callback = events_flushed_callback
         self._logging_copy: Dict[str, Any] = {}
         self._set_logging_copy()
         self._attributes_changed = False

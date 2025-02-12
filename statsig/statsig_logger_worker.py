@@ -32,6 +32,7 @@ class LoggerWorker:
         self._diagnostics = diagnostics
         self._shutdown_event = shutdown_event
         self._net = net
+        self._events_flushed_callback = options.events_flushed_callback
         self.event_batch_processor = event_batch_processor
         self.worker_threads: List[threading.Thread] = []
         self._dropped_events_count_logging_thread = None
@@ -121,6 +122,9 @@ class LoggerWorker:
         result = self._net.log_events(batched_events.payload, retry=batched_events.retries,
                                       log_on_exception=True, headers=batched_events.headers)
 
+        if self._events_flushed_callback is not None:
+            self._events_flushed_callback(result.success, batched_events.payload["events"], result.status_code,
+                                          result.error)
         if result.success:
             globals.logger.increment("events_successfully_sent_count", batched_events.event_count)
             self._success_backoff()
@@ -136,7 +140,6 @@ class LoggerWorker:
                 {"eventCount": batched_events.event_count, "error": message},
                 bypass_dedupe=True
             )
-            globals.logger.warning(message)
             return
 
         self._failure_backoff()
