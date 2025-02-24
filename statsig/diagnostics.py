@@ -1,7 +1,7 @@
-from typing import Optional, Dict
-import time
 import random
+import time
 from enum import Enum
+from typing import Optional, Dict
 
 from .interface_network import NetworkProtocol
 from .statsig_options import StatsigOptions
@@ -65,25 +65,25 @@ class Marker:
     context = None
 
     def __init__(
-        self,
-        key: Optional[Key] = None,
-        action: Optional[Action] = None,
-        timestamp: Optional[float] = None,
-        step: Optional[Step] = None,
-        statusCode: Optional[int] = None,
-        success: Optional[bool] = None,
-        url: Optional[str] = None,
-        idListCount: Optional[int] = None,
-        reason: Optional[str] = None,
-        sdkRegion: Optional[str] = None,
-        markerID: Optional[str] = None,
-        attempt: Optional[int] = None,
-        retryLimit: Optional[int] = None,
-        isRetry: Optional[bool] = None,
-        configName: Optional[str] = None,
-        error: Optional[dict] = None,
-        payloadSize: Optional[int] = None,
-        networkProtocol: Optional[NetworkProtocol] = None,
+            self,
+            key: Optional[Key] = None,
+            action: Optional[Action] = None,
+            timestamp: Optional[float] = None,
+            step: Optional[Step] = None,
+            statusCode: Optional[int] = None,
+            success: Optional[bool] = None,
+            url: Optional[str] = None,
+            idListCount: Optional[int] = None,
+            reason: Optional[str] = None,
+            sdkRegion: Optional[str] = None,
+            markerID: Optional[str] = None,
+            attempt: Optional[int] = None,
+            retryLimit: Optional[int] = None,
+            isRetry: Optional[bool] = None,
+            configName: Optional[str] = None,
+            error: Optional[dict] = None,
+            payloadSize: Optional[int] = None,
+            networkProtocol: Optional[NetworkProtocol] = None,
     ):
         self.key = key
         self.action = action
@@ -300,9 +300,9 @@ class Diagnostics:
             return rand < self.sampling_rate.get(SamplingRate.INITIALIZE.value, 0)
         if context == Context.API_CALL:
             return rand < self.sampling_rate.get(SamplingRate.API_CALL.value, 0)
-        if key in (Key.GET_ID_LIST.value, Key.GET_ID_LIST_SOURCES.value):
+        if key in (Key.GET_ID_LIST, Key.GET_ID_LIST_SOURCES):
             return rand < self.sampling_rate.get(SamplingRate.ID_LIST.value, 0)
-        if key == Key.DOWNLOAD_CONFIG_SPECS.value:
+        if key == Key.DOWNLOAD_CONFIG_SPECS:
             return rand < self.sampling_rate.get(SamplingRate.DCS.value, 0)
         return rand < DEFAULT_SAMPLING_RATE  # error in code
 
