@@ -277,7 +277,7 @@ class _Evaluator:
 
     def __finalize_eval_result(self, config, end_result, did_pass, rule, is_nested=False):
         end_result.boolean_value = did_pass
-        end_result.id_type = config.get("id_type", "")
+        end_result.id_type = config.get("idType", "")
         if config.get("forwardAllExposures", False):
             end_result.forward_all_exposures = True
 
