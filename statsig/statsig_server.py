@@ -186,6 +186,7 @@ class StatsigServer:
                     False,
                     gate_name,
                     "",
+                    "",
                 )
                 if not self._options.evaluation_callback is None:
                     self._options.evaluation_callback(feature_gate)
@@ -196,6 +197,7 @@ class StatsigServer:
                 result.boolean_value,
                 gate_name,
                 result.rule_id,
+                result.id_type,
                 result.group_name,
                 result.evaluation_details
             )

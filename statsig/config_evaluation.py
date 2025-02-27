@@ -16,7 +16,8 @@ class _ConfigEvaluation:
                  group_name=None,
                  sample_rate=None,
                  user=None,
-                 forward_all_exposures=False):
+                 forward_all_exposures=False,
+                 id_type=""):
         if boolean_value is None:
             boolean_value = False
         self.boolean_value = boolean_value
@@ -26,6 +27,7 @@ class _ConfigEvaluation:
         if rule_id is None:
             rule_id = ""
         self.rule_id = rule_id
+        self.id_type = id_type
         if secondary_exposures is None:
             secondary_exposures = []
         if explicit_parameters is None:
