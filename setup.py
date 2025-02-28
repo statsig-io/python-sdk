@@ -41,6 +41,7 @@ setup(
         'grpcio',
         'protobuf',
         'ijson',
+        'typing-extensions',
     ],
     tests_require=test_deps,
     extras_require=extras,
