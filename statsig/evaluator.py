@@ -303,7 +303,7 @@ class _Evaluator:
     def __evaluate_rule(self, user, rule, end_result):
         total_eval_result = True
         for condition in rule.get("conditions", []):
-            eval_result = self.__evaluate_condition(user, condition, end_result)
+            eval_result = self.__evaluate_condition(user, condition, end_result, rule.get("samplingRate", None))
             if not eval_result:
                 total_eval_result = False
         end_result.boolean_value = total_eval_result
@@ -325,13 +325,14 @@ class _Evaluator:
         end_result.allocated_experiment = config_delegate
         return end_result
 
-    def __evaluate_condition(self, user, condition, end_result):
+    def __evaluate_condition(self, user, condition, end_result, sampling_rate=None):
         value = None
         type = condition.get("type", "").upper()
         target = condition.get("targetValue")
         field = condition.get("field", "")
         id_Type = condition.get("idType", "userID")
         if type == "PUBLIC":
+            end_result.analytical_condition = sampling_rate is None
             return True
         if type in ("FAIL_GATE", "PASS_GATE"):
             self.check_gate(user, target, end_result, True)
@@ -343,11 +344,16 @@ class _Evaluator:
             }
 
             end_result.secondary_exposures.append(new_exposure)
+            if end_result.analytical_condition and isinstance(target, str) and not target.startswith("segment:"):
+                end_result.seen_analytical_gates = True
 
             pass_gate = end_result.boolean_value if type == "PASS_GATE" else not end_result.boolean_value
+
+            end_result.analytical_condition = sampling_rate is None
             return pass_gate
         if type in ("MULTI_PASS_GATE", "MULTI_FAIL_GATE"):
             if target is None or len(target) == 0:
+                end_result.analytical_condition = sampling_rate is None
                 return False
             pass_gate = False
             for gate in target:
@@ -359,10 +365,14 @@ class _Evaluator:
                     "ruleID": other_result.rule_id
                 }
                 end_result.secondary_exposures.append(new_exposure)
+                if end_result.analytical_condition and isinstance(target, str) and not target.startswith("segment:"):
+                    end_result.seen_analytical_gates = True
 
                 pass_gate = pass_gate or other_result.boolean_value if type == "MULTI_PASS_GATE" else pass_gate or not other_result.boolean_value
                 if pass_gate:
                     break
+
+            end_result.analytical_condition = sampling_rate is None
             return pass_gate
         if type == "IP_BASED":
             value = self.__get_from_user(user, field)
@@ -373,6 +383,7 @@ class _Evaluator:
                         self._country_lookup = CountryLookup()
                     value = self._country_lookup.lookupStr(ip)
             if value is None:
+                end_result.analytical_condition = sampling_rate is None
                 return False
         elif type == "UA_BASED":
             value = self.__get_from_user(user, field)
@@ -393,6 +404,8 @@ class _Evaluator:
                 salt_str + "." + unit_id) % 1000)
         elif type == "UNIT_ID":
             value = self.__get_unit_id(user, id_Type)
+
+        end_result.analytical_condition = sampling_rate is None
 
         op = condition.get("operator")
         user_bucket = condition.get("user_bucket")

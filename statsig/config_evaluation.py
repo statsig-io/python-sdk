@@ -17,7 +17,10 @@ class _ConfigEvaluation:
                  sample_rate=None,
                  user=None,
                  forward_all_exposures=False,
-                 id_type=""):
+                 id_type="",
+                 analytical_condition=False,
+                 seen_analytical_gates=False
+        ):
         if boolean_value is None:
             boolean_value = False
         self.boolean_value = boolean_value
@@ -45,3 +48,5 @@ class _ConfigEvaluation:
         self.user = user
         self.forward_all_exposures = forward_all_exposures
         self.version = version
+        self.analytical_condition = analytical_condition
+        self.seen_analytical_gates = seen_analytical_gates

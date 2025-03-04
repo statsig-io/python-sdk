@@ -277,6 +277,9 @@ class _StatsigLogger:
                 self._sampling_key_set.add(samplingSetKey)
                 return True, None, None
 
+            if result.seen_analytical_gates:
+                return True, None, None
+
             should_sample = result.sample_rate is not None or result.rule_id in special_case_rules
             if not should_sample:
                 return True, None, None
