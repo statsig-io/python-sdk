@@ -181,6 +181,7 @@ class _SpecStore:
             return parsed
 
         def parse_target_value_map_from_spec(spec, parsed):
+            unsupported_specs = set()
             for rule in spec.get("rules", []):
                 for i, cond in enumerate(rule.get("conditions", [])):
                     op = cond.get("operator", None)
@@ -190,12 +191,12 @@ class _SpecStore:
                         op = op.lower()
                         if op not in Const.SUPPORTED_OPERATORS:
                             self.unsupported_configs.add(spec.get("name"))
-                            del parsed[spec.get("name")]
+                            unsupported_specs.add(spec.get("name"))
                     if cond_type is not None:
                         cond_type = cond_type.lower()
                         if cond_type not in Const.SUPPORTED_CONDITION_TYPES:
                             self.unsupported_configs.add(spec.get("name"))
-                            del parsed[spec.get("name")]
+                            unsupported_specs.add(spec.get("name"))
 
                     if op in ("any", "none") and cond_type == "user_bucket":
                         rule["conditions"][i]["user_bucket"] = {}
@@ -220,6 +221,9 @@ class _SpecStore:
                         rule["conditions"][i]["fast_target_value"] = {}
                         for val in target_value:
                             rule["conditions"][i]["fast_target_value"][str(val)] = True
+            for spec_name in unsupported_specs:
+                if spec_name in parsed:
+                    del parsed[spec_name]
 
         self.unsupported_configs.clear()
         new_gates = get_parsed_specs(EntityType.GATE.value)
