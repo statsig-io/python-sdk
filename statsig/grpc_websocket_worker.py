@@ -293,8 +293,11 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
                 self.listeners.on_error(e)
             self._retry_connection(since_time)
 
+    def config_spec_listening_started(self) -> bool:
+        return self.dcs_thread is not None and self.dcs_thread.is_alive()
+
     def start_listen_for_config_spec(self, listeners: IStreamingListeners) -> None:
-        if self.dcs_thread and self.dcs_thread.is_alive():
+        if self.config_spec_listening_started():
             return
 
         def on_update_wrapped(spec, lcut):
@@ -324,6 +327,9 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
         )
 
     def start_listen_for_id_list(self, listeners: IStreamingListeners) -> None:
+        raise NotImplementedError("Not supported yet")
+
+    def id_list_listening_started(self) -> bool:
         raise NotImplementedError("Not supported yet")
 
     def _restart_dcs_streaming_thread_and_start_backup(self):

@@ -99,3 +99,9 @@ class IStatsigWebhookWorker:
 
     def register_fallback_cb(self, cb: Optional[IStreamingFallback]) -> None:
         self.backup_callbacks = cb
+
+    def config_spec_listening_started(self) -> bool:
+        return False
+
+    def id_list_listening_started(self) -> bool:
+        return False

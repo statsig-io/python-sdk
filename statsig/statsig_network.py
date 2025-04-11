@@ -103,6 +103,7 @@ class _StatsigNetwork:
 
         self._background_download_configs_from_statsig = None
         self._background_download_id_lists_from_statsig = None
+        self._streaming_fallback: Optional[StreamingFallback] = None
 
     def load_grpc_websocket_worker(self, endpoint: NetworkEndpoint, config: ProxyConfig):
         grpc_worker_module = importlib.import_module("statsig.grpc_websocket_worker")
@@ -233,25 +234,27 @@ class _StatsigNetwork:
         if self.options.local_mode:
             globals.logger.warning("Local mode is enabled. Not listening for DCS.")
             return
-        if isinstance(self.dcs_worker, IStatsigWebhookWorker):
+        if isinstance(self.dcs_worker, IStatsigWebhookWorker) and not self.dcs_worker.config_spec_listening_started():
             self.dcs_worker.start_listen_for_config_spec(listeners)
             interval = (
                     self.options.rulesets_sync_interval
                     or DEFAULT_RULESET_SYNC_INTERVAL
             )
-            callbacks = StreamingFallback(
-                fn=fallback,
-                interval=interval,
-                name="dcs_stream_fallback",
-                eb=self.error_boundary,
-            )
-            self.dcs_worker.register_fallback_cb(callbacks)
+            if self._streaming_fallback is None:
+                self._streaming_fallback = StreamingFallback(
+                    fn=fallback,
+                    interval=interval,
+                    name="dcs_stream_fallback",
+                    eb=self.error_boundary,
+                )
+            self.dcs_worker.register_fallback_cb(self._streaming_fallback)
 
     def listen_for_id_lists(self, listeners: IStreamingListeners):
         if self.options.local_mode:
             globals.logger.warning("Local mode is enabled. Not listening for ID Lists.")
             return
-        if isinstance(self.id_list_worker, IStatsigWebhookWorker):
+        if isinstance(self.id_list_worker,
+                      IStatsigWebhookWorker) and not self.id_list_worker.id_list_listening_started():
             self.id_list_worker.start_listen_for_id_list(listeners)
 
     def spawn_bg_threads_if_needed(self):
