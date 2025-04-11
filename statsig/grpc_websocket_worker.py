@@ -270,8 +270,7 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
                         self.on_reconnect()
                     if self.listeners and self.listeners.on_update:
                         if response.lastUpdated > self.lcut:
-                            globals.logger.log_process("gRPC Streaming",
-                                                       f"Received new config spec from gRPC stream at {response.lastUpdated}")
+                            self.log_grpc_msg_received(response.lastUpdated)
                             self.lcut = response.lastUpdated
                             self.listeners.on_update(
                                 json.loads(response.spec), response.lastUpdated
@@ -279,16 +278,7 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
         except Exception as e:
             if self.is_shutting_down:
                 return
-            self.error_boundary.log_exception(
-                "grpcWebSocket: connection error",
-                e,
-                {
-                    "retryAttempt": self.retry_limit - self.remaining_retry,
-                    "hostName": socket.gethostname(),
-                    "sfpHostName": self.server_host_name,
-                },
-                True,
-            )
+            self.log_grpc_streaming_error("grpcWebSocket:streaming_error", e)
             if self.listeners and self.listeners.on_error is not None:
                 self.listeners.on_error(e)
             self._retry_connection(since_time)
@@ -376,19 +366,7 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
         self._listen_for_dcs(since_time_to_use)
 
     def on_reconnect(self):
-        reconn_str = "Not an sdk exception - grpcWebSocket: Reconnected"
-        globals.logger.info(f"Reconnected to gRPC server at {self.channel_address}")
-        self.error_boundary.log_exception(
-            "grpcWebSocket: Reconnected",
-            Exception(reconn_str),
-            {
-                "retryAttempt": self.retry_limit - self.remaining_retry,
-                "hostName": socket.gethostname(),
-                "sfpHostName": self.server_host_name,
-            },
-            True,
-            log_mode="debug"
-        )
+        self.log_grpc_reconnect()
         self.remaining_retry = self.retry_limit
         self.retry_backoff = self.retry_backoff_base_ms
         if self.backup_callbacks:
@@ -422,3 +400,43 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
         if self.dcs_thread:
             self.dcs_thread.join(THREAD_JOIN_TIMEOUT)
         self.channel.close()
+
+    def log_grpc_msg_received(self, timestamp: int):
+        globals.logger.log_process("gRPC Streaming",
+                                   f"Received new config spec from gRPC stream at {timestamp}")
+        globals.logger.increment("grpc_msg_received", 1, {
+            "lcut": timestamp,
+        })
+
+    def log_grpc_reconnect(self):
+        reconn_str = "Not an sdk exception - grpcWebSocket: Reconnected"
+        tags = {
+            "retryAttempt": self.retry_limit - self.remaining_retry,
+            "hostName": socket.gethostname(),
+            "sfpHostName": self.server_host_name,
+        }
+        globals.logger.info(f"Reconnected to gRPC server at {self.channel_address}")
+        globals.logger.increment("grpc_reconnected", 1, tags)
+        self.error_boundary.log_exception(
+            "grpcWebSocket: Reconnected",
+            Exception(reconn_str),
+            tags,
+            True,
+            log_mode="none"
+        )
+
+    def log_grpc_streaming_error(self, exception_tag: str, exception: Exception):
+        retry_attempt = self.retry_limit - self.remaining_retry
+        self.error_boundary.log_exception(
+            exception_tag,
+            exception,
+            {
+                "retryAttempt": retry_attempt,
+                "hostName": socket.gethostname(),
+                "sfpHostName": self.server_host_name,
+            },
+        )
+        globals.logger.distribution("grpc_streaming_failed_with_retry_ct", retry_attempt, {
+            "hostName": socket.gethostname(),
+            "sfpHostName": self.server_host_name,
+        })
