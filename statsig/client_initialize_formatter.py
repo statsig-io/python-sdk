@@ -1,4 +1,5 @@
 import base64
+import random
 from hashlib import sha256
 from typing import Any, Dict, Optional, Union
 
@@ -166,8 +167,7 @@ class ClientInitializeResponseFormatter:
             evaluated_keys["customIDs"] = user.custom_ids
 
         meta = _StatsigMetadata.get()
-
-        return {
+        result = {
             "feature_gates": filter_nones(map(map_fnc, spec_store.get_all_gates().items())),
             "dynamic_configs": filter_nones(map(map_fnc, spec_store.get_all_configs().items())),
             "layer_configs": filter_nones(map(map_fnc, spec_store.get_all_layers().items())),
@@ -183,3 +183,46 @@ class ClientInitializeResponseFormatter:
                 "sdkVersion": meta["sdkVersion"],
             }
         }
+        session_replay_info = spec_store.get_session_replay_info()
+        if session_replay_info is not None:
+            result["recording_blocked"] = session_replay_info.get("recording_blocked", False)
+            can_record = result["recording_blocked"] is False
+            targeting_gate_name = session_replay_info.get("targeting_gate", None)
+            if targeting_gate_name is not None:
+                targeting_gate = result["feature_gates"].get(
+                    hash_name(targeting_gate_name, hash_algo), None)
+                if targeting_gate is not None:
+                    result["passes_session_recording_targeting"] = targeting_gate.get("value", False)
+                    if result["passes_session_recording_targeting"] != True:
+                        can_record = False
+            sampling_rate = session_replay_info.get("sampling_rate", None)
+            rand = random.random()
+            if sampling_rate is not None:
+                result["session_recording_rate"] = sampling_rate
+                if rand > sampling_rate:
+                    can_record = False
+            result["can_record_session"] = can_record
+            session_recording_event_triggers: Dict[str, Dict] = session_replay_info.get("session_recording_event_triggers", None)
+            if session_recording_event_triggers is not None:
+                result["session_recording_event_triggers"] = {}
+                for event in session_recording_event_triggers:
+                    event_trigger = session_recording_event_triggers[event]
+                    result["session_recording_event_triggers"][event] = {}
+                    if event_trigger.get("values", None) is not None:
+                        result["session_recording_event_triggers"][event]["values"] = event_trigger["values"]
+                    event_sampling_rate = event_trigger.get("sampling_rate", None)
+                    if event_sampling_rate is not None:
+                        result["session_recording_event_triggers"][event]["passes_sampling"] = rand <= event_sampling_rate
+
+            session_recording_exposure_triggers: Dict[str, Dict] = session_replay_info.get("session_recording_exposure_triggers", None)
+            if session_recording_exposure_triggers is not None:
+                result["session_recording_exposure_triggers"] = {}
+                for exposure in session_recording_exposure_triggers:
+                    exposure_trigger = session_recording_exposure_triggers[exposure]
+                    result["session_recording_exposure_triggers"][hash_name(exposure, hash_algo)] = {}
+                    if exposure_trigger.get("values", None) is not None:
+                        result["session_recording_exposure_triggers"][hash_name(exposure, hash_algo)]["values"] = exposure_trigger["values"]
+                    event_sampling_rate = exposure_trigger.get("sampling_rate", None)
+                    if event_sampling_rate is not None:
+                        result["session_recording_exposure_triggers"][hash_name(exposure, hash_algo)]["passes_sampling"] = rand <= event_sampling_rate
+        return result

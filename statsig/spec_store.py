@@ -55,6 +55,7 @@ class _SpecStore:
         self._sdk_keys_to_app_ids: Dict[str, str] = {}
         self._hashed_sdk_keys_to_app_ids: Dict[str, str] = {}
         self._default_environment: Union[None, str] = None
+        self._session_replay_info: Union[None, Dict[str, Dict]] = None
 
         self._id_lists: Dict[str, dict] = {}
         self.unsupported_configs: Set[str] = set()
@@ -142,6 +143,8 @@ class _SpecStore:
 
     def get_default_environment(self):
         return self._default_environment
+    def get_session_replay_info(self):
+        return self._session_replay_info
 
     def _initialize_specs(self):
         initialize_strategies = self._get_initialize_strategy()
@@ -249,6 +252,7 @@ class _SpecStore:
         self.init_source = source
         self.context.source = source
         self._default_environment = specs_json.get("default_environment", None)
+        self._session_replay_info = specs_json.get("session_replay_info", None)
         if self.spec_updater.last_update_time > prev_lcut:
             globals.logger.log_config_sync_update(self.spec_updater.initialized, True,
                                                   self.spec_updater.last_update_time,
