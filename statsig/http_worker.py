@@ -260,6 +260,7 @@ class HttpWorker(IStatsigNetworkWorker):
             "STATSIG-SDK-TYPE": self.__statsig_metadata["sdkType"],
             "STATSIG-SDK-VERSION": self.__statsig_metadata["sdkVersion"],
             "STATSIG-RETRY": "0",
+            "Accept-Encoding": "gzip",
         }
         if zipped:
             base_headers.update({"Content-Encoding": "gzip"})

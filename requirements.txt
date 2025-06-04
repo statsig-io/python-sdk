@@ -1,5 +1,5 @@
 ip3country==0.3.0
-setuptools==78.1.1
+setuptools==75.3.2
 ua_parser==0.10.0
 user_agents==2.2.0
 grpcio==1.62.3

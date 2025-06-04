@@ -165,6 +165,25 @@ class TestSyncConfigFallback(unittest.TestCase):
         self.get_gate_and_validate()
         self.wait_for_sync_and_validate()
 
+    def test_accept_encoding_header(self, mock_request):
+        headers_verified = False
+
+        def verify_headers(url, **kwargs):
+            nonlocal headers_verified
+            request_headers = kwargs.get('headers', {})
+            self.assertEqual(request_headers.get('Accept-Encoding'), 'gzip')
+            headers_verified = True
+            return PARSED_CONFIG_SPEC
+
+        _network_stub.stub_request_with_function(
+            "download_config_specs/.*", 200, verify_headers)
+
+        options = StatsigOptions(api=_network_stub.host)
+        statsig.initialize("secret-key", options)
+        statsig.shutdown()
+        
+        self.assertTrue(headers_verified, "Headers were not verified")
+
     def wait_for_sync_and_validate(self):
         _network_stub.stub_statsig_api_request_with_value("download_config_specs/.*", 200,
                                                           UPDATED_TIME_CONFIG_SPEC)

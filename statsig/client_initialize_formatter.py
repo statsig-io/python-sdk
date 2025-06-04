@@ -193,7 +193,7 @@ class ClientInitializeResponseFormatter:
                     hash_name(targeting_gate_name, hash_algo), None)
                 if targeting_gate is not None:
                     result["passes_session_recording_targeting"] = targeting_gate.get("value", False)
-                    if result["passes_session_recording_targeting"] != True:
+                    if not result["passes_session_recording_targeting"]:
                         can_record = False
             sampling_rate = session_replay_info.get("sampling_rate", None)
             rand = random.random()
