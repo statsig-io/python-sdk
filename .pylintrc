@@ -435,7 +435,8 @@ disable=raw-checker-failed,
         consider-using-dict-comprehension,
         exec-used,
         unnecessary-lambda,
-        global-statement
+        global-statement,
+        too-many-positional-arguments
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option
@@ -636,3 +637,4 @@ init-import=no
 # List of qualified module names which can have objects that can redefine
 # builtins.
 redefining-builtins-modules=six.moves,past.builtins,future.builtins,builtins,io
+# Force CI trigger
