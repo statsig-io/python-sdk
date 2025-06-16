@@ -1,5 +1,3 @@
-import os
-
 from .statsig_options import StatsigOptions
 from .statsig_telemetry_logger import StatsigTelemetryLogger
 
@@ -7,9 +5,6 @@ STATSIG_BATCHING_INTERVAL_SECONDS = 60.0
 STATSIG_LOGGING_INTERVAL_SECONDS = 1.0
 
 logger = StatsigTelemetryLogger()
-
-os.environ["GRPC_VERBOSITY"] = "NONE"
-
 
 def init_logger(options: StatsigOptions):
     if options.custom_logger is not None:
