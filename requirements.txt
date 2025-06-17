@@ -3,7 +3,7 @@ setuptools==78.1.1
 ua_parser==0.10.0
 user_agents==2.2.0
 grpcio==1.62.3
-protobuf==4.24.4
+protobuf==4.25.8
 requests
 semver
 pyfarmhash
