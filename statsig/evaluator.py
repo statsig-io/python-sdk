@@ -335,19 +335,19 @@ class _Evaluator:
             end_result.analytical_condition = sampling_rate is None
             return True
         if type in ("FAIL_GATE", "PASS_GATE"):
-            self.check_gate(user, target, end_result, True)
+            delegated_gate = self.check_gate(user, target, end_result, True)
 
             new_exposure = {
                 "gate": target,
-                "gateValue": "true" if end_result.boolean_value else "false",
-                "ruleID": end_result.rule_id
+                "gateValue": "true" if delegated_gate.boolean_value else "false",
+                "ruleID": delegated_gate.rule_id
             }
 
             end_result.secondary_exposures.append(new_exposure)
             if end_result.analytical_condition and isinstance(target, str) and not target.startswith("segment:"):
                 end_result.seen_analytical_gates = True
 
-            pass_gate = end_result.boolean_value if type == "PASS_GATE" else not end_result.boolean_value
+            pass_gate = delegated_gate.boolean_value if type == "PASS_GATE" else not delegated_gate.boolean_value
 
             end_result.analytical_condition = sampling_rate is None
             return pass_gate
