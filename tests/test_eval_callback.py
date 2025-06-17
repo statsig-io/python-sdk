@@ -1,14 +1,14 @@
-import time
-import os
-import unittest
 import json
-
-from typing import Optional, Union, Callable
-
+import os
+import time
+import unittest
+from typing import Union
 from unittest.mock import patch
+
 from gzip_helpers import GzipHelpers
 from network_stub import NetworkStub
-from statsig import statsig, StatsigUser, StatsigOptions, StatsigEvent, StatsigEnvironmentTier, DynamicConfig, Layer, FeatureGate
+from statsig import statsig, StatsigUser, StatsigOptions, StatsigEnvironmentTier, DynamicConfig, Layer, \
+    FeatureGate
 
 with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), '../testdata/download_config_specs.json')) as r:
     CONFIG_SPECS_RESPONSE = r.read()
@@ -22,6 +22,7 @@ class TestEvalCallback(unittest.TestCase):
     _gateName = ""
     _configName = ""
     _layerName = ""
+    _spec_match = False
 
     @classmethod
     @patch('requests.request', side_effect=_network_stub.mock)
@@ -47,6 +48,7 @@ class TestEvalCallback(unittest.TestCase):
             "regular_user_id", email="testuser@statsig.com", private_attributes={"test": 123})
         cls.random_user = StatsigUser("random")
         cls._logs = {}
+
         def callback_func(config: Union[DynamicConfig, FeatureGate, Layer]):
             if isinstance(config, FeatureGate):
                 cls._gateName = config.get_name()
@@ -54,12 +56,16 @@ class TestEvalCallback(unittest.TestCase):
                 cls._configName = config.get_name()
             if isinstance(config, Layer):
                 cls._layerName = config.get_name()
-                
+
+        def specs_callback(specs: str):
+            cls._spec_match = json.loads(specs) == json.loads(CONFIG_SPECS_RESPONSE)
+
         options = StatsigOptions(
             api=_network_stub.host,
             tier=StatsigEnvironmentTier.development,
             disable_diagnostics=True,
-            evaluation_callback=callback_func)
+            evaluation_callback=callback_func,
+            rules_updated_callback=specs_callback, )
 
         statsig.initialize("secret-key", options)
         cls.initTime = round(time.time() * 1000)
@@ -101,6 +107,10 @@ class TestEvalCallback(unittest.TestCase):
             self._layerName,
             "a_layer"
         )
+
+    def test_d_spec_match(self, mock_request):
+        self.assertTrue(self._spec_match)
+
 
 if __name__ == '__main__':
     unittest.main()

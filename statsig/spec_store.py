@@ -143,6 +143,7 @@ class _SpecStore:
 
     def get_default_environment(self):
         return self._default_environment
+
     def get_session_replay_info(self):
         return self._session_replay_info
 
@@ -170,9 +171,10 @@ class _SpecStore:
         if specs_json.get("time", 0) < self.last_update_time():  # outdated lcut
             self._log_process("Failed to process specs, lcut is older than current lcut")
             return False, False
+
+        copy = None
         if callable(self._options.rules_updated_callback):
             copy = json.dumps(specs_json)
-            self._options.rules_updated_callback(copy)
 
         def get_parsed_specs(key: str):
             parsed = {}
@@ -267,6 +269,8 @@ class _SpecStore:
         sampling_rate = specs_json.get("diagnostics", {})
         self._diagnostics.set_sampling_rate(sampling_rate)
         self._log_process("Done processing specs")
+        if callable(self._options.rules_updated_callback):
+            self._options.rules_updated_callback(copy)
         return True, True
 
     def _process_download_id_lists(self, server_id_lists):
