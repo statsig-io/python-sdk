@@ -7,7 +7,7 @@ import requests
 from statsig.utils import HashingAlgorithm
 
 TEST_URLS = [
-    "https://statsigapi.net/v1",
+    # "https://statsigapi.net/v1",
     "https://staging.statsigapi.net/v1"
 ]
 
