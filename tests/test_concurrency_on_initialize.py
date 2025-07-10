@@ -12,12 +12,12 @@ def _mock_thread_start(**kwargs):
     raise RuntimeError("Failed to start thread")
 
 
-@patch('requests.request', side_effect=_network_stub.mock)
+@patch('requests.Session.request', side_effect=_network_stub.mock)
 class TestConcurrencyOnInit(unittest.TestCase):
     _server: StatsigServer
     _user = StatsigUser(user_id="a-user")
 
-    @patch('requests.request', side_effect=_network_stub.mock)
+    @patch('requests.Session.request', side_effect=_network_stub.mock)
     def setUp(self, mock_request) -> None:
         self._server = StatsigServer()
 

@@ -20,13 +20,13 @@ _network_stub = NetworkStub(_api_override)
 
 
 @patch('time.time', return_value=123)
-@patch('requests.request', side_effect=_network_stub.mock)
+@patch('requests.Session.request', side_effect=_network_stub.mock)
 class TestDiagnostics(unittest.TestCase):
     _server: StatsigServer
     _evaluator: _Evaluator
     _user = StatsigUser(user_id="a-user")
 
-    @patch('requests.request', side_effect=_network_stub.mock)
+    @patch('requests.Session.request', side_effect=_network_stub.mock)
     def setUp(self, mock_request) -> None:
         self._server = StatsigServer()
         self._options = StatsigOptions(

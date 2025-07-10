@@ -14,7 +14,7 @@ PARSED_CONFIG_SPEC = json.loads(CONFIG_SPECS_RESPONSE)
 _network_stub = NetworkStub("http://test-init-details")
 
 
-@patch('requests.request', side_effect=_network_stub.mock)
+@patch('requests.Session.request', side_effect=_network_stub.mock)
 class TestInitDetails(unittest.TestCase):
 
     @classmethod

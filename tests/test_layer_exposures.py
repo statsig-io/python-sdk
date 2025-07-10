@@ -17,7 +17,7 @@ methods = ['get', 'get_typed']
 _network_stub = NetworkStub("http://test-layer-exposure")
 
 
-@patch('requests.request', side_effect=_network_stub.mock)
+@patch('requests.Session.request', side_effect=_network_stub.mock)
 class TestLayerExposures(TestCaseWithExtras):
     _user = StatsigUser("dloomb")
     _logs = {}

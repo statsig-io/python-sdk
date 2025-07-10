@@ -16,7 +16,7 @@ class TestBackgroundThreadSpawning(unittest.TestCase):
     _event = StatsigEvent(_user, "an_event")
     _actions: List[Callable]
 
-    @patch('requests.request', side_effect=_network_stub.mock)
+    @patch('requests.Session.request', side_effect=_network_stub.mock)
     def setUp(self, mock_request) -> None:
         server = StatsigServer()
         options = StatsigOptions(

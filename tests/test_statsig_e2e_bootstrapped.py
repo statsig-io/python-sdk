@@ -17,7 +17,7 @@ class BaseStatsigE2ETestCase:
     _options: StatsigOptions
 
     @classmethod
-    @patch('requests.request', side_effect=_network_stub.mock)
+    @patch('requests.Session.request', side_effect=_network_stub.mock)
     def setUpClass(cls, mock_request):
         _network_stub.stub_request_with_function(
             "log_event", 202, cls.log_event_callback)
@@ -101,10 +101,10 @@ class BaseStatsigE2ETestCase:
         )
 
 
-@patch('requests.request', side_effect=_network_stub.mock)
+@patch('requests.Session.request', side_effect=_network_stub.mock)
 class TestStatsigE2EBootstrapped(BaseStatsigE2ETestCase, unittest.TestCase):
     @classmethod
-    @patch('requests.request', side_effect=_network_stub.mock)
+    @patch('requests.Session.request', side_effect=_network_stub.mock)
     def setUpClass(cls, mock_request):
         super().setUpClass()
         _network_stub.stub_request_with_value(
@@ -115,13 +115,13 @@ class TestStatsigE2EBootstrapped(BaseStatsigE2ETestCase, unittest.TestCase):
         statsig.initialize("secret-key", cls._options)
 
 
-@patch('requests.request', side_effect=_network_stub.mock)
+@patch('requests.Session.request', side_effect=_network_stub.mock)
 class TestBootstrapFailureFallBackToNetwork(BaseStatsigE2ETestCase, unittest.TestCase):
     lock = threading.Lock()
     _download_config_specs_count = 0
 
     @classmethod
-    @patch('requests.request', side_effect=_network_stub.mock)
+    @patch('requests.Session.request', side_effect=_network_stub.mock)
     def setUpClass(cls, mock_request):
         super().setUpClass()
 

@@ -15,11 +15,11 @@ with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), '../testdata/
 _network_stub = NetworkStub("http://test-retries")
 
 
-@patch('requests.request', side_effect=_network_stub.mock)
+@patch('requests.Session.request', side_effect=_network_stub.mock)
 class TestLoggingRetries(unittest.TestCase):
 
     @classmethod
-    @patch('requests.request', side_effect=_network_stub.mock)
+    @patch('requests.Session.request', side_effect=_network_stub.mock)
     def setUpClass(cls, mock_request):
         _network_stub.stub_request_with_value("download_config_specs/.*", 200, json.loads(CONFIG_SPECS_RESPONSE))
 

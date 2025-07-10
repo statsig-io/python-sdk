@@ -13,10 +13,10 @@ with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), '../testdata/
     CONFIG_SPECS_RESPONSE = r.read()
 
 
-@patch('requests.request', side_effect=_network_stub.mock)
+@patch('requests.Session.request', side_effect=_network_stub.mock)
 class TestOptionalCallbacks(unittest.TestCase):
     @classmethod
-    @patch('requests.request', side_effect=_network_stub.mock)
+    @patch('requests.Session.request', side_effect=_network_stub.mock)
     def setUpClass(cls, mock_request) -> None:
         cls._events = []
         cls._event_flush_detail = {

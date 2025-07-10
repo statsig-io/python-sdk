@@ -18,10 +18,10 @@ UPDATED_TIME_CONFIG_SPEC = PARSED_CONFIG_SPEC.copy()
 UPDATED_TIME_CONFIG_SPEC['time'] = 1631638014821
 
 
-@patch('requests.request', side_effect=_network_stub.mock)
+@patch('requests.Session.request', side_effect=_network_stub.mock)
 class TestSyncConfigFallback(unittest.TestCase):
     @classmethod
-    @patch('requests.request', side_effect=_network_stub.mock)
+    @patch('requests.Session.request', side_effect=_network_stub.mock)
     def setUpClass(cls, mock_proxy):
         cls.dcs_called = False
         cls.statsig_dcs_called = False

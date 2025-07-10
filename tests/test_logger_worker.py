@@ -30,7 +30,7 @@ class LoggerTest(unittest.TestCase):
         self.flush()
 
 
-    @patch('requests.request', side_effect=_network_stub.mock)
+    @patch('requests.Session.request', side_effect=_network_stub.mock)
     def flush(self, mock_request):
         self._instance.flush()
 

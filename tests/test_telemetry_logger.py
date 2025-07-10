@@ -60,10 +60,10 @@ class AlwaysThrowObClient(ObservabilityClient):
         raise Exception("Always throw")
 
 
-@patch('requests.request', side_effect=_network_stub.mock)
+@patch('requests.Session.request', side_effect=_network_stub.mock)
 class TestTelemetryLogger(unittest.TestCase):
     @classmethod
-    @patch('requests.request', side_effect=_network_stub.mock)
+    @patch('requests.Session.request', side_effect=_network_stub.mock)
     def setUp(cls, mock_request):
         _network_stub.reset()
 

@@ -50,11 +50,11 @@ class LoggerTest(unittest.TestCase):
     def tearDown(self):
         self._instance.shutdown()
 
-    @patch('requests.request', side_effect=_network_stub.mock)
+    @patch('requests.Session.request', side_effect=_network_stub.mock)
     def flush(self, mock_request):
         self._instance.flush()
 
-    @patch('requests.request', side_effect=_network_stub.mock)
+    @patch('requests.Session.request', side_effect=_network_stub.mock)
     def test_log_size(self, mock_request):
         self._instance.check_gate(self._user, "a_gate")
         self._instance.check_gate(self._user, "b_gate")
@@ -72,7 +72,7 @@ class LoggerTest(unittest.TestCase):
         self._run_and_wait_for_logs(lambda: self._instance.check_gate(self._user, "f_gate"))
         self.assertEqual(len(self._events), 6)
 
-    @patch('requests.request', side_effect=_network_stub.mock)
+    @patch('requests.Session.request', side_effect=_network_stub.mock)
     def test_exposure_dedupe(self, mock_request):
         self._instance.check_gate(self._user, "a_gate")
         self._instance.check_gate(self._user, "a_gate")
@@ -123,7 +123,7 @@ class LoggerTest(unittest.TestCase):
         self._run_and_wait_for_logs(__get_experiments)
         self.assertEqual(len(self._events), 10)
 
-    @patch('requests.request', side_effect=_network_stub.mock)
+    @patch('requests.Session.request', side_effect=_network_stub.mock)
     def test_log_content(self, mock_request):
         self._instance.check_gate(self._user, "a_gate")
         sleep(0.1)

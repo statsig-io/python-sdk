@@ -45,6 +45,7 @@ class HttpWorker(IStatsigNetworkWorker):
         self.__statsig_metadata = statsig_metadata
         self.__diagnostics = diagnostics
         self.__request_count = 0
+        self.__request_session = requests.session()
 
     def is_pull_worker(self) -> bool:
         return True
@@ -191,7 +192,7 @@ class HttpWorker(IStatsigNetworkWorker):
                                          for_initialize=False, get_text_value_only=False) -> RequestResult:
         def request_task():
             try:
-                with requests.request(method, url, data=payload, headers=headers, timeout=timeout,
+                with self.__request_session.request(method, url, data=payload, headers=headers, timeout=timeout,
                                       stream=True) as response:
                     try:
                         response.raise_for_status()

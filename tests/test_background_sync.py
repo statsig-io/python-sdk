@@ -19,7 +19,7 @@ class TestBackgroundSync(unittest.TestCase):
     def tearDown(self):
         self._client.shutdown()
 
-    @patch('requests.request', side_effect=_network_stub.mock)
+    @patch('requests.Session.request', side_effect=_network_stub.mock)
     def test_sync_cycle(self, mock_request):
         self.config_sync_count = 0
         self.idlist_sync_count = 0
@@ -315,7 +315,7 @@ class TestBackgroundSync(unittest.TestCase):
         self.assertEqual(self.idlist_2_download_count, 1)
         self.assertEqual(self.idlist_3_download_count, 1)
 
-    @patch('requests.request', side_effect=_network_stub.mock)
+    @patch('requests.Session.request', side_effect=_network_stub.mock)
     def test_sync_cycle_no_idlist(self, mock_request):
         self.config_sync_count = 0
         self.idlist_sync_count = 0
@@ -361,7 +361,7 @@ class TestBackgroundSync(unittest.TestCase):
         self.assertEqual(self.config_sync_count, 2)
         self.assertEqual(self.idlist_sync_count, 2)
 
-    @patch('requests.request', side_effect=_network_stub.mock)
+    @patch('requests.Session.request', side_effect=_network_stub.mock)
     def test_dcs_retry(self, mock_request):
         self.config_sync_count = 0
         self.idlist_sync_count = 0
@@ -405,7 +405,7 @@ class TestBackgroundSync(unittest.TestCase):
         time.sleep(1)
         self.assertEqual(self.config_sync_count, 2)
 
-        time.sleep(1)
+        time.sleep(2)
         self.assertEqual(self.config_sync_count, 3)
 
         self._client.shutdown()

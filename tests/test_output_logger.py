@@ -68,7 +68,7 @@ class MockOutputLogger(OutputLogger):
 class TestOutputLogger(unittest.TestCase):
 
     @classmethod
-    @patch('requests.request', side_effect=_network_stub.mock)
+    @patch('requests.Session.request', side_effect=_network_stub.mock)
     def setUpClass(cls, mock_request):
         _network_stub.reset()
 
@@ -81,7 +81,7 @@ class TestOutputLogger(unittest.TestCase):
     def tearDown(self):
         statsig.shutdown()
 
-    @patch('requests.request', side_effect=_network_stub.mock)
+    @patch('requests.Session.request', side_effect=_network_stub.mock)
     def test_initialize_timeout(self, mock_request):
         logger = MockOutputLogger()
         logger.set_log_level(LogLevel.INFO)
@@ -90,7 +90,7 @@ class TestOutputLogger(unittest.TestCase):
         statsig.initialize("secret-key", options)
         self.assertGreaterEqual(len(logger._logs.get("info")), 2)
 
-    @patch('requests.request', side_effect=_network_stub.mock)
+    @patch('requests.Session.request', side_effect=_network_stub.mock)
     def test_initialize_failed_to_load_network_info(self, mock_request):
         logger = MockOutputLogger()
         logger.set_log_level(LogLevel.INFO)
@@ -101,7 +101,7 @@ class TestOutputLogger(unittest.TestCase):
         failed_urls = logger.check_urls_for_secret('secret-key')
         self.assertEqual(len(failed_urls), 0)
 
-    @patch('requests.request', side_effect=_network_stub.mock)
+    @patch('requests.Session.request', side_effect=_network_stub.mock)
     def test_set_logging_level_warning(self, mock_request):
         logger = MockOutputLogger()
         logger.set_log_level(LogLevel.WARNING)
@@ -112,7 +112,7 @@ class TestOutputLogger(unittest.TestCase):
         failed_urls = logger.check_urls_for_secret('secret-key')
         self.assertEqual(len(failed_urls), 0)
 
-    @patch('requests.request', side_effect=_network_stub.mock)
+    @patch('requests.Session.request', side_effect=_network_stub.mock)
     def test_set_logging_level_debug(self, mock_request):
         logger = MockOutputLogger()
         logger.set_log_level(LogLevel.DEBUG)

@@ -16,11 +16,11 @@ MINIMUM_INIT_TIME_S = 1
 _network_stub = NetworkStub("http://test-init_timeout")
 
 
-@patch('requests.request', side_effect=_network_stub.mock)
+@patch('requests.Session.request', side_effect=_network_stub.mock)
 class TestInitTimeout(unittest.TestCase):
 
     @classmethod
-    @patch('requests.request', side_effect=_network_stub.mock)
+    @patch('requests.Session.request', side_effect=_network_stub.mock)
     def setUpClass(cls, mock_request):
         _network_stub.reset()
 

@@ -22,12 +22,12 @@ def generate_random_user_id(length=12):
     return ''.join(random.choice(characters) for _ in range(length))
 
 
-@patch('requests.request', side_effect=_network_stub.mock)
+@patch('requests.Session.request', side_effect=_network_stub.mock)
 class TestEventSampling(unittest.TestCase):
     _events = []
 
     @classmethod
-    @patch('requests.request', side_effect=_network_stub.mock)
+    @patch('requests.Session.request', side_effect=_network_stub.mock)
     def setUpClass(cls, mock_request):
         def log_event_callback(url: str, **kwargs):
             new_events = GzipHelpers.decode_body(kwargs)["events"]

@@ -15,7 +15,7 @@ with open(os.path.join(os.path.abspath(os.path.dirname(__file__)),
 _network_stub = NetworkStub("http://test-manual-exposures")
 
 
-@patch('requests.request', side_effect=_network_stub.mock)
+@patch('requests.Session.request', side_effect=_network_stub.mock)
 class TestManualExposures(TestCaseWithExtras):
     _user = StatsigUser("dloomb")
     _logs = {}

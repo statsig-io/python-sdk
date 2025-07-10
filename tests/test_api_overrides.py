@@ -35,10 +35,10 @@ def mock_apis(*args, **kwargs):
             return stub.mock(*args, **kwargs)
 
 
-@patch('requests.request', side_effect=mock_apis)
+@patch('requests.Session.request', side_effect=mock_apis)
 class TestApiOverrides(unittest.TestCase):
     @classmethod
-    @patch('requests.request', side_effect=mock_apis)
+    @patch('requests.Session.request', side_effect=mock_apis)
     def setUpClass(cls, mock_request):
         cls.api_override = False
         cls.log_event_override = False

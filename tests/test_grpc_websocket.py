@@ -24,13 +24,13 @@ _api_override = "http://evaluation-details-test"
 _network_stub = NetworkStub(_api_override)
 
 
-@patch('requests.request', side_effect=_network_stub.mock)
+@patch('requests.Session.request', side_effect=_network_stub.mock)
 class TestGRPCWebsocketInitialize(unittest.TestCase):
     _server: StatsigServer
     _evaluator: _Evaluator
     _user = StatsigUser(user_id="a-user")
 
-    @patch('requests.request', side_effect=_network_stub.mock)
+    @patch('requests.Session.request', side_effect=_network_stub.mock)
     def setUp(self, mock_request):
         mock_server, grpc_stub, port = start_grpc_server()
         self.grpc_stub = grpc_stub

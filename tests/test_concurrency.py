@@ -23,7 +23,7 @@ class TestStatsigConcurrency(unittest.TestCase):
     _event_count_lock = threading.Lock()
 
     @classmethod
-    @patch('requests.request', side_effect=_network_stub.mock)
+    @patch('requests.Session.request', side_effect=_network_stub.mock)
     def setUpClass(cls, mock_request):
         cls._idlist_sync_count = 0
         cls._download_id_list_count = 0
@@ -83,7 +83,7 @@ class TestStatsigConcurrency(unittest.TestCase):
     def tearDownClass(cls) -> None:
         statsig.shutdown()
 
-    @patch('requests.request', side_effect=_network_stub.mock)
+    @patch('requests.Session.request', side_effect=_network_stub.mock)
     def test_checking_and_updating_concurrently(self, mock_request):
         self.threads = []
         for x in range(10):

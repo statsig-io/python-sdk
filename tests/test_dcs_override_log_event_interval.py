@@ -14,7 +14,7 @@ with open(os.path.join(os.path.abspath(os.path.dirname(__file__)),
 class DCSOverrideTest(unittest.TestCase):
     _network_stub = NetworkStub("http://override-log-event-interval-test")
 
-    @patch('requests.request', side_effect=_network_stub.mock)
+    @patch('requests.Session.request', side_effect=_network_stub.mock)
     def setUp(self, mock_request):
         self._instance = StatsigServer()
         options = StatsigOptions(
@@ -32,10 +32,10 @@ class DCSOverrideTest(unittest.TestCase):
         self._user = StatsigUser("dloomb")
         self.flush()
 
-    @patch('requests.request', side_effect=_network_stub.mock)
+    @patch('requests.Session.request', side_effect=_network_stub.mock)
     def flush(self, mock_request):
         self._instance.flush()
 
-    @patch('requests.request', side_effect=_network_stub.mock)
+    @patch('requests.Session.request', side_effect=_network_stub.mock)
     def test_interval_is_overridden(self, mock_request):
         self.assertEqual(self._instance._logger._logger_worker._log_interval, 100.0)

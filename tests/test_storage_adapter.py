@@ -77,13 +77,13 @@ class TestStorageAdapter(unittest.TestCase):
     def tearDown(self) -> None:
         statsig.shutdown()
 
-    @patch('requests.request', side_effect=_network_stub.mock)
+    @patch('requests.Session.request', side_effect=_network_stub.mock)
     def test_loading(self, mock_request):
         statsig.initialize("secret-key", self._options)
         result = statsig.check_gate(self._user, "gate_from_adapter")
         self.assertTrue(result)
 
-    @patch('requests.request', side_effect=_network_stub.mock)
+    @patch('requests.Session.request', side_effect=_network_stub.mock)
     def test_saving(self, mock_request):
         self._data_adapter.data = {}
         statsig.initialize("secret-key", self._options)
@@ -104,13 +104,13 @@ class TestStorageAdapter(unittest.TestCase):
             "Expected data adapter to have downloaded layers"
         )
 
-    @patch('requests.request', side_effect=_network_stub.mock)
+    @patch('requests.Session.request', side_effect=_network_stub.mock)
     def test_calls_network_when_adapter_is_empty(self, mock_request):
         self._data_adapter.data = {}
         statsig.initialize("secret-key", self._options)
         self.assertTrue(self._did_download_specs)
 
-    @patch('requests.request', side_effect=_network_stub.mock)
+    @patch('requests.Session.request', side_effect=_network_stub.mock)
     def test_no_network_call_when_adapter_has_value(self, mock_request):
         statsig.initialize("secret-key", self._options)
         self.assertFalse(self._did_download_specs)
