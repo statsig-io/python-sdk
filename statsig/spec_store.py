@@ -56,6 +56,8 @@ class _SpecStore:
         self._hashed_sdk_keys_to_app_ids: Dict[str, str] = {}
         self._default_environment: Union[None, str] = None
         self._session_replay_info: Union[None, Dict[str, Dict]] = None
+        self._overrides: Union[None, Dict[str, Dict]] = None
+        self._override_rules: Union[None, Dict[str, Dict]] = None
 
         self._id_lists: Dict[str, dict] = {}
         self.unsupported_configs: Set[str] = set()
@@ -147,6 +149,12 @@ class _SpecStore:
     def get_session_replay_info(self):
         return self._session_replay_info
 
+    def get_overrides(self):
+        return self._overrides
+
+    def get_override_rules(self):
+        return self._override_rules
+
     def _initialize_specs(self):
         initialize_strategies = self._get_initialize_strategy()
         for strategy in initialize_strategies:
@@ -203,32 +211,23 @@ class _SpecStore:
                             self.unsupported_configs.add(spec.get("name"))
                             unsupported_specs.add(spec.get("name"))
 
-                    if op in ("any", "none") and cond_type == "user_bucket":
-                        rule["conditions"][i]["user_bucket"] = {}
-                        for val in target_value:
-                            rule["conditions"][i]["user_bucket"][int(val)] = True
-                    elif op in ("any", "none") and isinstance(target_value, list):
-                        rule["conditions"][i]["fast_target_value"] = {}
-                        for val in target_value:
-                            rule["conditions"][i]["fast_target_value"][
-                                str(val).upper().lower()
-                            ] = True
-                    elif op in (
-                            "any_case_sensitive",
-                            "none_case_sensitive",
-                    ) and isinstance(target_value, list):
-                        rule["conditions"][i]["fast_target_value"] = {}
-                        for val in target_value:
-                            rule["conditions"][i]["fast_target_value"][str(val)] = True
-
-                    if op in ("array_contains_any", "array_contains_none",
-                              "array_contains_all", "not_array_contains_all") and isinstance(target_value, list):
-                        rule["conditions"][i]["fast_target_value"] = {}
-                        for val in target_value:
-                            rule["conditions"][i]["fast_target_value"][str(val)] = True
+                    self._parse_target_value_for_condition(rule, i, op, cond_type, target_value)
             for spec_name in unsupported_specs:
                 if spec_name in parsed:
                     del parsed[spec_name]
+
+        def parse_override_rules(spec_override_rules: Union[None, Dict[str, Dict]]):
+            if spec_override_rules is None:
+                return None
+            parsed = {}
+            for rule_name, rule in spec_override_rules.items():
+                for i, cond in enumerate(rule.get("conditions", [])):
+                    op = cond.get("operator", None)
+                    cond_type = cond.get("type", None)
+                    target_value = cond.get("targetValue", [])
+                    self._parse_target_value_for_condition(rule, i, op, cond_type, target_value)
+                parsed[rule_name] = rule
+            return parsed
 
         self.unsupported_configs.clear()
         new_gates = get_parsed_specs(EntityType.GATE.value)
@@ -255,12 +254,16 @@ class _SpecStore:
         self.context.source = source
         self._default_environment = specs_json.get("default_environment", None)
         self._session_replay_info = specs_json.get("session_replay_info", None)
+        self._overrides = specs_json.get("overrides", None)
+        self._override_rules = parse_override_rules(specs_json.get("override_rules", None))
+
         if self.spec_updater.last_update_time > prev_lcut:
             globals.logger.log_config_sync_update(self.spec_updater.initialized, True,
                                                   self.spec_updater.last_update_time,
                                                   prev_lcut,
                                                   self.context.source,
                                                   self.context.source_api)
+
         flags = specs_json.get("sdk_flags", {})
         _SDK_Configs.set_flags(flags)
         configs = specs_json.get("sdk_configs", {})
@@ -397,3 +400,29 @@ class _SpecStore:
                 "Failed to get initialization sources, falling back to always sync from statsig network "
             )
             return [DataSource.STATSIG_NETWORK]
+
+    def _parse_target_value_for_condition(self, rule, condition_index, op, cond_type, target_value):
+        """Helper function to parse target values into fast lookup maps for conditions."""
+        if op in ("any", "none") and cond_type == "user_bucket":
+            rule["conditions"][condition_index]["user_bucket"] = {}
+            for val in target_value:
+                rule["conditions"][condition_index]["user_bucket"][int(val)] = True
+        elif op in ("any", "none") and isinstance(target_value, list):
+            rule["conditions"][condition_index]["fast_target_value"] = {}
+            for val in target_value:
+                rule["conditions"][condition_index]["fast_target_value"][
+                    str(val).upper().lower()
+                ] = True
+        elif op in (
+                "any_case_sensitive",
+                "none_case_sensitive",
+        ) and isinstance(target_value, list):
+            rule["conditions"][condition_index]["fast_target_value"] = {}
+            for val in target_value:
+                rule["conditions"][condition_index]["fast_target_value"][str(val)] = True
+
+        if op in ("array_contains_any", "array_contains_none",
+                  "array_contains_all", "not_array_contains_all") and isinstance(target_value, list):
+            rule["conditions"][condition_index]["fast_target_value"] = {}
+            for val in target_value:
+                rule["conditions"][condition_index]["fast_target_value"][str(val)] = True

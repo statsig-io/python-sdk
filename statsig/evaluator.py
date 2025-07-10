@@ -3,16 +3,16 @@ import re
 import time
 from datetime import datetime
 from hashlib import sha256
-from typing import Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 from ip3country import CountryLookup
 from ua_parser import user_agent_parser
 
-from . import globals
 from .client_initialize_formatter import ClientInitializeResponseFormatter
 from .config_evaluation import _ConfigEvaluation
 from .evaluation_details import EvaluationDetails, EvaluationReason, DataSource
-from .spec_store import _SpecStore
+from .globals import logger
+from .spec_store import _SpecStore, EntityType
 from .statsig_user import StatsigUser
 from .utils import HashingAlgorithm, sha256_hash
 
@@ -186,40 +186,86 @@ class _Evaluator:
                     break
         return override
 
-    def unsupported_or_unrecognized(self, config_name):
+    def __lookup_config_mapping(self, user: StatsigUser, config_name: str, spec_type: EntityType,
+                                end_result: _ConfigEvaluation,
+                                maybe_config: Union[Dict[str, Any], None] = None) -> bool:
+        overrides = self._spec_store.get_overrides()
+        if overrides is None or not isinstance(overrides, dict):
+            return False
+
+        override_rules = self._spec_store.get_override_rules()
+        if override_rules is None or not isinstance(override_rules, dict):
+            return False
+
+        mapping_list = overrides.get(config_name, None)
+        if mapping_list is None or not isinstance(mapping_list, list):
+            return False
+
+        spec_salt = ""
+        if maybe_config is not None:
+            spec_salt = maybe_config.get("salt", "")
+
+        for mapping in mapping_list:
+            for override_rule in mapping.get("rules", []):
+                start_time = override_rule.get("start_time", 0)
+                if start_time > int(time.time() * 1000):
+                    continue
+
+                rule = override_rules.get(override_rule.get("rule_name"), None)
+                if rule is None:
+                    continue
+
+                end_result.reset()
+                self.__evaluate_rule(user, rule, end_result)
+                if not end_result.boolean_value or end_result.evaluation_details.reason in (
+                        EvaluationReason.unsupported, EvaluationReason.unrecognized):
+                    end_result.reset()
+                    continue
+                end_result.reset()
+                override_config_name = mapping.get("new_config_name", None)
+                new_config = self.__get_config_by_entity_type(override_config_name, spec_type)
+
+                config_pass = self.__eval_pass_percentage(user, rule, new_config, spec_salt)
+                if config_pass:
+                    end_result.override_config_name = override_config_name
+                    self.__evaluate(user, override_config_name, spec_type, end_result)
+                    if end_result.evaluation_details.reason == EvaluationReason.none:
+                        return True
+        return False
+
+    def __get_config_by_entity_type(self, entity_name: str, entity_type: EntityType):
+        if entity_type == EntityType.GATE:
+            return self._spec_store.get_gate(entity_name)
+        if entity_type == EntityType.CONFIG:
+            return self._spec_store.get_config(entity_name)
+        if entity_type == EntityType.LAYER:
+            return self._spec_store.get_layer(entity_name)
+
+        return None
+
+    def unsupported_or_unrecognized(self, config_name, end_result):
+        end_result.reset()
         if config_name in self._spec_store.unsupported_configs:
-            return _ConfigEvaluation(
-                evaluation_details=self._create_evaluation_details(EvaluationReason.unsupported))
-        return _ConfigEvaluation(
-            evaluation_details=self._create_evaluation_details(EvaluationReason.unrecognized))
+            return self._create_evaluation_details(EvaluationReason.unsupported)
+        return self._create_evaluation_details(EvaluationReason.unrecognized)
 
     def check_gate(self, user, gate, end_result=None, is_nested=False):
         override = self.__lookup_gate_override(user, gate)
         if override is not None:
             return override
 
-        eval_gate = self._spec_store.get_gate(gate)
-        if eval_gate is None:
-            globals.logger.debug(f"Gate {gate} not found in the store. Are you sure the gate name is correct?")
-            return self.unsupported_or_unrecognized(gate)
         if end_result is None:
-            end_result = _ConfigEvaluation(version=eval_gate.get("version", None))
-        self.__eval_config(user, eval_gate, end_result, is_nested)
+            end_result = _ConfigEvaluation()
+        self.__eval_config(user, gate, EntityType.GATE, end_result, is_nested)
         return end_result
 
-    def get_config(self, user, config_name, is_exp=False):
+    def get_config(self, user, config_name):
         override = self.__lookup_config_override(user, config_name)
         if override is not None:
             return override
 
-        eval_config = self._spec_store.get_config(config_name)
-        if eval_config is None:
-            globals.logger.debug(
-                f"{'Config' if is_exp else 'Experiment'} {config_name} not found in the store. Are you sure the config name is correct?"
-            )
-            return self.unsupported_or_unrecognized(config_name)
-        result = _ConfigEvaluation(version=eval_config.get("version", None))
-        self.__eval_config(user, eval_config, result)
+        result = _ConfigEvaluation()
+        self.__eval_config(user, config_name, EntityType.CONFIG, result)
         return result
 
     def get_layer(self, user, layer_name):
@@ -227,21 +273,17 @@ class _Evaluator:
         if override is not None:
             return override
 
-        eval_layer = self._spec_store.get_layer(layer_name)
-        if eval_layer is None:
-            globals.logger.debug(f"Layer {layer_name} not found in the store. Are you sure the layer name is correct?")
-            return self.unsupported_or_unrecognized(layer_name)
-        result = _ConfigEvaluation(version=eval_layer.get("version", None))
-        self.__eval_config(user, eval_layer, result)
+        result = _ConfigEvaluation()
+        self.__eval_config(user, layer_name, EntityType.LAYER, result)
         return result
 
-    def __eval_config(self, user, config, end_result, is_nested=False):
-        if config is None:
-            end_result.evaluation_details = self._create_evaluation_details(EvaluationReason.unrecognized)
-            return
+    def __eval_config(self, user, config_name, entity_type: EntityType, end_result, is_nested=False):
         try:
-            self.__evaluate(user, config, end_result, is_nested)
-            end_result.evaluation_details = self._create_evaluation_details()
+            if not entity_type:
+                logger.warning("invalid entity type in evaluation: %s", config_name)
+                end_result.rule_id = "error"
+                return
+            self.__evaluate(user, config_name, entity_type, end_result, is_nested)
         except RecursionError:
             raise
         except Exception:
@@ -257,29 +299,43 @@ class _Evaluator:
             sha256(str(id).encode('utf-8')).digest()).decode('utf-8')[0:8]
         return hashed in ids
 
-    def __evaluate(self, user, config, end_result, is_nested=False):
-        if not config.get("enabled", False):
-            self.__finalize_eval_result(config, end_result, False, None, is_nested)
+    def __evaluate(self, user, config_name, entity_type, end_result, is_nested=False):
+        maybe_config_spec = self.__get_config_by_entity_type(config_name, entity_type)
+
+        override_config = self.__lookup_config_mapping(user, config_name, entity_type, end_result, maybe_config_spec)
+        if override_config:
             return
 
-        for rule in config.get("rules", []):
+        if maybe_config_spec is None:
+            end_result.evaluation_details = self.unsupported_or_unrecognized(config_name, end_result)
+            return
+
+        if not maybe_config_spec.get("enabled", False):
+            self.__finalize_eval_result(maybe_config_spec, end_result, False, None, is_nested)
+            return
+
+        for rule in maybe_config_spec.get("rules", []):
             self.__evaluate_rule(user, rule, end_result)
             if end_result.boolean_value:
                 if self.__evaluate_delegate(user, rule, end_result) is not None:
                     self.__finalize_exposures(end_result)
                     return
 
-                user_passes = self.__eval_pass_percentage(user, rule, config)
-                self.__finalize_eval_result(config, end_result, user_passes, rule, is_nested)
+                user_passes = self.__eval_pass_percentage(user, rule, maybe_config_spec)
+                self.__finalize_eval_result(maybe_config_spec, end_result, user_passes, rule, is_nested)
                 return
 
-        self.__finalize_eval_result(config, end_result, False, None, is_nested)
+        self.__finalize_eval_result(maybe_config_spec, end_result, False, None, is_nested)
 
     def __finalize_eval_result(self, config, end_result, did_pass, rule, is_nested=False):
         end_result.boolean_value = did_pass
         end_result.id_type = config.get("idType", "")
         if config.get("forwardAllExposures", False):
             end_result.forward_all_exposures = True
+        if config.get("version", None) is not None:
+            end_result.version = config.get("version")
+
+        end_result.evaluation_details = self._create_evaluation_details()
 
         if rule is None:
             end_result.json_value = config.get("defaultValue", {})
@@ -319,7 +375,7 @@ class _Evaluator:
 
         end_result.undelegated_secondary_exposures = end_result.secondary_exposures[:]
 
-        self.__evaluate(user, config, end_result, True)
+        self.__evaluate(user, config_delegate, EntityType.CONFIG, end_result, True)
         end_result.explicit_parameters = config.get(
             "explicitParameters", [])
         end_result.allocated_experiment = config_delegate
@@ -565,14 +621,14 @@ class _Evaluator:
     def __compute_user_hash(self, input):
         return sha256_hash(input)
 
-    def __eval_pass_percentage(self, user, rule, config):
+    def __eval_pass_percentage(self, user, rule, config, salt: Optional[str] = None):
         if rule.get("passPercentage", 0) == 100.0:
             return True
         if rule.get("passPercentage", 0) == 0.0:
             return False
         rule_salt = rule.get("salt", rule.get("id", ""))
         id = self.__get_unit_id(user, rule.get("idType", "userID")) or ""
-        config_salt = config.get("salt", "")
+        config_salt = salt if salt is not None else config.get("salt", "")
         hash = self.__compute_user_hash(
             config_salt + "." + rule_salt + "." + str(id)
         )

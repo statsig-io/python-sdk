@@ -199,7 +199,8 @@ class StatsigServer:
                 result.rule_id,
                 result.id_type,
                 result.group_name,
-                result.evaluation_details
+                result.evaluation_details,
+                result.override_config_name
             )
             self.safe_eval_callback(feature_gate)
             return feature_gate
@@ -317,7 +318,7 @@ class StatsigServer:
 
     def manually_log_experiment_exposure(self, user: StatsigUser, experiment_name: str):
         user = self.__normalize_user(user)
-        result = self._evaluator.get_config(user, experiment_name, True)
+        result = self._evaluator.get_config(user, experiment_name)
         self._logger.log_config_exposure(
             user,
             experiment_name,

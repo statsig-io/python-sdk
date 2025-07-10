@@ -57,6 +57,7 @@ class _StatsigErrorBoundary:
         except (StatsigValueError, StatsigNameError, StatsigRuntimeError) as e:
             raise e
         except Exception as e:
+            print(f"Exception in {tag}: {e}")
             if self._init_context is not None:
                 self._init_context.error = e
             self.log_exception(tag, e, extra)

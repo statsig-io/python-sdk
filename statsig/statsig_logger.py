@@ -102,6 +102,8 @@ class _StatsigLogger:
 
         if gate_result.version is not None:
             event.metadata["configVersion"] = str(gate_result.version)
+        if gate_result.override_config_name is not None:
+            event.metadata["overrideConfigName"] = gate_result.override_config_name
         event.statsigMetadata = {}
         if not self._is_unique_exposure(user, _GATE_EXPOSURE_EVENT, event.metadata):
             return
@@ -136,10 +138,12 @@ class _StatsigLogger:
         event.metadata = {
             "config": config_name,
             "ruleID": config_result.rule_id,
-            "rulePassed": "true" if config_result.boolean_value else "false",
+            "rulePassed": "true" if config_result.boolean_value else "false"
         }
         if config_result.version is not None:
             event.metadata["configVersion"] = str(config_result.version)
+        if config_result.override_config_name is not None:
+            event.metadata["overrideConfigName"] = config_result.override_config_name
         event.statsigMetadata = {}
 
         if not self._is_unique_exposure(user, _CONFIG_EXPOSURE_EVENT, event.metadata):
@@ -188,6 +192,8 @@ class _StatsigLogger:
         }
         if config_evaluation.version is not None:
             metadata["configVersion"] = str(config_evaluation.version)
+        if config_evaluation.override_config_name is not None:
+            metadata["overrideConfigName"] = config_evaluation.override_config_name
         if not self._is_unique_exposure(user, _LAYER_EXPOSURE_EVENT, metadata):
             return
         event.metadata = metadata

@@ -19,7 +19,8 @@ class _ConfigEvaluation:
                  forward_all_exposures=False,
                  id_type="",
                  analytical_condition=False,
-                 seen_analytical_gates=False
+                 seen_analytical_gates=False,
+                 override_config_name=None
         ):
         if boolean_value is None:
             boolean_value = False
@@ -50,3 +51,25 @@ class _ConfigEvaluation:
         self.version = version
         self.analytical_condition = analytical_condition
         self.seen_analytical_gates = seen_analytical_gates
+        self.override_config_name = override_config_name
+
+    def reset(self):
+        self.boolean_value = False
+        self.json_value = {}
+        self.rule_id = ""
+        self.id_type = ""
+        self.version = None
+        self.secondary_exposures = []
+        self.undelegated_secondary_exposures = []
+        self.allocated_experiment = None
+        self.explicit_parameters = []
+        self.is_experiment_group = False
+        self.evaluation_details = EvaluationDetails(0, 0, DataSource.UNINITIALIZED, EvaluationReason.none)
+        self.group_name = None
+        self.sample_rate = None
+        self.user = None
+        self.forward_all_exposures = False
+        self.id_type = ""
+        self.analytical_condition = False
+        self.seen_analytical_gates = False
+        self.override_config_name = None
