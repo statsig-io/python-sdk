@@ -4,19 +4,6 @@ from statsig import StatsigEvent, StatsigUser, StatsigOptions, StatsigServer
 
 class TestBadInput(unittest.TestCase):
 
-    def test_bad_key(self):
-        with self.assertRaises(ValueError) as context:
-            statsig = StatsigServer()
-            statsig.initialize(None)
-
-        self.assertTrue('Server Secret Key' in str(context.exception))
-
-        with self.assertRaises(ValueError) as context:
-            statsig = StatsigServer()
-            statsig.initialize("client-blah")
-
-        self.assertTrue('Server Secret Key' in str(context.exception))
-
     def test_no_user_id(self):
         with self.assertRaises(ValueError) as context:
             StatsigUser("")

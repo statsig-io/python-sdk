@@ -62,10 +62,11 @@ class StatsigServer:
             globals.logger.info("Statsig is already initialized.")
             return InitializeDetails(0, self.get_init_source(), True, self.is_store_populated(), None)
 
-        if sdkKey is None or not sdkKey.startswith("secret-"):
-            raise StatsigValueError(
+        if sdkKey is None or (not sdkKey.startswith("secret-") and not options.local_mode):
+            globals.logger.info(
                 "Invalid key provided. You must use a Server Secret Key from the Statsig console."
             )
+            return InitializeDetails(0, DataSource.UNINITIALIZED, False, False, None)
 
         environment_tier = options.get_sdk_environment_tier() or 'unknown'
         globals.logger.info(
