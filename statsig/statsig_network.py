@@ -19,7 +19,7 @@ from .statsig_options import (
     DEFAULT_RULESET_SYNC_INTERVAL,
     StatsigOptions,
     STATSIG_CDN,
-    STATSIG_API, ProxyConfig,
+    ProxyConfig,
 )
 from .thread_util import spawn_background_thread
 
@@ -211,8 +211,8 @@ class _StatsigNetwork:
             NetworkEndpoint.GET_ID_LISTS
         )
         id_list_api_override = self.options.api_for_get_id_lists
-        is_id_lists_proxy = id_list_api_override != STATSIG_API or (
-                id_list_proxy and id_list_proxy.proxy_address != STATSIG_API)
+        is_id_lists_proxy = id_list_api_override != STATSIG_CDN or (
+                id_list_proxy and id_list_proxy.proxy_address != STATSIG_CDN)
         if is_id_lists_proxy:
             self.http_worker.get_id_lists_fallback(on_complete, log_on_exception, init_timeout)
 

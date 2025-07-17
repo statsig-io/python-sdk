@@ -73,23 +73,26 @@ class HttpWorker(IStatsigNetworkWorker):
         on_complete(DataSource.STATSIG_NETWORK, None, None)
 
     def get_id_lists(self, on_complete: Callable, log_on_exception=False, init_timeout=None):
-        response = self._post_request(
-            url=f"{self.__api_for_get_id_lists}get_id_lists",
-            headers=None,
-            payload={"statsigMetadata": self.__statsig_metadata},
-            log_on_exception=log_on_exception,
-            init_timeout=init_timeout,
-            tag="get_id_lists",
-        )
+        response = None
+        if self.__is_cdn_url(self.__api_for_get_id_lists):
+            response = self.get_id_lists_fallback(on_complete, log_on_exception, init_timeout)
+        else:
+            response = self._post_request(
+                url=f"{self.__api_for_get_id_lists}get_id_lists",
+                headers=None,
+                payload={"statsigMetadata": self.__statsig_metadata},
+                log_on_exception=log_on_exception,
+                init_timeout=init_timeout,
+                tag="get_id_lists",
+            )
         if response is not None and self._is_success_code(response.status_code):
             return on_complete(response.data, None)
         return on_complete(None, None)
 
     def get_id_lists_fallback(self, on_complete: Callable, log_on_exception=False, init_timeout=None):
-        response = self._post_request(
-            url=f"{STATSIG_API}get_id_lists",
+        response = self._get_request(
+            url=f"{STATSIG_CDN}get_id_lists/{self.__sdk_key}.json",
             headers=None,
-            payload={"statsigMetadata": self.__statsig_metadata},
             log_on_exception=log_on_exception,
             init_timeout=init_timeout,
             tag="get_id_lists",
@@ -358,7 +361,7 @@ class HttpWorker(IStatsigNetworkWorker):
 
         api_for_get_id_lists = (self.__get_proxy_address(options, NetworkEndpoint.GET_ID_LISTS)
                                 or options.api_for_get_id_lists
-                                or options.api or STATSIG_API)
+                                or options.api or STATSIG_CDN)
         if not api_for_get_id_lists.endswith("/"):
             api_for_get_id_lists += "/"
 
@@ -371,3 +374,6 @@ class HttpWorker(IStatsigNetworkWorker):
         self.__api_for_download_config_specs = api_for_download_config_specs
         self.__api_for_get_id_lists = api_for_get_id_lists
         self.__api_for_log_event = api_for_log_event
+
+    def __is_cdn_url(self, url: str) -> bool:
+        return url.startswith(STATSIG_CDN)
