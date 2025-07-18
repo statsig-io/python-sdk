@@ -29,6 +29,7 @@ class _StatsigErrorBoundary:
     ):
         self._options = statsig_options
         self._metadata = statsig_metadata
+        self._timeout = statsig_options.timeout
 
     def set_diagnostics(self, diagnostics: Diagnostics):
         self._diagnostics = diagnostics
@@ -121,6 +122,7 @@ class _StatsigErrorBoundary:
 
     def _post_exception(self, name, info, tag, extra):
         try:
+            timeout = self._timeout if self._timeout is not None else REQUEST_TIMEOUT
             requests.post(
                 self.endpoint,
                 json={
@@ -139,7 +141,7 @@ class _StatsigErrorBoundary:
                     "STATSIG-SDK-TYPE": self._metadata["sdkType"],
                     "STATSIG-SDK-VERSION": self._metadata["sdkVersion"],
                 },
-                timeout=REQUEST_TIMEOUT,
+                timeout=timeout,
             )
         except BaseException:
             # no-op, best effort
