@@ -2,7 +2,12 @@ import hashlib
 import json
 from enum import Enum
 from struct import unpack
-from typing import Optional, Dict, Any, Mapping
+from typing import Optional, Dict, Any, Mapping, Union, Sequence # pylint: disable=unused-import
+from typing_extensions import TypeAliasType
+
+
+JSONPrimitive = Union[str, int, float, bool, None]
+JSONValue = TypeAliasType("JSONValue", 'Union[JSONPrimitive, Sequence["JSONValue"], Mapping[str, "JSONValue"]]')
 
 
 class HashingAlgorithm(Enum):

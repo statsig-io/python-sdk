@@ -1,14 +1,16 @@
 import os
-from statsig import StatsigUser, StatsigServer, StatsigOptions
-import unittest
 import time
+import unittest
+
 import requests
 
+from statsig import StatsigUser, StatsigServer, StatsigOptions
 from statsig.utils import HashingAlgorithm
 
+# issues with e2e endpoint, will re enable later
 TEST_URLS = [
     # "https://statsigapi.net/v1",
-    "https://staging.statsigapi.net/v1"
+    # "https://staging.statsigapi.net/v1"
 ]
 
 
@@ -143,7 +145,7 @@ class ServerSDKConsistencyTest(unittest.TestCase):
                     f'\nExpected: {server_result["secondary_exposures"]}, Actual: {sdk_result["secondary_exposures"]}')
 
             if sdk_result["undelegated_secondary_exposures"] != server_result[
-                    "undelegated_secondary_exposures"]:
+                "undelegated_secondary_exposures"]:
                 print(
                     f'\nDifferent undelegated_secondary_exposures for layer {name} user: {statsig_user.to_dict(True)}')
                 print(

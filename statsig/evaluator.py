@@ -14,12 +14,13 @@ from .evaluation_details import EvaluationDetails, EvaluationReason, DataSource
 from .globals import logger
 from .spec_store import _SpecStore, EntityType
 from .statsig_user import StatsigUser
-from .utils import HashingAlgorithm, sha256_hash
+from .utils import HashingAlgorithm, JSONValue, sha256_hash
 
 
 class _Evaluator:
-    def __init__(self, spec_store: _SpecStore):
+    def __init__(self, spec_store: _SpecStore, global_custom_fields: Optional[Dict[str, JSONValue]]):
         self._spec_store = spec_store
+        self._global_custom_fields = global_custom_fields
 
         self._country_lookup: Optional[CountryLookup] = None
         self._gate_overrides: Dict[str, dict] = {}
@@ -600,6 +601,12 @@ class _Evaluator:
                 value = user.custom[field]
             elif field.upper().lower() in user.custom:
                 value = user.custom[field.upper().lower()]
+
+        if (value is None or value == "") and self._global_custom_fields is not None:
+            if field in self._global_custom_fields:
+                value = self._global_custom_fields[field]
+            elif field.upper().lower() in self._global_custom_fields:
+                value = self._global_custom_fields[field.upper().lower()]
 
         if (value is None or value == "") and user.private_attributes is not None:
             if field in user.private_attributes:

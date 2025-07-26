@@ -1,15 +1,9 @@
 from dataclasses import dataclass
-from typing import Optional, Union, Sequence, Mapping, Dict # pylint: disable=unused-import
-
-from typing_extensions import TypeAliasType
+from typing import Optional, Mapping, Dict
 
 from .statsig_environment_tier import StatsigEnvironmentTier
 from .statsig_errors import StatsigValueError
-from .utils import str_or_none, to_raw_dict_or_none, djb2_hash_for_dict
-
-JSONPrimitive = Union[str, int, float, bool, None]
-JSONValue = TypeAliasType("JSONValue", 'Union[JSONPrimitive, Sequence["JSONValue"], Mapping[str, "JSONValue"]]')
-
+from .utils import JSONValue, str_or_none, to_raw_dict_or_none, djb2_hash_for_dict
 
 @dataclass
 class StatsigUser:

@@ -99,7 +99,7 @@ class ClientInitializeResponseFormatter:
                         config_name, config_spec, eval_result, result)
                 elif entity_type == "layer":
                     populate_layer_fields(config_spec, eval_result, result, hash_algo)
-                elif entity_type == "autotune":
+                elif entity_type == "autotune" and eval_result.group_name:
                     result["group_name"] = eval_result.group_name
 
             else:
