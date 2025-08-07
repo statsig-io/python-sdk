@@ -27,13 +27,13 @@ class HttpWorker(IStatsigNetworkWorker):
     __RETRY_CODES = [408, 500, 502, 503, 504, 522, 524, 599]
 
     def __init__(
-            self,
-            sdk_key,
-            options: StatsigOptions,
-            statsig_metadata: dict,
-            error_boundary: _StatsigErrorBoundary,
-            diagnostics: Diagnostics,
-            context: InitContext
+        self,
+        sdk_key,
+        options: StatsigOptions,
+        statsig_metadata: dict,
+        error_boundary: _StatsigErrorBoundary,
+        diagnostics: Diagnostics,
+        context: InitContext,
     ):
         self._executor = ThreadPoolExecutor(max_workers=2)
         self._context = context
@@ -50,32 +50,54 @@ class HttpWorker(IStatsigNetworkWorker):
     def is_pull_worker(self) -> bool:
         return True
 
-    def get_dcs(self, on_complete: Callable, since_time=0, log_on_exception=False, init_timeout=None):
+    def get_dcs(
+        self,
+        on_complete: Callable,
+        since_time=0,
+        log_on_exception=False,
+        init_timeout=None,
+    ):
         response = self._get_request(
             url=f"{self.__api_for_download_config_specs}download_config_specs/{self.__sdk_key}.json?sinceTime={since_time}",
-            headers=None, init_timeout=init_timeout, log_on_exception=log_on_exception,
-            tag="download_config_specs")
+            headers=None,
+            init_timeout=init_timeout,
+            log_on_exception=log_on_exception,
+            tag="download_config_specs",
+        )
         self._context.source_api = self.__api_for_download_config_specs
         if response is not None and self._is_success_code(response.status_code):
             on_complete(DataSource.NETWORK, response.data, None)
             return
         on_complete(DataSource.NETWORK, None, None)
 
-    def get_dcs_fallback(self, on_complete: Callable, since_time=0, log_on_exception=False, init_timeout=None):
+    def get_dcs_fallback(
+        self,
+        on_complete: Callable,
+        since_time=0,
+        log_on_exception=False,
+        init_timeout=None,
+    ):
         response = self._get_request(
             url=f"{STATSIG_CDN}download_config_specs/{self.__sdk_key}.json?sinceTime={since_time}",
-            headers=None, init_timeout=init_timeout, log_on_exception=log_on_exception,
-            tag="download_config_specs")
+            headers=None,
+            init_timeout=init_timeout,
+            log_on_exception=log_on_exception,
+            tag="download_config_specs",
+        )
         self._context.source_api = STATSIG_CDN
         if response is not None and self._is_success_code(response.status_code):
             on_complete(DataSource.STATSIG_NETWORK, response.data, None)
             return
         on_complete(DataSource.STATSIG_NETWORK, None, None)
 
-    def get_id_lists(self, on_complete: Callable, log_on_exception=False, init_timeout=None):
+    def get_id_lists(
+        self, on_complete: Callable, log_on_exception=False, init_timeout=None
+    ):
         response = None
         if self.__is_cdn_url(self.__api_for_get_id_lists):
-            response = self.get_id_lists_fallback(on_complete, log_on_exception, init_timeout)
+            response = self.get_id_lists_fallback(
+                on_complete, log_on_exception, init_timeout
+            )
         else:
             response = self._post_request(
                 url=f"{self.__api_for_get_id_lists}get_id_lists",
@@ -89,7 +111,9 @@ class HttpWorker(IStatsigNetworkWorker):
             return on_complete(response.data, None)
         return on_complete(None, None)
 
-    def get_id_lists_fallback(self, on_complete: Callable, log_on_exception=False, init_timeout=None):
+    def get_id_lists_fallback(
+        self, on_complete: Callable, log_on_exception=False, init_timeout=None
+    ):
         response = self._get_request(
             url=f"{STATSIG_CDN}get_id_lists/{self.__sdk_key}.json",
             headers=None,
@@ -102,24 +126,32 @@ class HttpWorker(IStatsigNetworkWorker):
         return on_complete(None, None)
 
     def get_id_list(self, on_complete, url, headers, log_on_exception=False):
-        resp = self._get_request(url, headers, log_on_exception, tag="get_id_list", get_text_value_only=True)
+        resp = self._get_request(
+            url, headers, log_on_exception, tag="get_id_list", get_text_value_only=True
+        )
         if resp is not None and self._is_success_code(resp.status_code):
             return on_complete(resp)
         return on_complete(None)
 
-    def log_events(self, payload, headers=None, log_on_exception=False, retry=0) -> RequestResult:
+    def log_events(
+        self, payload, headers=None, log_on_exception=False, retry=0
+    ) -> RequestResult:
         disable_compression = _SDK_Configs.on("stop_log_event_compression")
         additional_headers = {
-            'STATSIG-RETRY': str(retry),
+            "STATSIG-RETRY": str(retry),
         }
         if headers is not None:
             additional_headers.update(headers)
         response = self._request(
-            method='POST',
+            method="POST",
             url=f"{self.__api_for_log_event}log_event",
             headers=additional_headers,
-            payload=payload, log_on_exception=log_on_exception, init_timeout=None, zipped=not disable_compression,
-            tag="log_event")
+            payload=payload,
+            log_on_exception=log_on_exception,
+            init_timeout=None,
+            zipped=not disable_compression,
+            tag="log_event",
+        )
         if response.status_code in self.__RETRY_CODES:
             response.retryable = True
         return response
@@ -127,7 +159,9 @@ class HttpWorker(IStatsigNetworkWorker):
     def shutdown(self) -> None:
         self._executor.shutdown(wait=False)
 
-    def _run_task_for_initialize(self, task, timeout) -> Tuple[Optional[Any], Optional[Exception]]:
+    def _run_task_for_initialize(
+        self, task, timeout
+    ) -> Tuple[Optional[Any], Optional[Exception]]:
         future = self._executor.submit(task)
         try:
             result = future.result(timeout=timeout)
@@ -136,27 +170,52 @@ class HttpWorker(IStatsigNetworkWorker):
             return None, e
 
     def _post_request(
-            self, url, headers, payload, log_on_exception=False, init_timeout=None, zipped=None,
-            tag=None):
-        return self._request('POST', url, headers, payload, log_on_exception, init_timeout, zipped, tag)
+        self,
+        url,
+        headers,
+        payload,
+        log_on_exception=False,
+        init_timeout=None,
+        zipped=None,
+        tag=None,
+    ):
+        return self._request(
+            "POST", url, headers, payload, log_on_exception, init_timeout, zipped, tag
+        )
 
     def _get_request(
-            self, url, headers, log_on_exception=False, init_timeout=None, zipped=None, tag=None,
-            get_text_value_only=False):
-        return self._request('GET', url, headers, None, log_on_exception, init_timeout, zipped, tag,
-                             get_text_value_only)
+        self,
+        url,
+        headers,
+        log_on_exception=False,
+        init_timeout=None,
+        zipped=None,
+        tag=None,
+        get_text_value_only=False,
+    ):
+        return self._request(
+            "GET",
+            url,
+            headers,
+            None,
+            log_on_exception,
+            init_timeout,
+            zipped,
+            tag,
+            get_text_value_only,
+        )
 
     def _request(
-            self,
-            method,
-            url,
-            headers=None,
-            payload=None,
-            log_on_exception=False,
-            init_timeout=None,
-            zipped=False,
-            tag=None,
-            get_text_value_only=False,
+        self,
+        method,
+        url,
+        headers=None,
+        payload=None,
+        log_on_exception=False,
+        init_timeout=None,
+        zipped=False,
+        tag=None,
+        get_text_value_only=False,
     ) -> RequestResult:
         if self.__local_mode:
             globals.logger.debug("Using local mode. Dropping network request")
@@ -175,28 +234,55 @@ class HttpWorker(IStatsigNetworkWorker):
         if payload is not None:
             payload = self._prepare_payload(payload, url, zipped)
             if payload is None:
-                return RequestResult(data=None, status_code=None, success=False,
-                                     error=Exception("Invalid payload or failed to encode payload"))
+                return RequestResult(
+                    data=None,
+                    status_code=None,
+                    success=False,
+                    error=Exception("Invalid payload or failed to encode payload"),
+                )
 
         timeout = init_timeout if init_timeout is not None else self.__req_timeout
         payload_size = len(payload) if payload else None
-        result = self._run_request_with_strict_timeout(method, url, headers, payload, timeout,
-                                                       init_timeout is not None, get_text_value_only)
+        result = self._run_request_with_strict_timeout(
+            method,
+            url,
+            headers,
+            payload,
+            timeout,
+            init_timeout is not None,
+            get_text_value_only,
+        )
 
         if create_marker is not None:
             self._handle_diagnostics_end(create_marker, result, payload_size, marker_id)
 
         if result.error is not None:
-            self._handle_response_error(url, result.error, log_on_exception, tag, timeout, method)
+            self._handle_response_error(
+                url, result.error, log_on_exception, tag, timeout, method
+            )
 
         return result
 
-    def _run_request_with_strict_timeout(self, method, url, headers, payload, timeout,
-                                         for_initialize=False, get_text_value_only=False) -> RequestResult:
+    def _run_request_with_strict_timeout(
+        self,
+        method,
+        url,
+        headers,
+        payload,
+        timeout,
+        for_initialize=False,
+        get_text_value_only=False,
+    ) -> RequestResult:
         def request_task():
             try:
-                with self.__request_session.request(method, url, data=payload, headers=headers, timeout=timeout,
-                                      stream=True) as response:
+                with self.__request_session.request(
+                    method,
+                    url,
+                    data=payload,
+                    headers=headers,
+                    timeout=timeout,
+                    stream=True,
+                ) as response:
                     try:
                         response.raise_for_status()
                     except requests.exceptions.HTTPError as e:
@@ -220,14 +306,18 @@ class HttpWorker(IStatsigNetworkWorker):
                         result.data = self._stream_response_into_result_dict(response)
                     return result
             except Exception as e:
-                return RequestResult(data=None, status_code=None, success=False, error=e)
+                return RequestResult(
+                    data=None, status_code=None, success=False, error=e
+                )
 
         if for_initialize:
             future = self._executor.submit(request_task)
             try:
                 return future.result(timeout=timeout)
             except Exception as e:
-                return RequestResult(data=None, status_code=None, success=False, error=e)
+                return RequestResult(
+                    data=None, status_code=None, success=False, error=e
+                )
         return request_task()
 
     def _stream_response_into_result_dict(self, response):
@@ -255,7 +345,9 @@ class HttpWorker(IStatsigNetworkWorker):
             return False
         return 200 <= status_code < 300
 
-    def _prepare_headers(self, headers: Optional[Dict[str, Any]], zipped: bool) -> Dict[str, Any]:
+    def _prepare_headers(
+        self, headers: Optional[Dict[str, Any]], zipped: bool
+    ) -> Dict[str, Any]:
         base_headers = {
             "Content-type": "application/json",
             "STATSIG-API-KEY": self.__sdk_key,
@@ -307,8 +399,15 @@ class HttpWorker(IStatsigNetworkWorker):
                 raise e
             return None
 
-    def _handle_response_error(self, url: str, error: Exception, log_on_exception: bool, tag: str, timeout: int,
-                               method: str):
+    def _handle_response_error(
+        self,
+        url: str,
+        error: Exception,
+        log_on_exception: bool,
+        tag: str,
+        timeout: int,
+        method: str,
+    ):
         globals.logger.warning(f"Request to {url} failed with error {error}")
         self._context.error = error
         if log_on_exception and not isinstance(error, requests.HTTPError):
@@ -319,8 +418,13 @@ class HttpWorker(IStatsigNetworkWorker):
                 log_mode="none",
             )
 
-    def _handle_diagnostics_end(self, create_marker: Callable, result: RequestResult, payload_size: Optional[int],
-                                marker_id: Optional[str]):
+    def _handle_diagnostics_end(
+        self,
+        create_marker: Callable,
+        result: RequestResult,
+        payload_size: Optional[int],
+        marker_id: Optional[str],
+    ):
         marker_data = {
             "statusCode": result.status_code,
             "success": result.success,
@@ -337,37 +441,54 @@ class HttpWorker(IStatsigNetworkWorker):
 
         self.__diagnostics.add_marker(create_marker().end(marker_data))
 
-    def _get_diagnostics_from_url_or_tag(self, url: str, tag: str) -> Optional[Callable]:
-        if 'download_config_specs' in url or tag == "download_config_specs":
+    def _get_diagnostics_from_url_or_tag(
+        self, url: str, tag: str
+    ) -> Optional[Callable]:
+        if "download_config_specs" in url or tag == "download_config_specs":
             return lambda: Marker(url=url).download_config_specs().network_request()
-        if 'get_id_lists' in url or tag == "get_id_lists":
+        if "get_id_lists" in url or tag == "get_id_lists":
             return lambda: Marker(url=url).get_id_list_sources().network_request()
-        if 'idliststorage' in url or tag == "get_id_list":
+        if "idliststorage" in url or tag == "get_id_list":
             return lambda: Marker(url=url).get_id_list().network_request()
-        if 'log_event' in url or tag == "log_event":
+        if "log_event" in url or tag == "log_event":
             return lambda: Marker().log_event().network_request()
         return None
 
-    def __get_proxy_address(self, options: StatsigOptions, endpoint: NetworkEndpoint) -> Optional[str]:
+    def __get_proxy_address(
+        self, options: StatsigOptions, endpoint: NetworkEndpoint
+    ) -> Optional[str]:
         proxy_config = options.proxy_configs.get(endpoint)
-        return proxy_config.proxy_address + "/v1" if proxy_config and proxy_config.proxy_address else None
+        return (
+            proxy_config.proxy_address + "/v1"
+            if proxy_config and proxy_config.proxy_address
+            else None
+        )
 
     def __configure_endpoints(self, options: StatsigOptions) -> None:
-        api_for_download_config_specs = (self.__get_proxy_address(options, NetworkEndpoint.DOWNLOAD_CONFIG_SPECS)
-                                         or options.api_for_download_config_specs
-                                         or options.api or STATSIG_CDN)
+        api_for_download_config_specs = (
+            self.__get_proxy_address(options, NetworkEndpoint.DOWNLOAD_CONFIG_SPECS)
+            or options.api_for_download_config_specs
+            or options.api
+            or STATSIG_CDN
+        )
         if not api_for_download_config_specs.endswith("/"):
             api_for_download_config_specs += "/"
 
-        api_for_get_id_lists = (self.__get_proxy_address(options, NetworkEndpoint.GET_ID_LISTS)
-                                or options.api_for_get_id_lists
-                                or options.api or STATSIG_CDN)
+        api_for_get_id_lists = (
+            self.__get_proxy_address(options, NetworkEndpoint.GET_ID_LISTS)
+            or options.api_for_get_id_lists
+            or options.api
+            or STATSIG_CDN
+        )
         if not api_for_get_id_lists.endswith("/"):
             api_for_get_id_lists += "/"
 
-        api_for_log_event = (self.__get_proxy_address(options, NetworkEndpoint.LOG_EVENT)
-                             or options.api_for_log_event
-                             or options.api or STATSIG_API)
+        api_for_log_event = (
+            self.__get_proxy_address(options, NetworkEndpoint.LOG_EVENT)
+            or options.api_for_log_event
+            or options.api
+            or STATSIG_API
+        )
         if not api_for_log_event.endswith("/"):
             api_for_log_event += "/"
 
