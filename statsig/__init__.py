@@ -15,6 +15,7 @@ from .statsig_server import StatsigServer
 from .statsig_user import StatsigUser
 from .utils import HashingAlgorithm
 from .version import __version__
+from .stream_decompressor import StreamDecompressor
 
 __all__ = [
     "DynamicConfig",
