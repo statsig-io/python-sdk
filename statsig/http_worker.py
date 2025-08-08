@@ -9,6 +9,8 @@ from typing import Callable, Tuple, Optional, Any, Dict
 import ijson
 import requests
 
+from statsig.stream_decompressor import StreamDecompressor
+
 from . import globals
 from .diagnostics import Diagnostics, Marker
 from .evaluation_details import DataSource
@@ -321,15 +323,16 @@ class HttpWorker(IStatsigNetworkWorker):
         return request_task()
 
     def _stream_response_into_result_dict(self, response):
-        result = {}
-        if response.headers.get("Content-Encoding") == "gzip":
-            stream = gzip.GzipFile(fileobj=response.raw)
-        else:
-            stream = response.raw
-        for k, v in ijson.kvitems(stream, ""):
-            v = self._convert_decimals_to_floats(v)
-            result[k] = v
-        return result
+        decompressor = StreamDecompressor(
+            response.raw, response.headers.get("Content-Encoding")
+        )
+
+        json_result = {}
+
+        for k, v in ijson.kvitems(decompressor, ""):
+            json_result[k] = self._convert_decimals_to_floats(v)
+
+        return json_result
 
     def _convert_decimals_to_floats(self, obj):
         if isinstance(obj, Decimal):
@@ -356,12 +359,15 @@ class HttpWorker(IStatsigNetworkWorker):
             "STATSIG-SDK-TYPE": self.__statsig_metadata["sdkType"],
             "STATSIG-SDK-VERSION": self.__statsig_metadata["sdkVersion"],
             "STATSIG-RETRY": "0",
-            "Accept-Encoding": "gzip",
+            "Accept-Encoding": "gzip, deflate, br",
         }
+
         if zipped:
             base_headers.update({"Content-Encoding": "gzip"})
+
         if headers is not None:
             base_headers.update(headers)
+
         return base_headers
 
     def _zip_payload(self, payload: str) -> bytes:

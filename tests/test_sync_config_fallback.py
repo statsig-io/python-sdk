@@ -171,7 +171,7 @@ class TestSyncConfigFallback(unittest.TestCase):
         def verify_headers(url, **kwargs):
             nonlocal headers_verified
             request_headers = kwargs.get('headers', {})
-            self.assertEqual(request_headers.get('Accept-Encoding'), 'gzip')
+            self.assertEqual(request_headers.get('Accept-Encoding'), 'gzip, deflate, br')
             headers_verified = True
             return PARSED_CONFIG_SPEC
 
