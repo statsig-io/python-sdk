@@ -82,7 +82,7 @@ class HttpWorker(IStatsigNetworkWorker):
         log_on_exception=False,
         init_timeout=None,
     ):
-        url = f"{self.__api_for_download_config_specs}download_config_specs/{self.__sdk_key}.json"
+        url = f"{STATSIG_CDN}download_config_specs/{self.__sdk_key}.json"
         if since_time != 0:
             url += f"?sinceTime={since_time}"
         response = self._get_request(
