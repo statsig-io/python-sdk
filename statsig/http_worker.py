@@ -59,8 +59,11 @@ class HttpWorker(IStatsigNetworkWorker):
         log_on_exception=False,
         init_timeout=None,
     ):
+        url = f"{self.__api_for_download_config_specs}download_config_specs/{self.__sdk_key}.json"
+        if since_time != 0:
+            url += f"?sinceTime={since_time}"
         response = self._get_request(
-            url=f"{self.__api_for_download_config_specs}download_config_specs/{self.__sdk_key}.json?sinceTime={since_time}",
+            url=url,
             headers=None,
             init_timeout=init_timeout,
             log_on_exception=log_on_exception,
@@ -79,8 +82,11 @@ class HttpWorker(IStatsigNetworkWorker):
         log_on_exception=False,
         init_timeout=None,
     ):
+        url = f"{self.__api_for_download_config_specs}download_config_specs/{self.__sdk_key}.json"
+        if since_time != 0:
+            url += f"?sinceTime={since_time}"
         response = self._get_request(
-            url=f"{STATSIG_CDN}download_config_specs/{self.__sdk_key}.json?sinceTime={since_time}",
+            url=url,
             headers=None,
             init_timeout=init_timeout,
             log_on_exception=log_on_exception,
