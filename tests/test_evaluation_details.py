@@ -225,6 +225,34 @@ class TestEvaluationDetails(unittest.TestCase):
 
         self.assertEqual(len(self._events), 4)
 
+    def test_ua_not_loaded(self, mock_request, mock_time):
+        self._server.initialize("secret-key", StatsigOptions(
+            api=_api_override, disable_diagnostics=True, disable_ua_parser=True
+        ))
+        self._server.check_gate(self._user, "test_ua")
+        self._server.shutdown()
+
+        self.assertEqual(len(self._events), 1)
+        self._assert_event_equal(self._events[0], {
+            "eventName": "statsig::gate_exposure",
+            "reason": "UAParserNotLoaded"
+        })
+
+    def test_country_not_loaded(self, mock_request, mock_time):
+        self._server.initialize("secret-key", StatsigOptions(
+            api=_api_override, disable_diagnostics=True, disable_country_lookup=True
+        ))
+        self._server.check_gate(StatsigUser(
+            user_id="test_user", ip="0.32.023.0432"
+        ), "test_country")
+        self._server.shutdown()
+
+        self.assertEqual(len(self._events), 1)
+        self._assert_event_equal(self._events[0], {
+            "eventName": "statsig::gate_exposure",
+            "reason": "CountryLookupNotLoaded"
+        })
+
 
 if __name__ == '__main__':
     unittest.main()

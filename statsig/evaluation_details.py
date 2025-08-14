@@ -16,6 +16,8 @@ class DataSource(str, Enum):
     NETWORK = "Network"
     STATSIG_NETWORK = "StatsigNetwork"
     UNINITIALIZED = "Uninitialized"
+    UA_NOT_LOADED = "UAParserNotLoaded"
+    COUNTRY_NOT_LOADED = "CountryLookupNotLoaded"
 
 
 class EvaluationDetails:

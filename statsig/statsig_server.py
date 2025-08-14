@@ -124,7 +124,7 @@ class StatsigServer:
                 init_context
             )
 
-            self._evaluator = _Evaluator(self._spec_store, self._options.global_custom_fields)
+            self._evaluator = _Evaluator(self._spec_store, self._options.global_custom_fields, self._options.disable_ua_parser, self._options.disable_country_lookup)
 
             init_timeout = options.overall_init_timeout
             if init_timeout is not None:

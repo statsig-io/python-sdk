@@ -6,7 +6,6 @@ from hashlib import sha256
 from typing import Any, Dict, Optional, Union
 
 from ip3country import CountryLookup
-from ua_parser import user_agent_parser
 
 from .client_initialize_formatter import ClientInitializeResponseFormatter
 from .config_evaluation import _ConfigEvaluation
@@ -17,18 +16,34 @@ from .statsig_user import StatsigUser
 from .utils import HashingAlgorithm, JSONValue, sha256_hash
 
 
+def load_ua_parser():
+    try:
+        from ua_parser import user_agent_parser  # pylint: disable=import-outside-toplevel
+        return user_agent_parser
+    except ImportError:
+        logger.warning("ua_parser module not available")
+        return None
+
+
 class _Evaluator:
-    def __init__(self, spec_store: _SpecStore, global_custom_fields: Optional[Dict[str, JSONValue]]):
+    def __init__(self, spec_store: _SpecStore, global_custom_fields: Optional[Dict[str, JSONValue]],
+                 disable_ua_parser: bool = False, disable_country_lookup: bool = False):
         self._spec_store = spec_store
         self._global_custom_fields = global_custom_fields
+        self._disable_ua_parser = disable_ua_parser
+        self._disable_country_lookup = disable_country_lookup
 
         self._country_lookup: Optional[CountryLookup] = None
+        self._ua_parser: Optional[Any] = None  # Will be the ua_parser.user_agent_parser module
         self._gate_overrides: Dict[str, dict] = {}
         self._config_overrides: Dict[str, dict] = {}
         self._layer_overrides: Dict[str, dict] = {}
 
     def initialize(self):
-        self._country_lookup = CountryLookup()
+        if not self._disable_country_lookup:
+            self._country_lookup = CountryLookup()
+        if not self._disable_ua_parser:
+            self._ua_parser = load_ua_parser()
 
     def override_gate(self, gate, value, user_id=None):
         gate_overrides = self._gate_overrides.get(gate)
@@ -119,6 +134,19 @@ class _Evaluator:
 
         return EvaluationDetails(
             self._spec_store.last_update_time(), self._spec_store.initial_update_time, source, reason)
+
+
+    def _update_evaluation_details_if_needed(self, end_result: _ConfigEvaluation) -> None:
+        current_details = end_result.evaluation_details
+
+        if current_details is None:
+            end_result.evaluation_details = self._create_evaluation_details()
+            return
+
+        if current_details.source in [DataSource.UA_NOT_LOADED, DataSource.COUNTRY_NOT_LOADED]:
+            return
+
+        end_result.evaluation_details = self._create_evaluation_details()
 
     def __lookup_gate_override(self, user, gate):
         gate_overrides = self._gate_overrides.get(gate)
@@ -336,7 +364,11 @@ class _Evaluator:
         if config.get("version", None) is not None:
             end_result.version = config.get("version")
 
-        end_result.evaluation_details = self._create_evaluation_details()
+        if end_result.evaluation_details is not None and end_result.evaluation_details.source not in (
+        DataSource.UA_NOT_LOADED, DataSource.COUNTRY_NOT_LOADED):
+            end_result.evaluation_details = self._create_evaluation_details()
+
+        self._update_evaluation_details_if_needed(end_result)
 
         if rule is None:
             end_result.json_value = config.get("defaultValue", {})
@@ -436,16 +468,22 @@ class _Evaluator:
             if value is None:
                 ip = self.__get_from_user(user, "ip")
                 if ip is not None and field == "country":
-                    if not self._country_lookup:
-                        self._country_lookup = CountryLookup()
-                    value = self._country_lookup.lookupStr(ip)
+                    if self._disable_country_lookup:
+                        logger.warning("Country lookup is disabled but was attempted during evaluation")
+                        end_result.evaluation_details = self._create_evaluation_details(
+                            EvaluationReason.none, DataSource.COUNTRY_NOT_LOADED)
+                        value = None
+                    else:
+                        if not self._country_lookup:
+                            self._country_lookup = CountryLookup()
+                        value = self._country_lookup.lookupStr(ip)
             if value is None:
                 end_result.analytical_condition = sampling_rate is None
                 return False
         elif type == "UA_BASED":
             value = self.__get_from_user(user, field)
             if value is None:
-                value = self.__get_from_user_agent(user, field)
+                value = self.__get_from_user_agent(user, field, end_result)
         elif type == "USER_FIELD":
             value = self.__get_from_user(user, field)
         elif type == "CURRENT_TIME":
@@ -754,11 +792,26 @@ class _Evaluator:
             return None
         return float(input)
 
-    def __get_from_user_agent(self, user, field):
+    def __get_from_user_agent(self, user, field, end_result):
+        if self._disable_ua_parser:
+            logger.warning("UA parser is disabled but was attempted during evaluation")
+            end_result.evaluation_details = self._create_evaluation_details(EvaluationReason.none,
+                                                                            DataSource.UA_NOT_LOADED)
+            return None
         ua = self.__get_from_user(user, "userAgent")
         if ua is None:
             return None
-        parsed = user_agent_parser.Parse(ua)
+
+        try:
+            if self._ua_parser is None:
+                self._ua_parser = load_ua_parser()
+            if self._ua_parser is None:
+                return None
+            parsed = self._ua_parser.Parse(ua)
+        except Exception as e:
+            logger.warning(f"Error parsing user agent: {e}")
+            return None
+
         field = field.lower()
         if field in ("osname", "os_name"):
             return parsed.get("os", {"family": None}).get("family")

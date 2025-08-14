@@ -152,6 +152,14 @@ class TestStatsigE2E(unittest.TestCase):
                                      "value": True,
                                      "rule_id": "7w9rbTSffLT89pxqpyhuqA"
                                  },
+                                 "test_country": {
+                                     "value": False,
+                                     "rule_id": "default"
+                                 },
+                                 "test_ua": {
+                                     "value": False,
+                                     "rule_id": "default"
+                                 },
                              },
                              "dynamic_configs": {
                                  "test_config": {

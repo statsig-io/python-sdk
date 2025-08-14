@@ -116,6 +116,8 @@ class StatsigOptions:
             events_flushed_callback: Optional[
                 Callable[[bool, List[Dict], Optional[int], Optional[Exception]], None]] = None,
             global_custom_fields: Optional[Dict[str, JSONValue]] = None,
+            disable_ua_parser: bool = False,
+            disable_country_lookup: bool = False,
     ):
         self.data_store = data_store
         self._environment: Union[None, dict] = None
@@ -167,6 +169,8 @@ class StatsigOptions:
         self.events_flushed_callback = events_flushed_callback
         self._logging_copy: Dict[str, Any] = {}
         self.global_custom_fields = global_custom_fields
+        self.disable_ua_parser = disable_ua_parser
+        self.disable_country_lookup = disable_country_lookup
         self._set_logging_copy()
         self._attributes_changed = False
 
@@ -250,5 +254,9 @@ class StatsigOptions:
             logging_copy["sdk_error_callback"] = "SET"
         if self.global_custom_fields:
             logging_copy["global_custom_fields"] = to_raw_dict_or_none(self.global_custom_fields)
+        if self.disable_ua_parser:
+            logging_copy["disable_ua_parser"] = self.disable_ua_parser
+        if self.disable_country_lookup:
+            logging_copy["disable_country_lookup"] = self.disable_country_lookup
         self._logging_copy = logging_copy
         self._attributes_changed = False
