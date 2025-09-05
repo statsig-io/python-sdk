@@ -1,10 +1,12 @@
 import gzip
 import json
+import os
+import tempfile
 import time
 from concurrent.futures.thread import ThreadPoolExecutor
 from decimal import Decimal
 from io import BytesIO
-from typing import Callable, Tuple, Optional, Any, Dict
+from typing import Callable, Tuple, Optional, Any, Dict, List
 
 import ijson
 import requests
@@ -19,7 +21,8 @@ from .request_result import RequestResult
 from .sdk_configs import _SDK_Configs
 from .statsig_context import InitContext
 from .statsig_error_boundary import _StatsigErrorBoundary
-from .statsig_options import StatsigOptions, STATSIG_API, STATSIG_CDN
+from .statsig_options import StatsigOptions, STATSIG_API, STATSIG_CDN, AuthenticationMode
+from .grpc_websocket_worker import load_credential_from_file
 
 REQUEST_TIMEOUT = 20
 
@@ -47,7 +50,51 @@ class HttpWorker(IStatsigNetworkWorker):
         self.__statsig_metadata = statsig_metadata
         self.__diagnostics = diagnostics
         self.__request_count = 0
-        self.__request_session = requests.session()
+        self.__temp_cert_files: List[str] = []
+        self.__request_session = self.__init_session(options)
+
+    def __init_session(self, options: StatsigOptions) -> requests.Session:
+        session = requests.Session()
+        http_proxy_config = None
+        for _, config in options.proxy_configs.items():
+            if config.protocol == NetworkProtocol.HTTP:
+                if config.authentication_mode in [AuthenticationMode.TLS, AuthenticationMode.MTLS]:
+                    http_proxy_config = config
+                    break
+        if http_proxy_config is None:
+            return session
+        try:
+            if http_proxy_config.authentication_mode == AuthenticationMode.TLS:
+                ca_cert = load_credential_from_file(http_proxy_config.tls_ca_cert_path, "TLS CA certificate")
+                if ca_cert:
+                    with tempfile.NamedTemporaryFile(mode='wb', delete=False, suffix='.pem') as ca_file:
+                        ca_file.write(ca_cert)
+                        session.verify = ca_file.name
+                        self.__temp_cert_files.append(ca_file.name)
+                    globals.logger.log_process("HTTP Worker", "Connecting using an TLS secure channel for HTTP")
+            elif http_proxy_config.authentication_mode == AuthenticationMode.MTLS:
+                client_cert = load_credential_from_file(http_proxy_config.tls_client_cert_path, "TLS client certificate")
+                client_key = load_credential_from_file(http_proxy_config.tls_client_key_path, "TLS client key")
+                ca_cert = load_credential_from_file(http_proxy_config.tls_ca_cert_path, "TLS CA certificate")
+                if client_cert and client_key and ca_cert:
+                    with tempfile.NamedTemporaryFile(mode='wb', delete=False, suffix='.pem') as cert_file:
+                        cert_file.write(client_cert)
+                        cert_path = cert_file.name
+                        self.__temp_cert_files.append(cert_path)
+                    with tempfile.NamedTemporaryFile(mode='wb', delete=False, suffix='.key') as key_file:
+                        key_file.write(client_key)
+                        key_path = key_file.name
+                        self.__temp_cert_files.append(key_path)
+                    with tempfile.NamedTemporaryFile(mode='wb', delete=False, suffix='.pem') as ca_file:
+                        ca_file.write(ca_cert)
+                        ca_path = ca_file.name
+                        self.__temp_cert_files.append(ca_path)
+                    session.cert = (cert_path, key_path)
+                    session.verify = ca_path
+                    globals.logger.log_process("HTTP Worker", "Connecting using an mTLS secure channel for HTTP")
+        except Exception as e:
+            self.__error_boundary.log_exception("http_worker:init_session", e)
+        return session
 
     def is_pull_worker(self) -> bool:
         return True
@@ -166,6 +213,12 @@ class HttpWorker(IStatsigNetworkWorker):
 
     def shutdown(self) -> None:
         self._executor.shutdown(wait=False)
+        for temp_file in self.__temp_cert_files:
+            try:
+                os.unlink(temp_file)
+            except Exception:
+                pass
+        self.__temp_cert_files.clear()
 
     def _run_task_for_initialize(
         self, task, timeout
