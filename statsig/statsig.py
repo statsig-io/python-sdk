@@ -286,7 +286,7 @@ def remove_all_overrides():
 
 def get_client_initialize_response(user: StatsigUser, client_sdk_key: Optional[str] = None,
                                    hash: Optional[HashingAlgorithm] = HashingAlgorithm.SHA256,
-                                   include_local_overrides: Optional[bool] = False) -> ClientInitializeResponse:
+                                   include_local_overrides: Optional[bool] = False, target_app_id: Optional[str] = None) -> ClientInitializeResponse:
     """
     Gets all evaluated values for the given user.
     These values can then be given to a Statsig Client SDK via bootstrapping.
@@ -296,7 +296,7 @@ def get_client_initialize_response(user: StatsigUser, client_sdk_key: Optional[s
     :param client_sdk_key: (Optional) The client sdk key to use for bootstrapping
     :return: An initialize response containing evaluated gates/configs/layers
     """
-    return __instance.get_client_initialize_response(user, client_sdk_key, hash, include_local_overrides)
+    return __instance.get_client_initialize_response(user, client_sdk_key, hash, include_local_overrides, target_app_id)
 
 
 def evaluate_all(user: StatsigUser):

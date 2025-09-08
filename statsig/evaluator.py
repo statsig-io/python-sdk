@@ -9,6 +9,7 @@ from ip3country import CountryLookup
 
 from .client_initialize_formatter import ClientInitializeResponseFormatter
 from .config_evaluation import _ConfigEvaluation
+from .evaluation_context import EvaluationContext
 from .evaluation_details import EvaluationDetails, EvaluationReason, DataSource
 from .globals import logger
 from .spec_store import _SpecStore, EntityType
@@ -113,6 +114,7 @@ class _Evaluator:
             hash: HashingAlgorithm,
             client_sdk_key=None,
             include_local_override=False,
+            target_app_id: Optional[str] = None,
     ):
         if not self._spec_store.is_ready_for_checks():
             return None
@@ -122,7 +124,7 @@ class _Evaluator:
 
         return ClientInitializeResponseFormatter \
             .get_formatted_response(self.__eval_config, user, self._spec_store, self, hash, client_sdk_key,
-                                    include_local_override)
+                                    include_local_override, target_app_id)
 
     def _create_evaluation_details(self,
                                    reason: EvaluationReason = EvaluationReason.none,
@@ -217,7 +219,8 @@ class _Evaluator:
 
     def __lookup_config_mapping(self, user: StatsigUser, config_name: str, spec_type: EntityType,
                                 end_result: _ConfigEvaluation,
-                                maybe_config: Union[Dict[str, Any], None] = None) -> bool:
+                                context: EvaluationContext,
+                                maybe_config: Union[Dict[str, Any], None] = None,) -> bool:
         overrides = self._spec_store.get_overrides()
         if overrides is None or not isinstance(overrides, dict):
             return False
@@ -245,7 +248,8 @@ class _Evaluator:
                     continue
 
                 end_result.reset()
-                self.__evaluate_rule(user, rule, end_result)
+                context.sampling_rate = rule.get("samplingRate", None)
+                self.__evaluate_rule(user, rule, end_result, context)
                 if not end_result.boolean_value or end_result.evaluation_details.reason in (
                         EvaluationReason.unsupported, EvaluationReason.unrecognized):
                     end_result.reset()
@@ -257,7 +261,7 @@ class _Evaluator:
                 config_pass = self.__eval_pass_percentage(user, rule, new_config, spec_salt)
                 if config_pass:
                     end_result.override_config_name = override_config_name
-                    self.__evaluate(user, override_config_name, spec_type, end_result)
+                    self.__evaluate(user, override_config_name, spec_type, end_result, context)
                     if end_result.evaluation_details.reason == EvaluationReason.none:
                         return True
         return False
@@ -278,14 +282,16 @@ class _Evaluator:
             return self._create_evaluation_details(EvaluationReason.unsupported)
         return self._create_evaluation_details(EvaluationReason.unrecognized)
 
-    def check_gate(self, user, gate, end_result=None, is_nested=False):
+    def check_gate(self, user, gate, end_result=None, is_nested=False, context: Optional[EvaluationContext] = None):
         override = self.__lookup_gate_override(user, gate)
         if override is not None:
             return override
 
         if end_result is None:
             end_result = _ConfigEvaluation()
-        self.__eval_config(user, gate, EntityType.GATE, end_result, is_nested)
+        if context is None:
+            context = EvaluationContext()
+        self.__eval_config(user, gate, EntityType.GATE, end_result, context, is_nested)
         return end_result
 
     def get_config(self, user, config_name):
@@ -294,7 +300,7 @@ class _Evaluator:
             return override
 
         result = _ConfigEvaluation()
-        self.__eval_config(user, config_name, EntityType.CONFIG, result)
+        self.__eval_config(user, config_name, EntityType.CONFIG, result, EvaluationContext())
         return result
 
     def get_layer(self, user, layer_name):
@@ -303,16 +309,16 @@ class _Evaluator:
             return override
 
         result = _ConfigEvaluation()
-        self.__eval_config(user, layer_name, EntityType.LAYER, result)
+        self.__eval_config(user, layer_name, EntityType.LAYER, result, EvaluationContext())
         return result
 
-    def __eval_config(self, user, config_name, entity_type: EntityType, end_result, is_nested=False):
+    def __eval_config(self, user, config_name, entity_type: EntityType, end_result, context: EvaluationContext, is_nested=False):
         try:
             if not entity_type:
                 logger.warning("invalid entity type in evaluation: %s", config_name)
                 end_result.rule_id = "error"
                 return
-            self.__evaluate(user, config_name, entity_type, end_result, is_nested)
+            self.__evaluate(user, config_name, entity_type, end_result, context, is_nested)
         except RecursionError:
             raise
         except Exception:
@@ -328,10 +334,10 @@ class _Evaluator:
             sha256(str(id).encode('utf-8')).digest()).decode('utf-8')[0:8]
         return hashed in ids
 
-    def __evaluate(self, user, config_name, entity_type, end_result, is_nested=False):
+    def __evaluate(self, user, config_name, entity_type, end_result, context: EvaluationContext, is_nested=False):
         maybe_config_spec = self.__get_config_by_entity_type(config_name, entity_type)
 
-        override_config = self.__lookup_config_mapping(user, config_name, entity_type, end_result, maybe_config_spec)
+        override_config = self.__lookup_config_mapping(user, config_name, entity_type, end_result, context, maybe_config_spec)
         if override_config:
             return
 
@@ -344,9 +350,10 @@ class _Evaluator:
             return
 
         for rule in maybe_config_spec.get("rules", []):
-            self.__evaluate_rule(user, rule, end_result)
+            context.sampling_rate = rule.get("samplingRate", None)
+            self.__evaluate_rule(user, rule, end_result, context)
             if end_result.boolean_value:
-                if self.__evaluate_delegate(user, rule, end_result) is not None:
+                if self.__evaluate_delegate(user, rule, end_result, context) is not None:
                     self.__finalize_exposures(end_result)
                     return
 
@@ -389,15 +396,15 @@ class _Evaluator:
         end_result.secondary_exposures = self.clean_exposures(end_result.secondary_exposures)
         end_result.undelegated_secondary_exposures = self.clean_exposures(end_result.undelegated_secondary_exposures)
 
-    def __evaluate_rule(self, user, rule, end_result):
+    def __evaluate_rule(self, user, rule, end_result, context: EvaluationContext):
         total_eval_result = True
         for condition in rule.get("conditions", []):
-            eval_result = self.__evaluate_condition(user, condition, end_result, rule.get("samplingRate", None))
+            eval_result = self.__evaluate_condition(user, condition, end_result, context)
             if not eval_result:
                 total_eval_result = False
         end_result.boolean_value = total_eval_result
 
-    def __evaluate_delegate(self, user, rule, end_result):
+    def __evaluate_delegate(self, user, rule, end_result, context: EvaluationContext):
         config_delegate = rule.get("configDelegate", None)
         if config_delegate is None:
             return None
@@ -408,23 +415,23 @@ class _Evaluator:
 
         end_result.undelegated_secondary_exposures = end_result.secondary_exposures[:]
 
-        self.__evaluate(user, config_delegate, EntityType.CONFIG, end_result, True)
+        self.__evaluate(user, config_delegate, EntityType.CONFIG, end_result, context, True)
         end_result.explicit_parameters = config.get(
             "explicitParameters", [])
         end_result.allocated_experiment = config_delegate
         return end_result
 
-    def __evaluate_condition(self, user, condition, end_result, sampling_rate=None):
+    def __evaluate_condition(self, user, condition, end_result, context: EvaluationContext):
         value = None
         type = condition.get("type", "").upper()
         target = condition.get("targetValue")
         field = condition.get("field", "")
         id_Type = condition.get("idType", "userID")
         if type == "PUBLIC":
-            end_result.analytical_condition = sampling_rate is None
+            end_result.analytical_condition = context.sampling_rate is None
             return True
         if type in ("FAIL_GATE", "PASS_GATE"):
-            delegated_gate = self.check_gate(user, target, end_result, True)
+            delegated_gate = self.check_gate(user, target, end_result, True, context)
 
             new_exposure = {
                 "gate": target,
@@ -438,15 +445,15 @@ class _Evaluator:
 
             pass_gate = delegated_gate.boolean_value if type == "PASS_GATE" else not delegated_gate.boolean_value
 
-            end_result.analytical_condition = sampling_rate is None
+            end_result.analytical_condition = context.sampling_rate is None
             return pass_gate
         if type in ("MULTI_PASS_GATE", "MULTI_FAIL_GATE"):
             if target is None or len(target) == 0:
-                end_result.analytical_condition = sampling_rate is None
+                end_result.analytical_condition = context.sampling_rate is None
                 return False
             pass_gate = False
             for gate in target:
-                other_result = self.check_gate(user, gate)
+                other_result = self.check_gate(user, gate, context=context)
 
                 new_exposure = {
                     "gate": gate,
@@ -461,7 +468,7 @@ class _Evaluator:
                 if pass_gate:
                     break
 
-            end_result.analytical_condition = sampling_rate is None
+            end_result.analytical_condition = context.sampling_rate is None
             return pass_gate
         if type == "IP_BASED":
             value = self.__get_from_user(user, field)
@@ -478,7 +485,7 @@ class _Evaluator:
                             self._country_lookup = CountryLookup()
                         value = self._country_lookup.lookupStr(ip)
             if value is None:
-                end_result.analytical_condition = sampling_rate is None
+                end_result.analytical_condition = context.sampling_rate is None
                 return False
         elif type == "UA_BASED":
             value = self.__get_from_user(user, field)
@@ -499,8 +506,13 @@ class _Evaluator:
                 salt_str + "." + unit_id) % 1000)
         elif type == "UNIT_ID":
             value = self.__get_unit_id(user, id_Type)
+        elif type == "TARGET_APP":
+            if context.client_key is not None:
+                value = context.target_app_id
+            else:
+                value = self._spec_store.get_app_id()
 
-        end_result.analytical_condition = sampling_rate is None
+        end_result.analytical_condition = context.sampling_rate is None
 
         op = condition.get("operator")
         user_bucket = condition.get("user_bucket")

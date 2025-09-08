@@ -58,6 +58,7 @@ class _SpecStore:
         self._session_replay_info: Union[None, Dict[str, Dict]] = None
         self._overrides: Union[None, Dict[str, Dict]] = None
         self._override_rules: Union[None, Dict[str, Dict]] = None
+        self._app_id: Union[None, str] = None
 
         self._id_lists: Dict[str, dict] = {}
         self.unsupported_configs: Set[str] = set()
@@ -142,6 +143,9 @@ class _SpecStore:
         if target_app_id is not None:
             return target_app_id
         return self._sdk_keys_to_app_ids.get(sdk_key)
+
+    def get_app_id(self):
+        return self._app_id
 
     def get_default_environment(self):
         return self._default_environment
@@ -256,6 +260,7 @@ class _SpecStore:
         self._session_replay_info = specs_json.get("session_replay_info", None)
         self._overrides = specs_json.get("overrides", None)
         self._override_rules = parse_override_rules(specs_json.get("override_rules", None))
+        self._app_id = specs_json.get("app_id", None)
 
         if self.spec_updater.last_update_time > prev_lcut:
             globals.logger.log_config_sync_update(self.spec_updater.initialized, True,

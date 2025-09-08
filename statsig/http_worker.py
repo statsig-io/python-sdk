@@ -11,7 +11,7 @@ from typing import Callable, Tuple, Optional, Any, Dict, List
 import ijson
 import requests
 
-from statsig.stream_decompressor import StreamDecompressor
+from .stream_decompressor import StreamDecompressor
 
 from . import globals
 from .diagnostics import Diagnostics, Marker

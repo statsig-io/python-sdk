@@ -4,6 +4,7 @@ from hashlib import sha256
 from typing import Any, Dict, Optional, Union
 
 from .config_evaluation import _ConfigEvaluation
+from .evaluation_context import EvaluationContext
 from .spec_store import _SpecStore, EntityType
 from .statsig_metadata import _StatsigMetadata
 from .statsig_user import StatsigUser
@@ -31,8 +32,20 @@ class ClientInitializeResponseFormatter:
             evaluator,
             hash_algo: HashingAlgorithm,
             client_sdk_key=None,
-            include_local_override=False
+            include_local_override=False,
+            target_app_id: Optional[str] = None,
     ) -> ClientInitializeResponse:
+        context = EvaluationContext(
+            target_app_id=target_app_id,
+            client_key=client_sdk_key
+        )
+        app_id = None
+        if target_app_id is not None:
+            app_id = target_app_id
+        if client_sdk_key is not None:
+            app_id = spec_store.get_target_app_for_sdk_key(client_sdk_key)
+            context.target_app_id = app_id
+
         def convert_to_entity_type(entity: str, type: str) -> Optional[EntityType]:
             if entity == "layer":
                 return EntityType.LAYER
@@ -43,9 +56,8 @@ class ClientInitializeResponseFormatter:
             return None
 
         def config_to_response(config_name, config_spec):
-            target_app_id = spec_store.get_target_app_for_sdk_key(client_sdk_key)
             config_target_apps = config_spec.get("targetAppIDs", [])
-            if target_app_id is not None and target_app_id not in config_target_apps:
+            if app_id is not None and app_id not in config_target_apps:
                 return None
 
             eval_result = _ConfigEvaluation()
@@ -61,7 +73,7 @@ class ClientInitializeResponseFormatter:
             if local_override is not None:
                 eval_result = local_override
             else:
-                eval_func(user, config_name, convert_to_entity_type(entity, type), eval_result)
+                eval_func(user, config_name, convert_to_entity_type(entity, type), eval_result, context)
 
             if eval_result is None:
                 return None
@@ -142,7 +154,7 @@ class ClientInitializeResponseFormatter:
             if delegate is not None and delegate != "":
                 delegate_spec = spec_store.get_config(delegate)
                 delegate_result = _ConfigEvaluation()
-                eval_func(user, delegate, EntityType.CONFIG, delegate_result)
+                eval_func(user, delegate, EntityType.CONFIG, delegate_result, context)
 
                 if delegate_spec is not None:
                     result["allocated_experiment_name"] = hash_name(delegate, hash_algo)

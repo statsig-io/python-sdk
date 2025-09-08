@@ -478,12 +478,13 @@ class StatsigServer:
             client_sdk_key: Optional[str] = None,
             hash: Optional[HashingAlgorithm] = HashingAlgorithm.SHA256,
             include_local_overrides: Optional[bool] = False,
+            target_app_id: Optional[str] = None,
     ):
         hash_value = hash.value if hash is not None else HashingAlgorithm.SHA256.value
 
         def task():
             result = self._evaluator.get_client_initialize_response(
-                self.__normalize_user(user), hash or HashingAlgorithm.SHA256, client_sdk_key, include_local_overrides
+                self.__normalize_user(user), hash or HashingAlgorithm.SHA256, client_sdk_key, include_local_overrides, target_app_id
             )
             if result is None:
                 self._errorBoundary.log_exception("get_client_initialize_response",
