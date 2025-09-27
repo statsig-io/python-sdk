@@ -576,18 +576,18 @@ class _Evaluator:
                 value, condition)
         if op == "str_starts_with_any":
             return self.__match_string_in_array(
-                value, target, lambda a, b: a.upper().lower().startswith(
-                    b.upper().lower()))
+                value, target, lambda a, b: a.casefold().startswith(
+                    b.casefold()))
         if op == "str_ends_with_any":
             return self.__match_string_in_array(
-                value, target, lambda a, b: a.upper().lower().endswith(
-                    b.upper().lower()))
+                value, target, lambda a, b: a.casefold().endswith(
+                    b.casefold()))
         if op == "str_contains_any":
             return self.__match_string_in_array(
-                value, target, lambda a, b: b.upper().lower() in a.upper().lower())
+                value, target, lambda a, b: b.casefold() in a.casefold())
         if op == "str_contains_none":
             return not self.__match_string_in_array(
-                value, target, lambda a, b: b.upper().lower() in a.upper().lower())
+                value, target, lambda a, b: b.casefold() in a.casefold())
         if op == "str_matches":
             str_value = self.__get_value_as_string(value)
             str_target = self.__get_value_as_string(target)
@@ -649,14 +649,14 @@ class _Evaluator:
         if (value is None or value == "") and user.custom is not None:
             if field in user.custom:
                 value = user.custom[field]
-            elif field.upper().lower() in user.custom:
-                value = user.custom[field.upper().lower()]
+            elif field.casefold() in user.custom:
+                value = user.custom[field.casefold()]
 
         if (value is None or value == "") and self._global_custom_fields is not None:
             if field in self._global_custom_fields:
                 value = self._global_custom_fields[field]
-            elif field.upper().lower() in self._global_custom_fields:
-                value = self._global_custom_fields[field.upper().lower()]
+            elif field.casefold() in self._global_custom_fields:
+                value = self._global_custom_fields[field.casefold()]
 
         if (value is None or value == "") and user.private_attributes is not None:
             if field in user.private_attributes:
@@ -722,7 +722,7 @@ class _Evaluator:
         if str_value is None or target is None:
             return False
         if op in ('any', 'none'):
-            return str_value.upper().lower() in target
+            return str_value.casefold() in target
         return str_value in target
 
     def __arrays_have_common_value(self, value, condition):
