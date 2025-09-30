@@ -416,7 +416,7 @@ class _SpecStore:
             rule["conditions"][condition_index]["fast_target_value"] = {}
             for val in target_value:
                 rule["conditions"][condition_index]["fast_target_value"][
-                    str(val).upper().lower()
+                    str(val).casefold()
                 ] = True
         elif op in (
                 "any_case_sensitive",
