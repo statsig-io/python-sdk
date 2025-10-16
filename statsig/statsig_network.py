@@ -1,6 +1,6 @@
 import importlib
 import threading
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, cast
 
 from . import globals
 from .diagnostics import Diagnostics
@@ -17,6 +17,7 @@ from .statsig_context import InitContext
 from .statsig_error_boundary import _StatsigErrorBoundary
 from .statsig_options import (
     DEFAULT_RULESET_SYNC_INTERVAL,
+    AuthenticationMode,
     StatsigOptions,
     STATSIG_CDN,
     ProxyConfig,
@@ -100,10 +101,32 @@ class _StatsigNetwork:
                 self.load_grpc_worker(endpoint, config)
             elif protocol == NetworkProtocol.GRPC_WEBSOCKET:
                 self.load_grpc_websocket_worker(endpoint, config)
+            elif protocol == NetworkProtocol.HTTP:
+                if config.authentication_mode in [AuthenticationMode.TLS, AuthenticationMode.MTLS]:
+                    self.load_authenticated_http_worker(endpoint, config)
 
         self._background_download_configs_from_statsig = None
         self._background_download_id_lists_from_statsig = None
         self._streaming_fallback: Optional[StreamingFallback] = None
+
+    def load_authenticated_http_worker(self, endpoint: NetworkEndpoint, config: ProxyConfig):
+        if endpoint == NetworkEndpoint.ALL:
+            http_worker = cast(HttpWorker, self.http_worker)
+            http_worker.authenticate_request_session(config)
+            self.log_event_worker = http_worker
+            self.id_list_worker = http_worker
+            self.dcs_worker = http_worker
+            return
+
+        worker = HttpWorker(self.sdk_key, self.options, self.statsig_metadata, self.error_boundary, self.diagnostics, self.context)
+        worker.authenticate_request_session(config)
+        if endpoint == NetworkEndpoint.DOWNLOAD_CONFIG_SPECS:
+            self.dcs_worker = worker
+        elif endpoint == NetworkEndpoint.GET_ID_LISTS:
+            self.id_list_worker = worker
+        elif endpoint == NetworkEndpoint.LOG_EVENT:
+            self.log_event_worker = worker
+
 
     def load_grpc_websocket_worker(self, endpoint: NetworkEndpoint, config: ProxyConfig):
         grpc_worker_module = importlib.import_module("statsig.grpc_websocket_worker")

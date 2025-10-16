@@ -21,7 +21,7 @@ from .request_result import RequestResult
 from .sdk_configs import _SDK_Configs
 from .statsig_context import InitContext
 from .statsig_error_boundary import _StatsigErrorBoundary
-from .statsig_options import StatsigOptions, STATSIG_API, STATSIG_CDN, AuthenticationMode
+from .statsig_options import ProxyConfig, StatsigOptions, STATSIG_API, STATSIG_CDN, AuthenticationMode
 from .grpc_websocket_worker import load_credential_from_file
 
 REQUEST_TIMEOUT = 20
@@ -51,50 +51,8 @@ class HttpWorker(IStatsigNetworkWorker):
         self.__diagnostics = diagnostics
         self.__request_count = 0
         self.__temp_cert_files: List[str] = []
-        self.__request_session = self.__init_session(options)
-
-    def __init_session(self, options: StatsigOptions) -> requests.Session:
-        session = requests.Session()
-        http_proxy_config = None
-        for _, config in options.proxy_configs.items():
-            if config.protocol == NetworkProtocol.HTTP:
-                if config.authentication_mode in [AuthenticationMode.TLS, AuthenticationMode.MTLS]:
-                    http_proxy_config = config
-                    break
-        if http_proxy_config is None:
-            return session
-        try:
-            if http_proxy_config.authentication_mode == AuthenticationMode.TLS:
-                ca_cert = load_credential_from_file(http_proxy_config.tls_ca_cert_path, "TLS CA certificate")
-                if ca_cert:
-                    with tempfile.NamedTemporaryFile(mode='wb', delete=False, suffix='.pem') as ca_file:
-                        ca_file.write(ca_cert)
-                        session.verify = ca_file.name
-                        self.__temp_cert_files.append(ca_file.name)
-                    globals.logger.log_process("HTTP Worker", "Connecting using an TLS secure channel for HTTP")
-            elif http_proxy_config.authentication_mode == AuthenticationMode.MTLS:
-                client_cert = load_credential_from_file(http_proxy_config.tls_client_cert_path, "TLS client certificate")
-                client_key = load_credential_from_file(http_proxy_config.tls_client_key_path, "TLS client key")
-                ca_cert = load_credential_from_file(http_proxy_config.tls_ca_cert_path, "TLS CA certificate")
-                if client_cert and client_key and ca_cert:
-                    with tempfile.NamedTemporaryFile(mode='wb', delete=False, suffix='.pem') as cert_file:
-                        cert_file.write(client_cert)
-                        cert_path = cert_file.name
-                        self.__temp_cert_files.append(cert_path)
-                    with tempfile.NamedTemporaryFile(mode='wb', delete=False, suffix='.key') as key_file:
-                        key_file.write(client_key)
-                        key_path = key_file.name
-                        self.__temp_cert_files.append(key_path)
-                    with tempfile.NamedTemporaryFile(mode='wb', delete=False, suffix='.pem') as ca_file:
-                        ca_file.write(ca_cert)
-                        ca_path = ca_file.name
-                        self.__temp_cert_files.append(ca_path)
-                    session.cert = (cert_path, key_path)
-                    session.verify = ca_path
-                    globals.logger.log_process("HTTP Worker", "Connecting using an mTLS secure channel for HTTP")
-        except Exception as e:
-            self.__error_boundary.log_exception("http_worker:init_session", e)
-        return session
+        self.__statsig_request_session = requests.Session()
+        self.__request_session = requests.Session()
 
     def is_pull_worker(self) -> bool:
         return True
@@ -138,6 +96,7 @@ class HttpWorker(IStatsigNetworkWorker):
             init_timeout=init_timeout,
             log_on_exception=log_on_exception,
             tag="download_config_specs",
+            useStatsigClient = True,
         )
         self._context.source_api = STATSIG_CDN
         if response is not None and self._is_success_code(response.status_code):
@@ -175,6 +134,7 @@ class HttpWorker(IStatsigNetworkWorker):
             log_on_exception=log_on_exception,
             init_timeout=init_timeout,
             tag="get_id_lists",
+            useStatsigClient = True,
         )
         if response is not None and self._is_success_code(response.status_code):
             return on_complete(response.data, None)
@@ -220,6 +180,39 @@ class HttpWorker(IStatsigNetworkWorker):
                 pass
         self.__temp_cert_files.clear()
 
+    def authenticate_request_session(self, http_proxy_config: ProxyConfig):
+        try:
+            if http_proxy_config.authentication_mode == AuthenticationMode.TLS:
+                ca_cert = load_credential_from_file(http_proxy_config.tls_ca_cert_path, "TLS CA certificate")
+                if ca_cert:
+                    with tempfile.NamedTemporaryFile(mode='wb', delete=False, suffix='.pem') as ca_file:
+                        ca_file.write(ca_cert)
+                        self.__request_session.verify = ca_file.name
+                        self.__temp_cert_files.append(ca_file.name)
+                    globals.logger.log_process("HTTP Worker", "Connecting using an TLS secure channel for HTTP")
+            elif http_proxy_config.authentication_mode == AuthenticationMode.MTLS:
+                client_cert = load_credential_from_file(http_proxy_config.tls_client_cert_path, "TLS client certificate")
+                client_key = load_credential_from_file(http_proxy_config.tls_client_key_path, "TLS client key")
+                ca_cert = load_credential_from_file(http_proxy_config.tls_ca_cert_path, "TLS CA certificate")
+                if client_cert and client_key and ca_cert:
+                    with tempfile.NamedTemporaryFile(mode='wb', delete=False, suffix='.pem') as cert_file:
+                        cert_file.write(client_cert)
+                        cert_path = cert_file.name
+                        self.__temp_cert_files.append(cert_path)
+                    with tempfile.NamedTemporaryFile(mode='wb', delete=False, suffix='.key') as key_file:
+                        key_file.write(client_key)
+                        key_path = key_file.name
+                        self.__temp_cert_files.append(key_path)
+                    with tempfile.NamedTemporaryFile(mode='wb', delete=False, suffix='.pem') as ca_file:
+                        ca_file.write(ca_cert)
+                        ca_path = ca_file.name
+                        self.__temp_cert_files.append(ca_path)
+                    self.__request_session.cert = (cert_path, key_path)
+                    self.__request_session.verify = ca_path
+                    globals.logger.log_process("HTTP Worker", "Connecting using an mTLS secure channel for HTTP")
+        except Exception as e:
+            self.__error_boundary.log_exception("http_worker:init_session", e)
+
     def _run_task_for_initialize(
         self, task, timeout
     ) -> Tuple[Optional[Any], Optional[Exception]]:
@@ -239,9 +232,10 @@ class HttpWorker(IStatsigNetworkWorker):
         init_timeout=None,
         zipped=None,
         tag=None,
+        useStatsigClient=False,
     ):
         return self._request(
-            "POST", url, headers, payload, log_on_exception, init_timeout, zipped, tag
+            "POST", url, headers, payload, log_on_exception, init_timeout, zipped, tag, useStatsigClient
         )
 
     def _get_request(
@@ -253,6 +247,7 @@ class HttpWorker(IStatsigNetworkWorker):
         zipped=None,
         tag=None,
         get_text_value_only=False,
+        useStatsigClient=False,
     ):
         return self._request(
             "GET",
@@ -264,6 +259,7 @@ class HttpWorker(IStatsigNetworkWorker):
             zipped,
             tag,
             get_text_value_only,
+            useStatsigClient
         )
 
     def _request(
@@ -277,6 +273,7 @@ class HttpWorker(IStatsigNetworkWorker):
         zipped=False,
         tag=None,
         get_text_value_only=False,
+        useStatsigClient = False,
     ) -> RequestResult:
         if self.__local_mode:
             globals.logger.debug("Using local mode. Dropping network request")
@@ -312,6 +309,7 @@ class HttpWorker(IStatsigNetworkWorker):
             timeout,
             init_timeout is not None,
             get_text_value_only,
+            useStatsigClient
         )
 
         if create_marker is not None:
@@ -333,10 +331,12 @@ class HttpWorker(IStatsigNetworkWorker):
         timeout,
         for_initialize=False,
         get_text_value_only=False,
+        useStatsigClient=False
     ) -> RequestResult:
         def request_task():
             try:
-                with self.__request_session.request(
+                request_session = self.__statsig_request_session if useStatsigClient else self.__request_session
+                with request_session.request(
                     method,
                     url,
                     data=payload,
