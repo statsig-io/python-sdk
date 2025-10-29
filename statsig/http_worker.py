@@ -154,6 +154,7 @@ class HttpWorker(IStatsigNetworkWorker):
         disable_compression = _SDK_Configs.on("stop_log_event_compression")
         additional_headers = {
             "STATSIG-RETRY": str(retry),
+            "Connection": "close"
         }
         if headers is not None:
             additional_headers.update(headers)
