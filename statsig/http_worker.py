@@ -53,6 +53,9 @@ class HttpWorker(IStatsigNetworkWorker):
         self.__temp_cert_files: List[str] = []
         self.__statsig_request_session = requests.Session()
         self.__request_session = requests.Session()
+        self.__request_session.headers.update({
+            "Connection": "close"
+        })
 
     def is_pull_worker(self) -> bool:
         return True
@@ -153,8 +156,7 @@ class HttpWorker(IStatsigNetworkWorker):
     ) -> RequestResult:
         disable_compression = _SDK_Configs.on("stop_log_event_compression")
         additional_headers = {
-            "STATSIG-RETRY": str(retry),
-            "Connection": "close"
+            "STATSIG-RETRY": str(retry)
         }
         if headers is not None:
             additional_headers.update(headers)

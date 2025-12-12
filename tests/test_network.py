@@ -73,3 +73,8 @@ class TestNetworkHTTPWorker(unittest.TestCase):
             },
             True,
         )
+        
+    # Explicitly set Connection: close header to avoid peer connection issues in some environments
+    def test_request_session_connection_header(self):
+        request_session = self.net._HttpWorker__request_session
+        self.assertEqual(request_session.headers.get("Connection"), "close")
