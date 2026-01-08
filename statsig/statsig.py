@@ -327,6 +327,20 @@ def shutdown():
     __instance.shutdown()
 
 
+def pause_polling_dcs():
+    """
+    Pauses background polling for Download Config Specs (DCS).
+    """
+    __instance.pause_polling_dcs()
+
+
+def start_polling_dcs():
+    """
+    Resumes background polling for Download Config Specs (DCS).
+    """
+    __instance.start_polling_dcs()
+
+
 def get_instance():
     """
     Returns the Statsig instance

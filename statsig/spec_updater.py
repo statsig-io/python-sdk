@@ -46,6 +46,9 @@ class SpecUpdater:
         self._statsig_metadata = statsig_metadata
         self._background_download_configs = None
         self._background_download_id_lists = None
+        # DCS polling: set => polling enabled, clear => paused
+        self._dcs_polling_enabled_event = threading.Event()
+        self._dcs_polling_enabled_event.set()
         self._config_sync_strategies = self._get_sync_dcs_strategies()
         self._dcs_process_lock = threading.Lock()
         if options.out_of_sync_threshold_in_s is not None:
@@ -409,7 +412,7 @@ class SpecUpdater:
         self._background_download_configs = spawn_background_thread(
             "bg_download_config_specs",
             self._sync,
-            (sync_config_spec, interval, fast_start),
+            (sync_config_spec, interval, fast_start, self._dcs_polling_enabled_event),
             self._error_boundary,
         )
 
@@ -422,17 +425,32 @@ class SpecUpdater:
             self._error_boundary,
         )
 
-    def _sync(self, sync_func, interval, fast_start=False):
-        if fast_start:
+    def _sync(
+        self,
+        sync_func,
+        interval,
+        fast_start=False,
+        enabled_event: Optional[threading.Event] = None,
+    ):
+        if fast_start and (enabled_event is None or enabled_event.is_set()):
             sync_func()
 
         while True:
             try:
-                if self._shutdown_event.wait(interval):
-                    break
+                # Wait until next interval, unless shutdown is requested.
+                if self._shutdown_event.wait(timeout=interval):
+                    return
+                if enabled_event is not None and not enabled_event.is_set():
+                    continue
                 sync_func()
             except Exception as e:
                 self._error_boundary.log_exception("_sync", e)
+
+    def pause_polling_dcs(self):
+        self._dcs_polling_enabled_event.clear()
+
+    def start_polling_dcs(self):
+        self._dcs_polling_enabled_event.set()
 
     def _get_sync_dcs_strategies(self) -> List[DataSource]:
         try:

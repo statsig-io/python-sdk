@@ -415,6 +415,24 @@ class StatsigServer:
 
         self._errorBoundary.swallow("shutdown", task)
 
+    def pause_polling_dcs(self):
+        def task():
+            if not self._initialized:
+                raise StatsigRuntimeError("Must call initialize before pausing DCS polling")
+            if self._spec_store is not None:
+                self._spec_store.spec_updater.pause_polling_dcs()
+
+        self._errorBoundary.swallow("pause_polling_dcs", task)
+
+    def start_polling_dcs(self):
+        def task():
+            if not self._initialized:
+                raise StatsigRuntimeError("Must call initialize before starting DCS polling")
+            if self._spec_store is not None:
+                self._spec_store.spec_updater.start_polling_dcs()
+
+        self._errorBoundary.swallow("start_polling_dcs", task)
+
     def override_gate(self, gate: str, value: bool, user_id: Optional[str] = None):
         self._errorBoundary.swallow(
             "override_gate", lambda: self._evaluator.override_gate(gate, value, user_id)
