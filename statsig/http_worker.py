@@ -46,6 +46,7 @@ class HttpWorker(IStatsigNetworkWorker):
         self.__configure_endpoints(options)
         self.__req_timeout = options.timeout or REQUEST_TIMEOUT
         self.__local_mode = options.local_mode
+        self.__service_name = options.service_name or "unknown"
         self.__error_boundary = error_boundary
         self.__statsig_metadata = statsig_metadata
         self.__diagnostics = diagnostics
@@ -422,6 +423,7 @@ class HttpWorker(IStatsigNetworkWorker):
             "STATSIG-SDK-VERSION": self.__statsig_metadata["sdkVersion"],
             "STATSIG-RETRY": "0",
             "Accept-Encoding": "gzip, deflate, br",
+            "x-request-service": self.__service_name,
         }
 
         if zipped:

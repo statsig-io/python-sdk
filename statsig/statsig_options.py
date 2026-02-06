@@ -118,6 +118,7 @@ class StatsigOptions:
             global_custom_fields: Optional[Dict[str, JSONValue]] = None,
             disable_ua_parser: bool = False,
             disable_country_lookup: bool = False,
+            service_name: Optional[str] = None,
     ):
         self.data_store = data_store
         self._environment: Union[None, dict] = None
@@ -171,6 +172,7 @@ class StatsigOptions:
         self.global_custom_fields = global_custom_fields
         self.disable_ua_parser = disable_ua_parser
         self.disable_country_lookup = disable_country_lookup
+        self.service_name = service_name
         self._set_logging_copy()
         self._attributes_changed = False
 
@@ -258,5 +260,7 @@ class StatsigOptions:
             logging_copy["disable_ua_parser"] = self.disable_ua_parser
         if self.disable_country_lookup:
             logging_copy["disable_country_lookup"] = self.disable_country_lookup
+        if self.service_name:
+            logging_copy["service_name"] = self.service_name
         self._logging_copy = logging_copy
         self._attributes_changed = False

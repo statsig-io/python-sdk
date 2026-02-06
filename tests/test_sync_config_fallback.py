@@ -184,6 +184,26 @@ class TestSyncConfigFallback(unittest.TestCase):
         
         self.assertTrue(headers_verified, "Headers were not verified")
 
+    def test_service_name_header(self, mock_request):
+        headers_verified = False
+
+        def verify_headers(url, **kwargs):
+            nonlocal headers_verified
+            request_headers = kwargs.get("headers", {})
+            self.assertEqual(request_headers.get("x-request-service"), "unit-test-service")
+            headers_verified = True
+            return PARSED_CONFIG_SPEC
+
+        _network_stub.stub_request_with_function(
+            "download_config_specs/.*", 200, verify_headers
+        )
+
+        options = StatsigOptions(api=_network_stub.host, service_name="unit-test-service")
+        statsig.initialize("secret-key", options)
+        statsig.shutdown()
+
+        self.assertTrue(headers_verified, "Service name header was not verified")
+
     def wait_for_sync_and_validate(self):
         _network_stub.stub_statsig_api_request_with_value("download_config_specs/.*", 200,
                                                           UPDATED_TIME_CONFIG_SPEC)
