@@ -184,13 +184,13 @@ class TestSyncConfigFallback(unittest.TestCase):
         
         self.assertTrue(headers_verified, "Headers were not verified")
 
-    def test_service_name_header(self, mock_request):
+    def test_service_name_header_not_sent_without_forward_proxy_url(self, mock_request):
         headers_verified = False
 
         def verify_headers(url, **kwargs):
             nonlocal headers_verified
             request_headers = kwargs.get("headers", {})
-            self.assertEqual(request_headers.get("x-request-service"), "unit-test-service")
+            self.assertIsNone(request_headers.get("x-request-service"))
             headers_verified = True
             return PARSED_CONFIG_SPEC
 
@@ -198,7 +198,9 @@ class TestSyncConfigFallback(unittest.TestCase):
             "download_config_specs/.*", 200, verify_headers
         )
 
-        options = StatsigOptions(api=_network_stub.host, service_name="unit-test-service")
+        options = StatsigOptions(api_for_download_config_specs=_network_stub.host)
+        options.proxy_configs = {}
+        options.service_name = "unit-test-service"
         statsig.initialize("secret-key", options)
         statsig.shutdown()
 

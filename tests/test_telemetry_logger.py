@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Optional, Any, Dict
 from unittest.mock import patch
 
-from build.lib.statsig import StatsigUser
+from statsig import StatsigUser
 from statsig import statsig, StatsigOptions
 from statsig.evaluation_details import DataSource
 from statsig.interface_observability_client import ObservabilityClient
