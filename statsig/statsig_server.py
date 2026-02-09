@@ -60,13 +60,20 @@ class StatsigServer:
 
         if self._initialized:
             globals.logger.info("Statsig is already initialized.")
-            return InitializeDetails(0, self.get_init_source(), True, self.is_store_populated(), None)
+            return InitializeDetails(
+                0,
+                self.get_init_source(),
+                True,
+                self.is_store_populated(),
+                self.get_id_list_count(),
+                None,
+            )
 
         if sdkKey is None or (not sdkKey.startswith("secret-") and not options.local_mode):
             globals.logger.info(
                 "Invalid key provided. You must use a Server Secret Key from the Statsig console."
             )
-            return InitializeDetails(0, DataSource.UNINITIALIZED, False, False, None)
+            return InitializeDetails(0, DataSource.UNINITIALIZED, False, False, 0, None)
 
         environment_tier = options.get_sdk_environment_tier() or 'unknown'
         globals.logger.info(
@@ -157,11 +164,22 @@ class StatsigServer:
             diagnostics.log_diagnostics(Context.INITIALIZE)
             init_context.source = self.get_init_source()
             init_context.store_populated = self.is_store_populated()
+            init_context.id_list_count = self.get_id_list_count()
             init_context.success = not threw_error
 
-        return InitializeDetails(int(time.time() * 1000) - init_context.start_time, init_context.source,
-                                 init_context.success, init_context.store_populated, init_context.error,
-                                 init_context.source_api, init_context.timed_out)
+        return InitializeDetails(
+            int(time.time() * 1000) - init_context.start_time,
+            init_context.source,
+            init_context.success,
+            init_context.store_populated,
+            init_context.id_list_count,
+            init_context.error,
+            init_context.source_api,
+            init_context.timed_out,
+            init_context.source_api_id_lists,
+            init_context.fallback_spec_used,
+            init_context.fallback_id_lists_used,
+        )
 
     def _initialize_instance(self):
         self._evaluator.initialize()
@@ -173,6 +191,12 @@ class StatsigServer:
             return self._spec_store.last_update_time() > 0
         except Exception:
             return False
+
+    def get_id_list_count(self):
+        try:
+            return len(self._spec_store.get_all_id_lists())
+        except Exception:
+            return 0
 
     def get_init_source(self):
         try:

@@ -344,6 +344,25 @@ class _SpecStore:
                 workers.append(future)
 
             wait(workers, self._options.idlists_sync_interval)
+            success_count = 0
+            failed_count = 0
+            for worker in workers:
+                if not worker.done():
+                    failed_count += 1 # consider as failed
+                    continue
+                try:
+                    if worker.result():
+                        success_count += 1
+                    else:
+                        failed_count += 1
+                except Exception:
+                    failed_count += 1
+
+            source_api = self.context.source_api_id_lists or "unknown"
+            if success_count > 0:
+                globals.logger.log_id_list_sync_update(True, success_count, source_api)
+            if failed_count > 0:
+                globals.logger.log_id_list_sync_update(False, failed_count, source_api)
 
             deleted_lists = []
             for list_name in local_id_lists:

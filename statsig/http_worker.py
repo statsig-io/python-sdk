@@ -125,6 +125,7 @@ class HttpWorker(IStatsigNetworkWorker):
                 init_timeout=init_timeout,
                 tag="get_id_lists",
             )
+            self._context.source_api_id_lists = self.__api_for_get_id_lists
         if response is not None and self._is_success_code(response.status_code):
             return on_complete(response.data, None)
         return on_complete(None, None)
@@ -140,6 +141,7 @@ class HttpWorker(IStatsigNetworkWorker):
             tag="get_id_lists",
             useStatsigClient = True,
         )
+        self._context.source_api_id_lists = STATSIG_CDN
         if response is not None and self._is_success_code(response.status_code):
             return on_complete(response.data, None)
         return on_complete(None, None)

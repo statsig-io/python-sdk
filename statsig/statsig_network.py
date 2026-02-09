@@ -206,6 +206,7 @@ class _StatsigNetwork:
                 or self.options.api_for_download_config_specs != STATSIG_CDN
         )
         if is_proxy_dcs:
+            self.context.fallback_spec_used = True
             self.http_worker.get_dcs_fallback(on_complete, since_time, log_on_exception, init_timeout)
 
     def get_id_lists(
@@ -237,6 +238,7 @@ class _StatsigNetwork:
         is_id_lists_proxy = id_list_api_override != STATSIG_CDN or (
                 id_list_proxy and id_list_proxy.proxy_address != STATSIG_CDN)
         if is_id_lists_proxy:
+            self.context.fallback_id_lists_used = True
             self.http_worker.get_id_lists_fallback(on_complete, log_on_exception, init_timeout)
 
     def get_id_list(self, on_complete: Any, url, headers, log_on_exception=False):

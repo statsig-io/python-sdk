@@ -23,7 +23,7 @@ class TestInitDetails(unittest.TestCase):
 
     def test_init_network_success(self, mock_request):
         _network_stub.stub_request_with_value(
-            "download_config_specs/.*", 200, PARSED_CONFIG_SPEC)
+        "download_config_specs/.*", 200, PARSED_CONFIG_SPEC)
         options = StatsigOptions(api=_network_stub.host)
         init_details = statsig.initialize("secret-key", options)
         statsig.shutdown()

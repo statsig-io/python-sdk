@@ -1,13 +1,20 @@
 import functools
 import time
+from enum import Enum
 from typing import Optional, Dict, Any, Callable
 
+from .evaluation_details import DataSource
 from .initialize_details import InitializeDetails
 from .interface_observability_client import ObservabilityClient
 from .output_logger import OutputLogger
 from .statsig_options import StatsigOptions
 
 TELEMETRY_PREFIX = "statsig.sdk"
+
+
+class SyncContext(Enum):
+    DCS = "dcs"
+    ID_LISTS = "id_lists"
 
 
 class NoopObservabilityClient(ObservabilityClient):
@@ -49,9 +56,16 @@ class AutoTryCatch:
 
 
 class StatsigTelemetryLogger(AutoTryCatch):
-    def __init__(self, logger=None, ob_client: Optional[ObservabilityClient] = None,
-                 sdk_error_callback: Optional[Callable[[str, Exception], None]] = None):
-        self.high_cardinality_tags = {"lcut", "prev_lcut"}
+    def __init__(
+        self,
+        logger=None,
+        ob_client: Optional[ObservabilityClient] = None,
+        sdk_error_callback: Optional[Callable[[str, Exception], None]] = None,
+    ):
+        self.high_cardinality_tags = {
+            "lcut",
+            "prev_lcut",
+        }
         self.logger = logger or OutputLogger(TELEMETRY_PREFIX)
         self.ob_client = ob_client or NoopObservabilityClient()
         self.sdk_error_callback = sdk_error_callback
@@ -113,7 +127,9 @@ class StatsigTelemetryLogger(AutoTryCatch):
                           self.filter_high_cardinality_tags({"source": init_details.source,
                                                              "store_populated": init_details.store_populated,
                                                              "init_success": init_details.init_success,
-                                                             "init_source_api": init_details.init_source_api}))
+                                                             "id_list_count": init_details.id_list_count,
+                                                             "init_source_api": init_details.init_source_api,
+                                                             "init_source_api_id_lists": init_details.init_source_api_id_lists}))
 
         if init_details.init_success:
             if init_details.store_populated:
@@ -150,6 +166,56 @@ class StatsigTelemetryLogger(AutoTryCatch):
                               }))
         self.log_process("Config Sync", f"Received updated configs from {lcut}")
 
+    def log_background_sync_duration(
+        self,
+        context: SyncContext,
+        source: str,
+        success: bool,
+        source_api: Optional[str],
+        duration_ms: float,
+        fallback_used: bool = False,
+    ):
+        self.distribution(
+            "background_sync_duration_ms",
+            duration_ms,
+            {
+                "context": context.value,
+                "source": source,
+                "success": success,
+                "source_api": source_api,
+                "fallback_used": fallback_used,
+            },
+        )
+
+    def log_sync_attempt(
+        self,
+        context: SyncContext,
+        source: str,
+        success: bool,
+        source_api: Optional[str],
+        duration_ms: float,
+    ):
+        self.log_background_sync_duration(
+            context,
+            source,
+            success,
+            source_api,
+            duration_ms,
+            fallback_used=source == DataSource.STATSIG_NETWORK.value,
+        )
+
+    def log_id_list_sync_update(
+        self, success: bool, count: int = 1, source_api: Optional[str] = None
+    ):
+        self.increment(
+            "id_list_download",
+            count,
+            {
+                "success": success,
+                "source_api": source_api,
+            },
+        )
+
     def log_sdk_exception(self, tag: str, exception: Exception):
         if self.sdk_error_callback is not None:
             self.sdk_error_callback(tag, exception)
@@ -157,9 +223,12 @@ class StatsigTelemetryLogger(AutoTryCatch):
         self.increment("sdk_exceptions_count")
 
     def filter_high_cardinality_tags(self, tags: Dict[str, Any]) -> Dict[str, Any]:
-        return {tag: value for tag, value in tags.items()
-                if tag not in self.high_cardinality_tags or self.ob_client.should_enable_high_cardinality_for_this_tag(
-                tag)}
+        return {
+            tag: value
+            for tag, value in tags.items()
+            if tag not in self.high_cardinality_tags
+            or self.ob_client.should_enable_high_cardinality_for_this_tag(tag)
+        }
 
     def shutdown(self):
         self.ob_client.shutdown()

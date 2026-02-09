@@ -14,6 +14,7 @@ from .statsig_error_boundary import _StatsigErrorBoundary
 from .statsig_errors import StatsigValueError, StatsigNameError
 from .statsig_network import _StatsigNetwork
 from .statsig_options import StatsigOptions
+from .statsig_telemetry_logger import SyncContext
 from .thread_util import spawn_background_thread, THREAD_JOIN_TIMEOUT
 from .utils import djb2_hash
 
@@ -72,8 +73,10 @@ class SpecUpdater:
             if for_initialize:
                 init_timeout = self._options.init_timeout
             if source is DataSource.DATASTORE:
+                self.context.source_api = DataSource.DATASTORE.value
                 self.load_config_specs_from_storage_adapter()
             elif source is DataSource.BOOTSTRAP:
+                self.context.source_api = DataSource.BOOTSTRAP.value
                 self.bootstrap_config_specs()
             elif source is DataSource.NETWORK:
                 self._network.get_dcs(
@@ -194,6 +197,25 @@ class SpecUpdater:
             process = "Initialize" if not self.initialized else "Config Sync"
         globals.logger.log_process(process, msg)
 
+    def try_log_bg_sync(
+        self,
+        for_initialize: bool,
+        sync_context: SyncContext,
+        source: str,
+        success: bool,
+        source_api: Optional[str],
+        start_time_ms: float,
+    ) -> None:
+        if for_initialize:
+            return
+        globals.logger.log_sync_attempt(
+            sync_context,
+            source,
+            success,
+            source_api,
+            time.time() * 1000 - start_time_ms,
+        )
+
     def _save_to_storage_adapter(self, specs):
         if not self.is_specs_json_valid(specs):
             return
@@ -256,9 +278,27 @@ class SpecUpdater:
             if for_initialize:
                 init_timeout = self._options.init_timeout
 
+            start_time_ms = time.time() * 1000
             self._network.get_id_lists(on_complete, False, init_timeout)
+            self.try_log_bg_sync(
+                for_initialize,
+                SyncContext.ID_LISTS,
+                DataSource.NETWORK.value,
+                result[0],
+                self.context.source_api_id_lists,
+                start_time_ms,
+            )
             if result[0] is False and self._options.fallback_to_statsig_api:
+                start_time_ms = time.time() * 1000
                 self._network.get_id_lists_fallback(on_complete, False, init_timeout)
+                self.try_log_bg_sync(
+                    for_initialize,
+                    SyncContext.ID_LISTS,
+                    DataSource.STATSIG_NETWORK.value,
+                    result[0],
+                    self.context.source_api_id_lists,
+                    start_time_ms,
+                )
 
         except Exception as e:
             raise e
@@ -268,6 +308,8 @@ class SpecUpdater:
     def download_single_id_list(
             self, url, list_name, local_list, all_lists, start_index
     ):
+        result = [False]
+
         def on_complete(resp: RequestResult):
             if resp is None:
                 return
@@ -298,6 +340,7 @@ class SpecUpdater:
                         local_list.get("ids", set()).discard(id)
                 local_list["readBytes"] = start_index + content_length
                 all_lists[list_name] = local_list
+                result[0] = True
             except Exception as e:
                 threw_error = True
                 self._error_boundary.log_exception("_download_single_id_list", e)
@@ -317,6 +360,7 @@ class SpecUpdater:
         self._network.get_id_list(
             on_complete, url, headers={"Range": f"bytes={start_index}-"}
         )
+        return result[0]
 
     def start_background_threads(self):
         if self._options.local_mode:
@@ -380,33 +424,45 @@ class SpecUpdater:
         def sync_config_spec():
             for i, strategy in enumerate(self._config_sync_strategies):
                 prev_failure_count = self._sync_failure_count
+                start_time_ms = time.time() * 1000
                 self.get_config_spec(strategy)
                 outof_sync = False
                 time_elapsed = time.time() * 1000 - self.last_update_time
                 if self._enforce_sync_fallback_threshold_in_ms is not None and time_elapsed > self._enforce_sync_fallback_threshold_in_ms:
                     outof_sync = True
-                if prev_failure_count == self._sync_failure_count and not outof_sync:
+                attempt_success = (
+                    prev_failure_count == self._sync_failure_count and not outof_sync
+                )
+                source_api = self.context.source_api
+                globals.logger.log_sync_attempt(
+                    SyncContext.DCS,
+                    strategy.value,
+                    attempt_success,
+                    source_api,
+                    time.time() * 1000 - start_time_ms,
+                )
+                if attempt_success:
                     globals.logger.log_process(
                         "Config Sync",
                         f"Syncing config values with {strategy.value}"
-                        + (f"[{self.context.source_api}]" if self.context.source_api else "")
-                        + " successful"
+                        + (f"[{source_api}]" if source_api else "")
+                        + " successful",
                     )
                     break
                 if i < len(self._config_sync_strategies) - 1:
                     globals.logger.log_process(
                         "Config Sync",
                         f"Syncing config values failed with {strategy.value}"
-                        + (f"[{self.context.source_api}]" if self.context.source_api else "")
-                        + ", falling back to next available configured config sync method"
+                        + (f"[{source_api}]" if source_api else "")
+                        + ", falling back to next available configured config sync method",
                     )
 
                 else:
                     globals.logger.log_process(
                         "Config Sync",
                         f"Syncing config values failed with {strategy.value}"
-                        + (f"[{self.context.source_api}]" if self.context.source_api else "")
-                        + f". No more strategies left. The next sync will be in {interval} seconds."
+                        + (f"[{source_api}]" if source_api else "")
+                        + f". No more strategies left. The next sync will be in {interval} seconds.",
                     )
 
         self._background_download_configs = spawn_background_thread(

@@ -113,6 +113,7 @@ class TestSyncConfigFallback(unittest.TestCase):
         init_details = statsig.initialize("secret-key", options)
         self.assertEqual(init_details.source, DataSource.STATSIG_NETWORK)
         self.assertTrue("raise for status error" in str(init_details.error))
+        self.assertTrue(init_details.fallback_spec_used)
         self.get_gate_and_validate()
         self.wait_for_sync_and_validate()
 
@@ -123,6 +124,7 @@ class TestSyncConfigFallback(unittest.TestCase):
         init_context = statsig.initialize("secret-key", options)
         self.assertEqual(init_context.source, DataSource.STATSIG_NETWORK)
         self.assertIsInstance(init_context.error, Exception)
+        self.assertTrue(init_context.fallback_spec_used)
         self.get_gate_and_validate()
         self.wait_for_sync_and_validate()
 

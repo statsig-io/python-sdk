@@ -147,6 +147,9 @@ class TestApiOverrides(unittest.TestCase):
         self.assertTrue(self.get_id_lists_override)
         statsig.shutdown()
         self.assertTrue(_api_stubs["download_config_specs"].host in init_details.init_source_api)
+        self.assertTrue(_api_stubs["get_id_lists"].host in init_details.init_source_api_id_lists)
+        self.assertFalse(init_details.fallback_spec_used)
+        self.assertFalse(init_details.fallback_id_lists_used)
 
     def test_dcs_proxy_address_override(self, mock_request):
         options = StatsigOptions(
@@ -170,10 +173,12 @@ class TestApiOverrides(unittest.TestCase):
                     protocol=NetworkProtocol.HTTP
                 )
             })
-        statsig.initialize("secret-test", options)
+        init_details = statsig.initialize("secret-test", options)
         self.assertFalse(self.get_id_lists_override)
         self.assertTrue(self.id_list_proxy_override)
         statsig.shutdown()
+        self.assertTrue(_api_stubs["id_list_proxy"].host in init_details.init_source_api_id_lists)
+        self.assertFalse(init_details.fallback_id_lists_used)
 
     def test_log_event_proxy_address_override(self, mock_request):
         options = StatsigOptions(
@@ -221,3 +226,6 @@ class TestApiOverrides(unittest.TestCase):
         self.assertTrue(self.log_event_proxy_override)
         statsig.shutdown()
         self.assertTrue(_api_stubs["dcs_proxy"].host in init_details.init_source_api)
+        self.assertTrue(_api_stubs["id_list_proxy"].host in init_details.init_source_api_id_lists)
+        self.assertFalse(init_details.fallback_spec_used)
+        self.assertFalse(init_details.fallback_id_lists_used)

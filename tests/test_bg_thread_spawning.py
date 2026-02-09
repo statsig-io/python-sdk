@@ -1,4 +1,6 @@
 import unittest
+import threading
+import time
 from typing import Callable, List
 from unittest.mock import patch
 
@@ -57,6 +59,58 @@ class TestBackgroundThreadSpawning(unittest.TestCase):
 
     def test_spec_store_dead_threads_restart(self, mock_request):
         self._spec_store_dead_restart_test(self._actions)
+
+    def test_spec_store_start_background_threads_handles_concurrent_calls(self, mock_request):
+        spec_updater = self._server._spec_store.spec_updater
+        spec_updater._background_download_configs = None
+        spec_updater._background_download_id_lists = None
+
+        dcs_spawn_count = 0
+        id_lists_spawn_count = 0
+
+        class _AliveThread:
+            @staticmethod
+            def is_alive():
+                return True
+
+        def fake_spawn_dcs():
+            nonlocal dcs_spawn_count
+            dcs_spawn_count += 1
+            time.sleep(0.02)
+            spec_updater._background_download_configs = _AliveThread()
+
+        def fake_spawn_id_lists():
+            nonlocal id_lists_spawn_count
+            id_lists_spawn_count += 1
+            time.sleep(0.02)
+            spec_updater._background_download_id_lists = _AliveThread()
+
+        original_spawn_dcs = spec_updater._spawn_bg_poll_dcs
+        original_spawn_id_lists = spec_updater._spawn_bg_poll_id_lists
+        spec_updater._spawn_bg_poll_dcs = fake_spawn_dcs
+        spec_updater._spawn_bg_poll_id_lists = fake_spawn_id_lists
+
+        start_signal = threading.Event()
+        workers = []
+
+        try:
+            for _ in range(20):
+                worker = threading.Thread(
+                    target=lambda: (start_signal.wait(), spec_updater.start_background_threads()),
+                )
+                workers.append(worker)
+                worker.start()
+
+            start_signal.set()
+
+            for worker in workers:
+                worker.join()
+
+            self.assertGreaterEqual(dcs_spawn_count, 1)
+            self.assertGreaterEqual(id_lists_spawn_count, 1)
+        finally:
+            spec_updater._spawn_bg_poll_dcs = original_spawn_dcs
+            spec_updater._spawn_bg_poll_id_lists = original_spawn_id_lists
 
     def _logger_none_restart_test(self, actions: List[Callable]):
         for action in actions:
