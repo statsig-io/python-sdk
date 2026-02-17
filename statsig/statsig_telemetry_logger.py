@@ -204,6 +204,24 @@ class StatsigTelemetryLogger(AutoTryCatch):
             fallback_used=source == DataSource.STATSIG_NETWORK.value,
         )
 
+    def log_background_config_overall(
+        self,
+        source_api: Optional[str],
+        error: str,
+        source_success: bool,
+        process_success: bool,
+        duration_ms: float,
+        response_format: str = "json",
+    ) -> None:
+        tags = {
+            "source_api": source_api or "unknown",
+            "format": response_format,
+            "error": error,
+            "source_success": source_success,
+            "process_success": process_success,
+        }
+        self.distribution("config_sync_overall.latency", duration_ms, tags)
+
     def log_id_list_sync_update(
         self, success: bool, count: int = 1, source_api: Optional[str] = None
     ):

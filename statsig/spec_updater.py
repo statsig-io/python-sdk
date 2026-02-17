@@ -62,6 +62,10 @@ class SpecUpdater:
         self.initial_update_time = 0
         self.dcs_listener: Optional[Callable] = None
         self.id_lists_listener: Optional[Callable] = None
+        self._dcs_source_success = False
+        self._dcs_process_success = False
+        self._dcs_response_format = "unknown"
+        self._dcs_final_error = ""
         self.data_adapter = data_adapter
         self.context = context
 
@@ -89,6 +93,7 @@ class SpecUpdater:
         except Exception as e:
             if not for_initialize:
                 self._sync_failure_count += 1
+            self._dcs_final_error = str(e)
             self._error_boundary.log_exception(f"get_config_spec:{source}", e)
 
     def register_process_network_id_lists_listener(self, listener: Callable):
@@ -100,6 +105,22 @@ class SpecUpdater:
                 return listener(spec_json, source)
 
         self.dcs_listener = dcs_listener_with_lock
+
+    def _reset_dcs_sync_metrics(self) -> None:
+        self._dcs_source_success = False
+        self._dcs_process_success = False
+        self._dcs_response_format = "unknown"
+        self._dcs_final_error = ""
+
+    def _mark_dcs_source_failure(
+        self,
+        response_format: str = "unknown",
+        final_error: str = "source_failure",
+    ) -> None:
+        self._dcs_source_success = False
+        self._dcs_process_success = False
+        self._dcs_response_format = response_format
+        self._dcs_final_error = final_error
 
     def load_config_specs_from_storage_adapter(self) -> bool:
         def load():
@@ -113,22 +134,30 @@ class SpecUpdater:
 
                 cache_string = self._options.data_store.get(STORAGE_ADAPTER_KEY)
                 if not isinstance(cache_string, str):
+                    self._mark_dcs_source_failure(final_error="invalid_cache_type")
                     return False
 
                 cache = json.loads(cache_string)
                 if not isinstance(cache, dict):
+                    self._mark_dcs_source_failure("invalid_json", "invalid_json")
                     globals.logger.warning(
                         "Invalid type returned from StatsigOptions.data_store"
                     )
                     return False
+                self._dcs_source_success = True
+                self._dcs_response_format = "json"
                 adapter_time = cache.get("time", None)
                 if not isinstance(adapter_time, int) or adapter_time < self.last_update_time:
+                    self._dcs_process_success = False
+                    self._dcs_final_error = "stale_or_invalid_cache_time"
                     return False
 
                 self._log_process("Done loading specs")
                 _, parse_success = False, False
                 if self.dcs_listener is not None:
                     _, parse_success = self.dcs_listener(cache, DataSource.DATASTORE)
+                self._dcs_process_success = parse_success
+                self._dcs_final_error = "" if parse_success else "dcs_listener_failed"
                 self._diagnostics.add_marker(
                     Marker()
                     .data_store_config_specs()
@@ -138,6 +167,7 @@ class SpecUpdater:
                 return parse_success
 
             except Exception as err:
+                self._mark_dcs_source_failure(final_error=str(err))
                 self._diagnostics.add_marker(
                     Marker()
                     .data_store_config_specs()
@@ -160,10 +190,17 @@ class SpecUpdater:
     def _on_dcs_complete(self, data_source: DataSource, specs: Optional[dict], error: Optional[Exception]):
         def process() -> Tuple[bool, Optional[Exception]]:
             if error is not None:
+                self._mark_dcs_source_failure(final_error=str(error))
                 return False, error
 
             if specs is None:
+                self._mark_dcs_source_failure(final_error="download_failed")
                 return False, StatsigValueError("Failed to download specs from network")
+            if not isinstance(specs, dict):
+                self._mark_dcs_source_failure("invalid_json", "invalid_json")
+                return False, StatsigValueError("Failed to parse specs response as JSON object")
+            self._dcs_source_success = True
+            self._dcs_response_format = "json"
             err = None
             try:
                 self._diagnostics.add_marker(
@@ -175,8 +212,12 @@ class SpecUpdater:
                     has_update, parse_success = self.dcs_listener(specs, data_source)
                 if has_update:
                     self._save_to_storage_adapter(specs)
+                self._dcs_process_success = parse_success
+                self._dcs_final_error = "" if parse_success else "dcs_listener_failed"
                 return parse_success, None
             except Exception as e:
+                self._dcs_process_success = False
+                self._dcs_final_error = str(e)
                 return False, e
             finally:
                 self._diagnostics.add_marker(
@@ -241,19 +282,30 @@ class SpecUpdater:
     def bootstrap_config_specs(self):
         self._diagnostics.add_marker(Marker().bootstrap().process().start())
         if self._options.bootstrap_values is None:
+            self._mark_dcs_source_failure(final_error="missing_bootstrap_values")
             return
 
         _, success = False, False
 
         try:
             specs = json.loads(self._options.bootstrap_values)
+            if not isinstance(specs, dict):
+                self._mark_dcs_source_failure("invalid_json", "invalid_json")
+                return
+            self._dcs_source_success = True
+            self._dcs_response_format = "json"
             if specs is None or not self.is_specs_json_valid(specs):
+                self._dcs_process_success = False
+                self._dcs_final_error = "invalid_bootstrap_specs"
                 return
             if self.dcs_listener is not None:
                 _, success = self.dcs_listener(specs, DataSource.BOOTSTRAP)
+            self._dcs_process_success = success
+            self._dcs_final_error = "" if success else "dcs_listener_failed"
 
-        except ValueError:
+        except ValueError as e:
             # JSON decoding failed, just let background thread update rulesets
+            self._mark_dcs_source_failure("invalid_json", str(e))
             globals.logger.error("Failed to parse bootstrap_values")
         finally:
             self._diagnostics.add_marker(
@@ -425,6 +477,7 @@ class SpecUpdater:
             for i, strategy in enumerate(self._config_sync_strategies):
                 prev_failure_count = self._sync_failure_count
                 start_time_ms = time.time() * 1000
+                self._reset_dcs_sync_metrics()
                 self.get_config_spec(strategy)
                 outof_sync = False
                 time_elapsed = time.time() * 1000 - self.last_update_time
@@ -440,6 +493,20 @@ class SpecUpdater:
                     attempt_success,
                     source_api,
                     time.time() * 1000 - start_time_ms,
+                )
+                error = ""
+                if not attempt_success:
+                    if outof_sync:
+                        error = "out_of_sync"
+                    else:
+                        error = self._dcs_final_error or "Unknown config sync error"
+                globals.logger.log_background_config_overall(
+                    source_api=source_api,
+                    error=error,
+                    source_success=self._dcs_source_success,
+                    process_success=self._dcs_process_success,
+                    duration_ms=time.time() * 1000 - start_time_ms,
+                    response_format=self._dcs_response_format,
                 )
                 if attempt_success:
                     globals.logger.log_process(

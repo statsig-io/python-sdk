@@ -364,6 +364,32 @@ class TestTelemetryLogger(unittest.TestCase):
         )
         self.assertEqual(len(attempt_logs), 0)
 
+    def test_background_config_overall_metrics(self, mock_request):
+        ob_client = MockObservabilityClient()
+        logger = StatsigTelemetryLogger(ob_client=ob_client)
+        logger.init()
+
+        logger.log_background_config_overall(
+            source_api="http://test",
+            error="source_failure",
+            source_success=False,
+            process_success=True,
+            duration_ms=321.0,
+            response_format="json",
+        )
+
+        latency_logs = self._metric_logs(
+            ob_client._logs["distribution"],
+            "statsig.sdk.config_sync_overall.latency",
+        )
+        self.assertEqual(len(latency_logs), 1)
+        self.assertEqual(latency_logs[0][1], 321.0)
+        self.assertEqual(latency_logs[0][2]["source_api"], "http://test")
+        self.assertEqual(latency_logs[0][2]["format"], "json")
+        self.assertEqual(latency_logs[0][2]["error"], "source_failure")
+        self.assertFalse(latency_logs[0][2]["source_success"])
+        self.assertTrue(latency_logs[0][2]["process_success"])
+
     def test_network_latency_metric(self, mock_request):
         ob_client = MockObservabilityClient()
         logger = StatsigTelemetryLogger(ob_client=ob_client)
