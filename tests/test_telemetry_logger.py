@@ -12,7 +12,7 @@ from statsig import statsig, StatsigOptions, StatsigUser
 from statsig import globals
 from statsig.evaluation_details import DataSource
 from statsig.interface_observability_client import ObservabilityClient
-from statsig.statsig_telemetry_logger import SyncContext
+from statsig.statsig_telemetry_logger import SyncContext, StatsigTelemetryLogger
 from tests.network_stub import NetworkStub
 
 _network_stub = NetworkStub("http://test-telemetry-logger")
@@ -104,10 +104,10 @@ class TestTelemetryLogger(unittest.TestCase):
         ob_client = MockObservabilityClient()
         options = StatsigOptions(api=_network_stub.host, observability_client=ob_client)
         statsig.initialize("secret-key", options)
-        self.assertEqual(len(ob_client._logs["distribution"]), 1)
-        self.assertEqual(
-            ob_client._logs["distribution"][0][0], "statsig.sdk.initialization"
+        initialization_logs = self._metric_logs(
+            ob_client._logs["distribution"], "statsig.sdk.initialization"
         )
+        self.assertEqual(len(initialization_logs), 1)
 
     def test_initialize_timeout(self, mock_request):
         ob_client = MockObservabilityClient()
@@ -115,10 +115,10 @@ class TestTelemetryLogger(unittest.TestCase):
             api=_network_stub.host, init_timeout=0.1, observability_client=ob_client
         )
         statsig.initialize("secret-key", options)
-        self.assertEqual(len(ob_client._logs["distribution"]), 1)
-        self.assertEqual(
-            ob_client._logs["distribution"][0][0], "statsig.sdk.initialization"
+        initialization_logs = self._metric_logs(
+            ob_client._logs["distribution"], "statsig.sdk.initialization"
         )
+        self.assertEqual(len(initialization_logs), 1)
 
     def test_no_update_counter(self, mock_request):
         _network_stub.stub_request_with_value(
@@ -131,10 +131,10 @@ class TestTelemetryLogger(unittest.TestCase):
             rulesets_sync_interval=0.5,
         )
         statsig.initialize("secret-key", options)
-        self.assertEqual(len(ob_client._logs["distribution"]), 1)
-        self.assertEqual(
-            ob_client._logs["distribution"][0][0], "statsig.sdk.initialization"
+        initialization_logs = self._metric_logs(
+            ob_client._logs["distribution"], "statsig.sdk.initialization"
         )
+        self.assertEqual(len(initialization_logs), 1)
         time.sleep(0.7)
         config_no_update_logs = self._metric_logs(
             ob_client._logs["increment"], "statsig.sdk.config_no_update"
@@ -149,7 +149,10 @@ class TestTelemetryLogger(unittest.TestCase):
             rulesets_sync_interval=1,
         )
         statsig.initialize("secret-key", options)
-        self.assertEqual(len(ob_client._logs["distribution"]), 1)
+        initialization_logs = self._metric_logs(
+            ob_client._logs["distribution"], "statsig.sdk.initialization"
+        )
+        self.assertEqual(len(initialization_logs), 1)
         new_config_spec = copy.deepcopy(PARSED_CONFIG_SPEC)
         if "time" in new_config_spec:
             new_config_spec["time"] += 1
@@ -157,12 +160,12 @@ class TestTelemetryLogger(unittest.TestCase):
             "download_config_specs/.*", 200, new_config_spec
         )
         time.sleep(1.1)
-        self.assertEqual(len(ob_client._logs["distribution"]), 3)
-        self.assertEqual(
-            ob_client._logs["distribution"][1][0], "statsig.sdk.config_propagation_diff"
+        propagation_logs = self._metric_logs(
+            ob_client._logs["distribution"], "statsig.sdk.config_propagation_diff"
         )
-        self.assertIn("lcut", ob_client._logs["distribution"][1][2])
-        self.assertIn("prev_lcut", ob_client._logs["distribution"][1][2])
+        self.assertGreaterEqual(len(propagation_logs), 1)
+        self.assertIn("lcut", propagation_logs[0][2])
+        self.assertIn("prev_lcut", propagation_logs[0][2])
 
     def test_ob_client_throw_exception(self, mock_request):
         ob_client = AlwaysThrowObClient()
@@ -360,3 +363,28 @@ class TestTelemetryLogger(unittest.TestCase):
             ob_client._logs["distribution"], "statsig.sdk.background_sync_duration_ms"
         )
         self.assertEqual(len(attempt_logs), 0)
+
+    def test_network_latency_metric(self, mock_request):
+        ob_client = MockObservabilityClient()
+        logger = StatsigTelemetryLogger(ob_client=ob_client)
+        logger.init()
+
+        logger.log_network_request_latency(
+            duration_ms=45.0,
+            status_code=200,
+            source_service="https://api.statsigcdn.com",
+            partial_sdk_key="secret-key",
+            request_path="id_lists",
+        )
+
+        latency_logs = self._metric_logs(
+            ob_client._logs["distribution"],
+            "statsig.sdk.network_request.latency",
+        )
+        self.assertEqual(len(latency_logs), 1)
+        self.assertEqual(latency_logs[0][1], 45.0)
+        self.assertEqual(latency_logs[0][2]["status_code"], 200)
+        self.assertEqual(latency_logs[0][2]["source_service"], "https://api.statsigcdn.com")
+        self.assertEqual(latency_logs[0][2]["sdk_key"], "secret-key")
+        self.assertEqual(latency_logs[0][2]["request_path"], "id_lists")
+        self.assertTrue(latency_logs[0][2]["is_success"])

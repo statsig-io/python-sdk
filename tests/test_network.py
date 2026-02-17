@@ -162,3 +162,32 @@ class TestNetworkHTTPWorker(unittest.TestCase):
             self.net.get_id_list(lambda *_: None, "http://test/no-forward-proxy/list_1", headers={})
 
         self.assertIsNone(captured_headers.get("x-request-service"))
+
+    def test_network_latency_metric_includes_required_tags(self):
+        self.net._HttpWorker__api_for_get_id_lists = "https://api.statsigcdn.com/v1/"
+
+        def fake_request(_method, _url, *_args, **_kwargs):
+            return RequestResult(data={}, status_code=200, success=True, error=None)
+
+        with patch.object(self.net, "_run_request_with_strict_timeout", side_effect=fake_request), patch.object(
+            globals.logger, "log_network_request_latency"
+        ) as latency_mock:
+            self.net.get_id_lists(lambda *_: None)
+
+        latency_mock.assert_called_once()
+        kwargs = latency_mock.call_args.kwargs
+        self.assertEqual(kwargs["status_code"], 200)
+        self.assertEqual(kwargs["source_service"], "https://api.statsigcdn.com")
+        self.assertEqual(kwargs["partial_sdk_key"], "secret-test")
+        self.assertEqual(kwargs["request_path"], "/v1/get_id_lists")
+
+    def test_log_event_does_not_emit_network_latency(self):
+        def fake_request(_method, _url, *_args, **_kwargs):
+            return RequestResult(data={}, status_code=200, success=True, error=None)
+
+        with patch.object(self.net, "_run_request_with_strict_timeout", side_effect=fake_request), patch.object(
+            globals.logger, "log_network_request_latency"
+        ) as latency_mock:
+            self.net.log_events({"events": []})
+
+        latency_mock.assert_not_called()
