@@ -253,107 +253,6 @@ class TestTelemetryLogger(unittest.TestCase):
         self.assertEqual(len(event_logs), 1)
         self.assertEqual(event_logs[0][1], 2)  # diagnostic event + gate check
 
-    def test_get_id_lists_and_id_list_download_metrics(self, mock_request):
-        _network_stub.stub_request_with_value(
-            "get_id_lists",
-            200,
-            {
-                "list_1": {
-                    "name": "list_1",
-                    "size": 3,
-                    "url": _network_stub.host + "/list_1",
-                    "creationTime": 1,
-                    "fileID": "file_id_1",
-                },
-                "list_2": {
-                    "name": "list_2",
-                    "size": 3,
-                    "url": _network_stub.host + "/list_2",
-                    "creationTime": 1,
-                    "fileID": "file_id_2",
-                },
-            },
-        )
-        _network_stub.stub_request_with_value("list_1", 200, "+1\r")
-        _network_stub.stub_request_with_value("list_2", 200, "+2\r")
-
-        ob_client = MockObservabilityClient()
-        options = StatsigOptions(api=_network_stub.host, observability_client=ob_client)
-        statsig.initialize("secret-key", options)
-
-        id_list_download_logs = self._metric_logs(
-            ob_client._logs["increment"], "statsig.sdk.id_list_download"
-        )
-        self.assertEqual(len(id_list_download_logs), 1)
-        self.assertEqual(id_list_download_logs[0][1], 2)
-        self.assertTrue(id_list_download_logs[0][2]["success"])
-        self.assertEqual(id_list_download_logs[0][2]["source_api"], "http://test-telemetry-logger/")
-
-
-    def test_get_id_lists_metric_failure(self, mock_request):
-        _network_stub.stub_request_with_value("get_id_lists", 500, {})
-
-        ob_client = MockObservabilityClient()
-        options = StatsigOptions(api=_network_stub.host, observability_client=ob_client)
-        statsig.initialize("secret-key", options)
-        id_list_download_logs = self._metric_logs(
-            ob_client._logs["increment"], "statsig.sdk.id_list_download"
-        )
-        self.assertEqual(len(id_list_download_logs), 0)
-
-    def test_id_list_download_failure_metrics(self, mock_request):
-        _network_stub.stub_request_with_value(
-            "get_id_lists",
-            200,
-            {
-                "bad_list": {
-                    "name": "bad_list",
-                    "size": 3,
-                    "url": _network_stub.host + "/bad_list",
-                    "creationTime": 1,
-                    "fileID": "file_id_bad",
-                },
-            },
-        )
-        _network_stub.stub_request_with_value("bad_list", 500, {})
-
-        ob_client = MockObservabilityClient()
-        options = StatsigOptions(api=_network_stub.host, observability_client=ob_client)
-        statsig.initialize("secret-key", options)
-
-        id_list_download_logs = self._metric_logs(
-            ob_client._logs["increment"], "statsig.sdk.id_list_download"
-        )
-        self.assertEqual(len(id_list_download_logs), 1)
-        self.assertEqual(id_list_download_logs[0][1], 1)
-        self.assertFalse(id_list_download_logs[0][2]["success"])
-        self.assertEqual(id_list_download_logs[0][2]["source_api"], "http://test-telemetry-logger/")
-
-    def test_background_sync_count_metrics(self, mock_request):
-        ob_client = MockObservabilityClient()
-        options = StatsigOptions(api=_network_stub.host, observability_client=ob_client)
-        statsig.initialize("secret-key", options)
-        ob_client._logs["distribution"].clear()
-
-        globals.logger.log_sync_attempt(SyncContext.DCS, "Network", True, "http://test", 123.0)
-        globals.logger.log_sync_attempt(
-            SyncContext.ID_LISTS, "StatsigNetwork", False, "http://test", 456.0
-        )
-
-        attempt_logs = self._metric_logs(
-            ob_client._logs["distribution"], "statsig.sdk.background_sync_duration_ms"
-        )
-        self.assertEqual(len(attempt_logs), 2)
-        attempt_logs_by_context = {log[2]["context"]: log for log in attempt_logs}
-        self.assertEqual(attempt_logs_by_context["dcs"][1], 123.0)
-        self.assertEqual(attempt_logs_by_context["dcs"][2]["source"], "Network")
-        self.assertTrue(attempt_logs_by_context["dcs"][2]["success"])
-        self.assertFalse(attempt_logs_by_context["dcs"][2]["fallback_used"])
-        self.assertEqual(attempt_logs_by_context["id_lists"][1], 456.0)
-        self.assertEqual(attempt_logs_by_context["id_lists"][2]["source"], "StatsigNetwork")
-        self.assertFalse(attempt_logs_by_context["id_lists"][2]["success"])
-        self.assertTrue(attempt_logs_by_context["id_lists"][2]["fallback_used"])
-
     def test_initialize_does_not_emit_background_sync_metrics(self, mock_request):
         ob_client = MockObservabilityClient()
         options = StatsigOptions(api=_network_stub.host, observability_client=ob_client)
@@ -363,6 +262,32 @@ class TestTelemetryLogger(unittest.TestCase):
             ob_client._logs["distribution"], "statsig.sdk.background_sync_duration_ms"
         )
         self.assertEqual(len(attempt_logs), 0)
+
+    def test_background_id_lists_overall_metrics(self, mock_request):
+        ob_client = MockObservabilityClient()
+        logger = StatsigTelemetryLogger(ob_client=ob_client)
+        logger.init()
+
+        logger.log_background_id_lists_overall(
+            duration_ms=123.0,
+            id_list_manifest_success=True,
+            succeed_single_id_list_number=2,
+        )
+
+        latency_logs = self._metric_logs(
+            ob_client._logs["distribution"],
+            "statsig.sdk.id_lists_sync_overall.latency",
+        )
+
+        self.assertEqual(len(latency_logs), 1)
+        self.assertEqual(latency_logs[0][1], 123.0)
+        self.assertEqual(
+            latency_logs[0][2],
+            {
+                "id_list_manifest_success": True,
+                "succeed_single_id_list_number": 2,
+            },
+        )
 
     def test_background_config_overall_metrics(self, mock_request):
         ob_client = MockObservabilityClient()

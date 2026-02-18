@@ -3,7 +3,6 @@ import time
 from enum import Enum
 from typing import Optional, Dict, Any, Callable
 
-from .evaluation_details import DataSource
 from .initialize_details import InitializeDetails
 from .interface_observability_client import ObservabilityClient
 from .output_logger import OutputLogger
@@ -166,43 +165,18 @@ class StatsigTelemetryLogger(AutoTryCatch):
                               }))
         self.log_process("Config Sync", f"Received updated configs from {lcut}")
 
-    def log_background_sync_duration(
-        self,
-        context: SyncContext,
-        source: str,
-        success: bool,
-        source_api: Optional[str],
-        duration_ms: float,
-        fallback_used: bool = False,
-    ):
-        self.distribution(
-            "background_sync_duration_ms",
-            duration_ms,
-            {
-                "context": context.value,
-                "source": source,
-                "success": success,
-                "source_api": source_api,
-                "fallback_used": fallback_used,
-            },
-        )
 
-    def log_sync_attempt(
+    def log_background_id_lists_overall(
         self,
-        context: SyncContext,
-        source: str,
-        success: bool,
-        source_api: Optional[str],
         duration_ms: float,
-    ):
-        self.log_background_sync_duration(
-            context,
-            source,
-            success,
-            source_api,
-            duration_ms,
-            fallback_used=source == DataSource.STATSIG_NETWORK.value,
-        )
+        id_list_manifest_success: bool,
+        succeed_single_id_list_number: int,
+    ) -> None:
+        tags = {
+            "id_list_manifest_success": id_list_manifest_success,
+            "succeed_single_id_list_number": succeed_single_id_list_number,
+        }
+        self.distribution("id_lists_sync_overall.latency", duration_ms, tags)
 
     def log_background_config_overall(
         self,
@@ -222,17 +196,6 @@ class StatsigTelemetryLogger(AutoTryCatch):
         }
         self.distribution("config_sync_overall.latency", duration_ms, tags)
 
-    def log_id_list_sync_update(
-        self, success: bool, count: int = 1, source_api: Optional[str] = None
-    ):
-        self.increment(
-            "id_list_download",
-            count,
-            {
-                "success": success,
-                "source_api": source_api,
-            },
-        )
 
     def log_sdk_exception(self, tag: str, exception: Exception):
         if self.sdk_error_callback is not None:

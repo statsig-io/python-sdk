@@ -14,7 +14,6 @@ from .statsig_error_boundary import _StatsigErrorBoundary
 from .statsig_errors import StatsigValueError, StatsigNameError
 from .statsig_network import _StatsigNetwork
 from .statsig_options import StatsigOptions
-from .statsig_telemetry_logger import SyncContext
 from .thread_util import spawn_background_thread, THREAD_JOIN_TIMEOUT
 from .utils import djb2_hash
 
@@ -62,6 +61,7 @@ class SpecUpdater:
         self.initial_update_time = 0
         self.dcs_listener: Optional[Callable] = None
         self.id_lists_listener: Optional[Callable] = None
+        self._succeed_single_id_list_number = 0
         self._dcs_source_success = False
         self._dcs_process_success = False
         self._dcs_response_format = "unknown"
@@ -105,6 +105,9 @@ class SpecUpdater:
                 return listener(spec_json, source)
 
         self.dcs_listener = dcs_listener_with_lock
+
+    def record_succeed_single_id_list_number(self, count: int) -> None:
+        self._succeed_single_id_list_number = count
 
     def _reset_dcs_sync_metrics(self) -> None:
         self._dcs_source_success = False
@@ -238,25 +241,6 @@ class SpecUpdater:
             process = "Initialize" if not self.initialized else "Config Sync"
         globals.logger.log_process(process, msg)
 
-    def try_log_bg_sync(
-        self,
-        for_initialize: bool,
-        sync_context: SyncContext,
-        source: str,
-        success: bool,
-        source_api: Optional[str],
-        start_time_ms: float,
-    ) -> None:
-        if for_initialize:
-            return
-        globals.logger.log_sync_attempt(
-            sync_context,
-            source,
-            success,
-            source_api,
-            time.time() * 1000 - start_time_ms,
-        )
-
     def _save_to_storage_adapter(self, specs):
         if not self.is_specs_json_valid(specs):
             return
@@ -313,6 +297,8 @@ class SpecUpdater:
             )
 
     def download_id_lists(self, for_initialize=False):
+        self.record_succeed_single_id_list_number(0)
+
         def on_complete(id_lists: list, error: Exception):
             if error is not None:
                 self._error_boundary.log_exception("_download_id_lists", error)
@@ -332,25 +318,26 @@ class SpecUpdater:
 
             start_time_ms = time.time() * 1000
             self._network.get_id_lists(on_complete, False, init_timeout)
-            self.try_log_bg_sync(
-                for_initialize,
-                SyncContext.ID_LISTS,
-                DataSource.NETWORK.value,
-                result[0],
-                self.context.source_api_id_lists,
-                start_time_ms,
-            )
+            if not for_initialize:
+                globals.logger.log_background_id_lists_overall(
+                    duration_ms=time.time() * 1000 - start_time_ms,
+                    id_list_manifest_success=result[0],
+                    succeed_single_id_list_number=(
+                        self._succeed_single_id_list_number if result[0] else 0
+                    ),
+                )
             if result[0] is False and self._options.fallback_to_statsig_api:
+                self.record_succeed_single_id_list_number(0)
                 start_time_ms = time.time() * 1000
                 self._network.get_id_lists_fallback(on_complete, False, init_timeout)
-                self.try_log_bg_sync(
-                    for_initialize,
-                    SyncContext.ID_LISTS,
-                    DataSource.STATSIG_NETWORK.value,
-                    result[0],
-                    self.context.source_api_id_lists,
-                    start_time_ms,
-                )
+                if not for_initialize:
+                    globals.logger.log_background_id_lists_overall(
+                        duration_ms=time.time() * 1000 - start_time_ms,
+                        id_list_manifest_success=result[0],
+                        succeed_single_id_list_number=(
+                            self._succeed_single_id_list_number if result[0] else 0
+                        ),
+                    )
 
         except Exception as e:
             raise e
@@ -476,7 +463,6 @@ class SpecUpdater:
         def sync_config_spec():
             for i, strategy in enumerate(self._config_sync_strategies):
                 prev_failure_count = self._sync_failure_count
-                start_time_ms = time.time() * 1000
                 self._reset_dcs_sync_metrics()
                 self.get_config_spec(strategy)
                 outof_sync = False
@@ -487,27 +473,6 @@ class SpecUpdater:
                     prev_failure_count == self._sync_failure_count and not outof_sync
                 )
                 source_api = self.context.source_api
-                globals.logger.log_sync_attempt(
-                    SyncContext.DCS,
-                    strategy.value,
-                    attempt_success,
-                    source_api,
-                    time.time() * 1000 - start_time_ms,
-                )
-                error = ""
-                if not attempt_success:
-                    if outof_sync:
-                        error = "out_of_sync"
-                    else:
-                        error = self._dcs_final_error or "Unknown config sync error"
-                globals.logger.log_background_config_overall(
-                    source_api=source_api,
-                    error=error,
-                    source_success=self._dcs_source_success,
-                    process_success=self._dcs_process_success,
-                    duration_ms=time.time() * 1000 - start_time_ms,
-                    response_format=self._dcs_response_format,
-                )
                 if attempt_success:
                     globals.logger.log_process(
                         "Config Sync",

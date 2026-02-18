@@ -344,11 +344,7 @@ class _SpecStore:
                 except Exception:
                     failed_count += 1
 
-            source_api = self.context.source_api_id_lists or "unknown"
-            if success_count > 0:
-                globals.logger.log_id_list_sync_update(True, success_count, source_api)
-            if failed_count > 0:
-                globals.logger.log_id_list_sync_update(False, failed_count, source_api)
+            self.spec_updater.record_succeed_single_id_list_number(success_count)
 
             deleted_lists = []
             for list_name in local_id_lists:
