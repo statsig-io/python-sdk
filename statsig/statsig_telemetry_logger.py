@@ -210,18 +210,19 @@ class StatsigTelemetryLogger(AutoTryCatch):
         source_service: Optional[str],
         partial_sdk_key: Optional[str],
         request_path: Optional[str],
+        extra_tags: Optional[Dict[str, Any]] = None,
     ) -> None:
-        self.distribution(
-            "network_request.latency",
-            duration_ms,
-            {
-                "status_code": status_code if status_code is not None else "unknown",
-                "source_service": source_service or "unknown",
-                "sdk_key": partial_sdk_key or "",
-                "request_path": request_path or "unknown",
-                "is_success": status_code is not None and 200 <= status_code < 300,
-            },
-        )
+        metric_tags = {
+            "status_code": status_code if status_code is not None else "unknown",
+            "source_service": source_service or "unknown",
+            "sdk_key": partial_sdk_key or "",
+            "request_path": request_path or "unknown",
+            "is_success": status_code is not None and 200 <= status_code < 300,
+        }
+        if extra_tags:
+            metric_tags.update(extra_tags)
+
+        self.distribution("network_request.latency", duration_ms, metric_tags)
 
     def filter_high_cardinality_tags(self, tags: Dict[str, Any]) -> Dict[str, Any]:
         return {

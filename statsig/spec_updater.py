@@ -397,7 +397,10 @@ class SpecUpdater:
                 )
 
         self._network.get_id_list(
-            on_complete, url, headers={"Range": f"bytes={start_index}-"}
+            on_complete,
+            url,
+            headers={"Range": f"bytes={start_index}-"},
+            id_list_file_id=local_list.get("fileID"),
         )
         return result[0]
 
