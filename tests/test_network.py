@@ -95,7 +95,7 @@ class TestNetworkHTTPWorker(unittest.TestCase):
 
         self.assertEqual(captured_headers.get("x-request-service"), "unit-test-service")
 
-    def test_dcs_service_header_not_sent_without_forward_proxy_url(self):
+    def test_dcs_service_header_sent_without_forward_proxy_url(self):
         captured_headers = {}
         self.net._HttpWorker__service_name = "unit-test-service"
         self.net._HttpWorker__api_for_download_config_specs = "http://test/no-forward-proxy/"
@@ -107,7 +107,7 @@ class TestNetworkHTTPWorker(unittest.TestCase):
         with patch.object(self.net, "_run_request_with_strict_timeout", side_effect=fake_request):
             self.net.get_dcs(lambda *_: None)
 
-        self.assertIsNone(captured_headers.get("x-request-service"))
+        self.assertEqual(captured_headers.get("x-request-service"), "unit-test-service")
 
     def test_id_lists_service_header_sent_for_forward_proxy_url(self):
         captured_headers = {}
@@ -123,7 +123,7 @@ class TestNetworkHTTPWorker(unittest.TestCase):
 
         self.assertEqual(captured_headers.get("x-request-service"), "unit-test-service")
 
-    def test_id_lists_service_header_not_sent_without_forward_proxy_url(self):
+    def test_id_lists_service_header_sent_without_forward_proxy_url(self):
         captured_headers = {}
         self.net._HttpWorker__service_name = "unit-test-service"
         self.net._HttpWorker__api_for_get_id_lists = "http://test/no-forward-proxy/"
@@ -135,7 +135,7 @@ class TestNetworkHTTPWorker(unittest.TestCase):
         with patch.object(self.net, "_run_request_with_strict_timeout", side_effect=fake_request):
             self.net.get_id_lists(lambda *_: None)
 
-        self.assertIsNone(captured_headers.get("x-request-service"))
+        self.assertEqual(captured_headers.get("x-request-service"), "unit-test-service")
 
     def test_id_list_service_header_sent_for_forward_proxy_url(self):
         captured_headers = {}
@@ -150,7 +150,7 @@ class TestNetworkHTTPWorker(unittest.TestCase):
 
         self.assertEqual(captured_headers.get("x-request-service"), "unit-test-service")
 
-    def test_id_list_service_header_not_sent_without_forward_proxy_url(self):
+    def test_id_list_service_header_sent_without_forward_proxy_url(self):
         captured_headers = {}
         self.net._HttpWorker__service_name = "unit-test-service"
 
@@ -161,7 +161,7 @@ class TestNetworkHTTPWorker(unittest.TestCase):
         with patch.object(self.net, "_run_request_with_strict_timeout", side_effect=fake_request):
             self.net.get_id_list(lambda *_: None, "http://test/no-forward-proxy/list_1", headers={})
 
-        self.assertIsNone(captured_headers.get("x-request-service"))
+        self.assertEqual(captured_headers.get("x-request-service"), "unit-test-service")
 
     def test_network_latency_metric_includes_required_tags(self):
         self.net._HttpWorker__api_for_get_id_lists = "https://api.statsigcdn.com/v1/"

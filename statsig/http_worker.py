@@ -314,7 +314,7 @@ class HttpWorker(IStatsigNetworkWorker):
                 create_marker().start({"markerID": marker_id})
             )
 
-        headers = self._prepare_headers(headers, zipped, url)
+        headers = self._prepare_headers(headers, zipped)
 
         if payload is not None:
             payload = self._prepare_payload(payload, url, zipped)
@@ -447,7 +447,7 @@ class HttpWorker(IStatsigNetworkWorker):
         return 200 <= status_code < 300
 
     def _prepare_headers(
-        self, headers: Optional[Dict[str, Any]], zipped: bool, url: str
+        self, headers: Optional[Dict[str, Any]], zipped: bool
     ) -> Dict[str, Any]:
         base_headers = {
             "Content-type": "application/json",
@@ -458,6 +458,7 @@ class HttpWorker(IStatsigNetworkWorker):
             "STATSIG-SDK-VERSION": self.__statsig_metadata["sdkVersion"],
             "STATSIG-RETRY": "0",
             "Accept-Encoding": "gzip, deflate, br",
+            "x-request-service": self.__service_name,
         }
 
         if zipped:
@@ -465,9 +466,6 @@ class HttpWorker(IStatsigNetworkWorker):
 
         if headers is not None:
             base_headers.update(headers)
-
-        if "statsig-foward-proxy" in url:
-            base_headers.update({"x-request-service": self.__service_name})
 
         return base_headers
 
