@@ -182,6 +182,8 @@ class TestNetworkHTTPWorker(unittest.TestCase):
         self.assertEqual(kwargs["request_path"], "/v1/get_id_lists")
 
     def test_id_list_network_latency_metric_includes_file_id_tag(self):
+        self.net._HttpWorker__api_for_get_id_lists = "https://api.statsigcdn.com/v1/"
+
         def fake_request(_method, _url, *_args, **_kwargs):
             return RequestResult(
                 data={},
@@ -208,6 +210,60 @@ class TestNetworkHTTPWorker(unittest.TestCase):
         self.assertEqual(kwargs["source_service"], "https://api.statsigcdn.com")
         self.assertEqual(kwargs["request_path"], "/v1/download_id_list_file")
         self.assertEqual(kwargs["extra_tags"], {"id_list_file_id": "4PKKLINp6EZW3DNQ73sCxY"})
+
+    def test_id_list_download_uses_get_id_lists_proxy_when_configured(self):
+        captured_urls = []
+        self.net._HttpWorker__api_for_get_id_lists = "http://sfp-proxy.local/v1/"
+
+        def fake_request(_method, url, *_args, **_kwargs):
+            captured_urls.append(url)
+            return RequestResult(
+                data={},
+                status_code=200,
+                success=True,
+                error=None,
+                text="+1\r",
+                headers={"content-length": "3"},
+            )
+
+        with patch.object(self.net, "_run_request_with_strict_timeout", side_effect=fake_request):
+            self.net.get_id_list(
+                lambda *_: None,
+                "https://api.statsigcdn.com/v1/download_id_list_file/foo%2Fbar?sv=2020-10-02&sig=abc&k=secret-test",
+                headers={},
+            )
+
+        self.assertEqual(
+            captured_urls,
+            ["http://sfp-proxy.local/v1/download_id_list_file/foo%2Fbar?sv=2020-10-02&sig=abc&k=secret-test"],
+        )
+
+    def test_id_list_download_falls_back_to_cdn_when_proxy_fails(self):
+        captured_urls = []
+        self.net._HttpWorker__api_for_get_id_lists = "http://sfp-proxy.local/v1/"
+        cdn_url = (
+            "https://api.statsigcdn.com/v1/download_id_list_file/foo"
+            "?sv=2020-10-02&sig=abc&k=secret-test"
+        )
+        proxy_url = "http://sfp-proxy.local/v1/download_id_list_file/foo?sv=2020-10-02&sig=abc&k=secret-test"
+
+        def fake_request(_method, url, *_args, **_kwargs):
+            captured_urls.append(url)
+            if url == proxy_url:
+                return RequestResult(data=None, status_code=502, success=False, error=None)
+            return RequestResult(
+                data={},
+                status_code=200,
+                success=True,
+                error=None,
+                text="+1\r",
+                headers={"content-length": "3"},
+            )
+
+        with patch.object(self.net, "_run_request_with_strict_timeout", side_effect=fake_request):
+            self.net.get_id_list(lambda *_: None, cdn_url, headers={})
+
+        self.assertEqual(captured_urls, [proxy_url, cdn_url])
 
     def test_log_event_does_not_emit_network_latency(self):
         def fake_request(_method, _url, *_args, **_kwargs):
