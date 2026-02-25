@@ -93,6 +93,7 @@ class _StatsigNetwork:
         )
         self.dcs_worker: IStatsigNetworkWorker = defaultHttpWorker
         self.id_list_worker: IStatsigNetworkWorker = defaultHttpWorker
+        self.id_list_file_download_worker: IStatsigNetworkWorker = defaultHttpWorker
         self.log_event_worker: IStatsigNetworkWorker = defaultHttpWorker
         self.http_worker: IStatsigNetworkWorker = defaultHttpWorker
         for endpoint, config in self.options.proxy_configs.items():
@@ -115,6 +116,7 @@ class _StatsigNetwork:
             http_worker.authenticate_request_session(config)
             self.log_event_worker = http_worker
             self.id_list_worker = http_worker
+            self.id_list_file_download_worker = http_worker
             self.dcs_worker = http_worker
             return
 
@@ -124,6 +126,8 @@ class _StatsigNetwork:
             self.dcs_worker = worker
         elif endpoint == NetworkEndpoint.GET_ID_LISTS:
             self.id_list_worker = worker
+        elif endpoint == NetworkEndpoint.DOWNLOAD_ID_LIST_FILE:
+            self.id_list_file_download_worker = worker
         elif endpoint == NetworkEndpoint.LOG_EVENT:
             self.log_event_worker = worker
 
@@ -252,7 +256,8 @@ class _StatsigNetwork:
         if self.options.local_mode:
             globals.logger.warning("Local mode is enabled. Not fetching ID List.")
             return
-        self.http_worker.get_id_list(
+        worker = self.id_list_file_download_worker
+        worker.get_id_list(
             on_complete,
             url,
             headers,
