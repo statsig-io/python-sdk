@@ -7,6 +7,7 @@ from .initialize_details import InitializeDetails
 from .interface_observability_client import ObservabilityClient
 from .output_logger import OutputLogger
 from .statsig_options import StatsigOptions
+from .utils import get_partial_sdk_key
 
 TELEMETRY_PREFIX = "statsig.sdk"
 
@@ -113,7 +114,14 @@ class StatsigTelemetryLogger(AutoTryCatch):
         self.ob_client.distribution(f'{TELEMETRY_PREFIX}.{metric_name}', value,
                                     self.filter_high_cardinality_tags(tags or {}))
 
-    def log_post_init(self, options: StatsigOptions, init_details: InitializeDetails):
+    def log_post_init(
+        self,
+        options: StatsigOptions,
+        init_details: InitializeDetails,
+        sdk_key: Optional[str] = None,
+        sdk_type: Optional[str] = None,
+        sdk_version: Optional[str] = None,
+    ):
         if options.local_mode:
             if init_details.init_success:
                 self.logger.info(
@@ -128,7 +136,10 @@ class StatsigTelemetryLogger(AutoTryCatch):
                                                              "init_success": init_details.init_success,
                                                              "id_list_count": init_details.id_list_count,
                                                              "init_source_api": init_details.init_source_api,
-                                                             "init_source_api_id_lists": init_details.init_source_api_id_lists}))
+                                                             "init_source_api_id_lists": init_details.init_source_api_id_lists,
+                                                             "sdk_key": get_partial_sdk_key(sdk_key),
+                                                             "sdk_type": sdk_type or "unknown",
+                                                             "sdk_version": sdk_version or "unknown"}))
 
         if init_details.init_success:
             if init_details.store_populated:

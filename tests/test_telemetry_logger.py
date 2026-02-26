@@ -12,7 +12,9 @@ from statsig import statsig, StatsigOptions, StatsigUser
 from statsig import globals
 from statsig.evaluation_details import DataSource
 from statsig.interface_observability_client import ObservabilityClient
+from statsig.version import __version__
 from statsig.statsig_telemetry_logger import SyncContext, StatsigTelemetryLogger
+from statsig.utils import get_partial_sdk_key
 from tests.network_stub import NetworkStub
 
 _network_stub = NetworkStub("http://test-telemetry-logger")
@@ -103,11 +105,15 @@ class TestTelemetryLogger(unittest.TestCase):
     def test_initialize(self, mock_request):
         ob_client = MockObservabilityClient()
         options = StatsigOptions(api=_network_stub.host, observability_client=ob_client)
-        statsig.initialize("secret-key", options)
+        sdk_key = "secret-key-123456789"
+        statsig.initialize(sdk_key, options)
         initialization_logs = self._metric_logs(
             ob_client._logs["distribution"], "statsig.sdk.initialization"
         )
         self.assertEqual(len(initialization_logs), 1)
+        self.assertEqual(initialization_logs[0][2]["sdk_key"], get_partial_sdk_key(sdk_key))
+        self.assertEqual(initialization_logs[0][2]["sdk_type"], "py-server")
+        self.assertEqual(initialization_logs[0][2]["sdk_version"], __version__)
 
     def test_initialize_timeout(self, mock_request):
         ob_client = MockObservabilityClient()

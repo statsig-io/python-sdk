@@ -23,10 +23,10 @@ from .sdk_configs import _SDK_Configs
 from .statsig_context import InitContext
 from .statsig_error_boundary import _StatsigErrorBoundary
 from .statsig_options import ProxyConfig, StatsigOptions, STATSIG_API, STATSIG_CDN, AuthenticationMode
+from .utils import get_partial_sdk_key
 from .grpc_websocket_worker import load_credential_from_file
 
 REQUEST_TIMEOUT = 20
-PARTIAL_SDK_KEY_MAX_LENGTH = 13
 
 
 class HttpWorker(IStatsigNetworkWorker):
@@ -45,7 +45,7 @@ class HttpWorker(IStatsigNetworkWorker):
         self._executor = ThreadPoolExecutor(max_workers=2)
         self._context = context
         self.__sdk_key = sdk_key
-        self.__partial_sdk_key = (sdk_key or "")[:PARTIAL_SDK_KEY_MAX_LENGTH]
+        self.__partial_sdk_key = get_partial_sdk_key(sdk_key)
         self.__configure_endpoints(options)
         self.__req_timeout = options.timeout or REQUEST_TIMEOUT
         self.__local_mode = options.local_mode
