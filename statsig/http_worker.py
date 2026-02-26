@@ -160,8 +160,6 @@ class HttpWorker(IStatsigNetworkWorker):
         extra_tags = {}
         if id_list_file_id:
             extra_tags["id_list_file_id"] = id_list_file_id
-        if self.__api_for_download_id_list_file is not None:
-            url = self._get_proxy_id_list_download_url(url)
         resp = self._get_request(
             url,
             headers,
@@ -582,29 +580,13 @@ class HttpWorker(IStatsigNetworkWorker):
             request_path = parsed_url.path or "unknown"
         return source_service, request_path
 
-    def _get_proxy_id_list_download_url(
-        self, url: str
-    ) -> str:
-        if self.__api_for_download_id_list_file is None:
-            return url
-
-        parsed_url = urlparse(url)
-        parsed_proxy = urlparse(self.__api_for_download_id_list_file)
-        return parsed_url._replace(
-            scheme=parsed_proxy.scheme,
-            netloc=parsed_proxy.netloc,
-        ).geturl()
-
     def __get_proxy_address(
         self, options: StatsigOptions, endpoint: NetworkEndpoint
     ) -> Optional[str]:
         proxy_config = options.proxy_configs.get(endpoint)
         return (
             proxy_config.proxy_address + "/v1"
-            if (
-                proxy_config
-                and proxy_config.proxy_address
-            )
+            if proxy_config and proxy_config.proxy_address
             else None
         )
 
@@ -636,26 +618,9 @@ class HttpWorker(IStatsigNetworkWorker):
         if not api_for_log_event.endswith("/"):
             api_for_log_event += "/"
 
-        download_id_list_file_proxy = options.proxy_configs.get(
-            NetworkEndpoint.DOWNLOAD_ID_LIST_FILE
-        )
-        # Endpoint for downloading single id list files.
-        api_for_download_id_list_file = (
-            self.__get_proxy_address(options, NetworkEndpoint.DOWNLOAD_ID_LIST_FILE)
-            if download_id_list_file_proxy
-            and download_id_list_file_proxy.protocol == NetworkProtocol.HTTP
-            else None
-        )
-        if (
-            api_for_download_id_list_file is not None
-            and not api_for_download_id_list_file.endswith("/")
-        ):
-            api_for_download_id_list_file += "/"
-
         self.__api_for_download_config_specs = api_for_download_config_specs
         self.__api_for_get_id_lists = api_for_get_id_lists
         self.__api_for_log_event = api_for_log_event
-        self.__api_for_download_id_list_file = api_for_download_id_list_file
 
     def __is_cdn_url(self, url: str) -> bool:
         return url.startswith(STATSIG_CDN)

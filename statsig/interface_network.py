@@ -12,7 +12,6 @@ class NetworkEndpoint(Enum):
     LOG_EVENT = "log_event"
     DOWNLOAD_CONFIG_SPECS = "download_config_specs"
     GET_ID_LISTS = "get_id_lists"
-    DOWNLOAD_ID_LIST_FILE = "download_id_list_file"
     ALL = "all"
 
 
