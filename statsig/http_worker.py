@@ -6,7 +6,7 @@ import time
 from concurrent.futures.thread import ThreadPoolExecutor
 from decimal import Decimal
 from io import BytesIO
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urljoin
 from typing import Callable, Tuple, Optional, Any, Dict, List
 
 import ijson
@@ -160,14 +160,27 @@ class HttpWorker(IStatsigNetworkWorker):
         extra_tags = {}
         if id_list_file_id:
             extra_tags["id_list_file_id"] = id_list_file_id
+        proxy_preferred_url = self._rewrite_cdn_id_list_file_url_to_get_id_lists_proxy(url)
         resp = self._get_request(
-            url,
+            proxy_preferred_url,
             headers,
             log_on_exception,
             tag="get_id_list",
             get_text_value_only=True,
             extra_tags=extra_tags,
         )
+        if (
+            proxy_preferred_url != url
+            and (resp is None or not self._is_success_code(resp.status_code))
+        ):
+            resp = self._get_request(
+                url,
+                headers,
+                log_on_exception,
+                tag="get_id_list",
+                get_text_value_only=True,
+                extra_tags=extra_tags,
+            )
         if resp is not None and self._is_success_code(resp.status_code):
             return on_complete(resp)
         return on_complete(None)
@@ -621,6 +634,19 @@ class HttpWorker(IStatsigNetworkWorker):
         self.__api_for_download_config_specs = api_for_download_config_specs
         self.__api_for_get_id_lists = api_for_get_id_lists
         self.__api_for_log_event = api_for_log_event
+
+    def _rewrite_cdn_id_list_file_url_to_get_id_lists_proxy(self, url: str) -> str:
+        if self.__is_cdn_url(self.__api_for_get_id_lists):
+            return url
+        if not self.__is_cdn_url(url):
+            return url
+        parsed = urlparse(url)
+        if not parsed.path.startswith("/v1/download_id_list_file/"):
+            return url
+        suffix = parsed.path.removeprefix("/v1/")
+        if parsed.query:
+            suffix = f"{suffix}?{parsed.query}"
+        return urljoin(self.__api_for_get_id_lists, suffix)
 
     def __is_cdn_url(self, url: str) -> bool:
         return url.startswith(STATSIG_CDN)
