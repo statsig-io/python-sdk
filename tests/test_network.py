@@ -95,7 +95,7 @@ class TestNetworkHTTPWorker(unittest.TestCase):
 
         self.assertEqual(captured_headers.get("x-request-service"), "unit-test-service")
 
-    def test_dcs_service_header_not_sent_without_forward_proxy_url(self):
+    def test_dcs_service_header_sent_without_forward_proxy_url(self):
         captured_headers = {}
         self.net._HttpWorker__service_name = "unit-test-service"
         self.net._HttpWorker__api_for_download_config_specs = "http://test/no-forward-proxy/"
@@ -107,7 +107,7 @@ class TestNetworkHTTPWorker(unittest.TestCase):
         with patch.object(self.net, "_run_request_with_strict_timeout", side_effect=fake_request):
             self.net.get_dcs(lambda *_: None)
 
-        self.assertIsNone(captured_headers.get("x-request-service"))
+        self.assertEqual(captured_headers.get("x-request-service"), "unit-test-service")
 
     def test_id_lists_service_header_sent_for_forward_proxy_url(self):
         captured_headers = {}
@@ -123,7 +123,7 @@ class TestNetworkHTTPWorker(unittest.TestCase):
 
         self.assertEqual(captured_headers.get("x-request-service"), "unit-test-service")
 
-    def test_id_lists_service_header_not_sent_without_forward_proxy_url(self):
+    def test_id_lists_service_header_sent_without_forward_proxy_url(self):
         captured_headers = {}
         self.net._HttpWorker__service_name = "unit-test-service"
         self.net._HttpWorker__api_for_get_id_lists = "http://test/no-forward-proxy/"
@@ -135,7 +135,7 @@ class TestNetworkHTTPWorker(unittest.TestCase):
         with patch.object(self.net, "_run_request_with_strict_timeout", side_effect=fake_request):
             self.net.get_id_lists(lambda *_: None)
 
-        self.assertIsNone(captured_headers.get("x-request-service"))
+        self.assertEqual(captured_headers.get("x-request-service"), "unit-test-service")
 
     def test_id_list_service_header_sent_for_forward_proxy_url(self):
         captured_headers = {}
@@ -150,7 +150,7 @@ class TestNetworkHTTPWorker(unittest.TestCase):
 
         self.assertEqual(captured_headers.get("x-request-service"), "unit-test-service")
 
-    def test_id_list_service_header_not_sent_without_forward_proxy_url(self):
+    def test_id_list_service_header_sent_without_forward_proxy_url(self):
         captured_headers = {}
         self.net._HttpWorker__service_name = "unit-test-service"
 
@@ -161,4 +161,61 @@ class TestNetworkHTTPWorker(unittest.TestCase):
         with patch.object(self.net, "_run_request_with_strict_timeout", side_effect=fake_request):
             self.net.get_id_list(lambda *_: None, "http://test/no-forward-proxy/list_1", headers={})
 
-        self.assertIsNone(captured_headers.get("x-request-service"))
+        self.assertEqual(captured_headers.get("x-request-service"), "unit-test-service")
+
+    def test_network_latency_metric_includes_required_tags(self):
+        self.net._HttpWorker__api_for_get_id_lists = "https://api.statsigcdn.com/v1/"
+
+        def fake_request(_method, _url, *_args, **_kwargs):
+            return RequestResult(data={}, status_code=200, success=True, error=None)
+
+        with patch.object(self.net, "_run_request_with_strict_timeout", side_effect=fake_request), patch.object(
+            globals.logger, "log_network_request_latency"
+        ) as latency_mock:
+            self.net.get_id_lists(lambda *_: None)
+
+        latency_mock.assert_called_once()
+        kwargs = latency_mock.call_args.kwargs
+        self.assertEqual(kwargs["status_code"], 200)
+        self.assertEqual(kwargs["source_service"], "https://api.statsigcdn.com")
+        self.assertEqual(kwargs["partial_sdk_key"], "secret-test")
+        self.assertEqual(kwargs["request_path"], "/v1/get_id_lists")
+
+    def test_id_list_network_latency_metric_includes_file_id_tag(self):
+        def fake_request(_method, _url, *_args, **_kwargs):
+            return RequestResult(
+                data={},
+                status_code=200,
+                success=True,
+                error=None,
+                text="+1\r",
+                headers={"content-length": "3"},
+            )
+
+        with patch.object(self.net, "_run_request_with_strict_timeout", side_effect=fake_request), patch.object(
+            globals.logger, "log_network_request_latency"
+        ) as latency_mock:
+            self.net.get_id_list(
+                lambda *_: None,
+                "https://api.statsigcdn.com/v1/download_id_list_file/foo",
+                headers={},
+                id_list_file_id="4PKKLINp6EZW3DNQ73sCxY",
+            )
+
+        latency_mock.assert_called_once()
+        kwargs = latency_mock.call_args.kwargs
+        self.assertEqual(kwargs["status_code"], 200)
+        self.assertEqual(kwargs["source_service"], "https://api.statsigcdn.com")
+        self.assertEqual(kwargs["request_path"], "/v1/download_id_list_file")
+        self.assertEqual(kwargs["extra_tags"], {"id_list_file_id": "4PKKLINp6EZW3DNQ73sCxY"})
+
+    def test_log_event_does_not_emit_network_latency(self):
+        def fake_request(_method, _url, *_args, **_kwargs):
+            return RequestResult(data={}, status_code=200, success=True, error=None)
+
+        with patch.object(self.net, "_run_request_with_strict_timeout", side_effect=fake_request), patch.object(
+            globals.logger, "log_network_request_latency"
+        ) as latency_mock:
+            self.net.log_events({"events": []})
+
+        latency_mock.assert_not_called()
