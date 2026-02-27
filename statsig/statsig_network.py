@@ -241,24 +241,11 @@ class _StatsigNetwork:
             self.context.fallback_id_lists_used = True
             self.http_worker.get_id_lists_fallback(on_complete, log_on_exception, init_timeout)
 
-    def get_id_list(
-            self,
-            on_complete: Any,
-            url,
-            headers,
-            log_on_exception=False,
-            id_list_file_id: Optional[str] = None,
-    ):
+    def get_id_list(self, on_complete: Any, url, headers, log_on_exception=False):
         if self.options.local_mode:
             globals.logger.warning("Local mode is enabled. Not fetching ID List.")
             return
-        self.http_worker.get_id_list(
-            on_complete,
-            url,
-            headers,
-            log_on_exception,
-            id_list_file_id,
-        )
+        self.http_worker.get_id_list(on_complete, url, headers, log_on_exception)
 
     def log_events(self, payload, headers=None, log_on_exception=False, retry=0) -> RequestResult:
         if self.options.local_mode:

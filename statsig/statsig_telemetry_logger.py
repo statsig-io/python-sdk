@@ -3,11 +3,11 @@ import time
 from enum import Enum
 from typing import Optional, Dict, Any, Callable
 
+from .evaluation_details import DataSource
 from .initialize_details import InitializeDetails
 from .interface_observability_client import ObservabilityClient
 from .output_logger import OutputLogger
 from .statsig_options import StatsigOptions
-from .utils import get_partial_sdk_key
 
 TELEMETRY_PREFIX = "statsig.sdk"
 
@@ -114,14 +114,7 @@ class StatsigTelemetryLogger(AutoTryCatch):
         self.ob_client.distribution(f'{TELEMETRY_PREFIX}.{metric_name}', value,
                                     self.filter_high_cardinality_tags(tags or {}))
 
-    def log_post_init(
-        self,
-        options: StatsigOptions,
-        init_details: InitializeDetails,
-        sdk_key: Optional[str] = None,
-        sdk_type: Optional[str] = None,
-        sdk_version: Optional[str] = None,
-    ):
+    def log_post_init(self, options: StatsigOptions, init_details: InitializeDetails):
         if options.local_mode:
             if init_details.init_success:
                 self.logger.info(
@@ -136,10 +129,7 @@ class StatsigTelemetryLogger(AutoTryCatch):
                                                              "init_success": init_details.init_success,
                                                              "id_list_count": init_details.id_list_count,
                                                              "init_source_api": init_details.init_source_api,
-                                                             "init_source_api_id_lists": init_details.init_source_api_id_lists,
-                                                             "sdk_key": get_partial_sdk_key(sdk_key),
-                                                             "sdk_type": sdk_type or "unknown",
-                                                             "sdk_version": sdk_version or "unknown"}))
+                                                             "init_source_api_id_lists": init_details.init_source_api_id_lists}))
 
         if init_details.init_success:
             if init_details.store_populated:
@@ -176,64 +166,61 @@ class StatsigTelemetryLogger(AutoTryCatch):
                               }))
         self.log_process("Config Sync", f"Received updated configs from {lcut}")
 
-
-    def log_background_id_lists_overall(
+    def log_background_sync_duration(
         self,
-        duration_ms: float,
-        id_list_manifest_success: bool,
-        succeed_single_id_list_number: int,
-    ) -> None:
-        tags = {
-            "id_list_manifest_success": id_list_manifest_success,
-            "succeed_single_id_list_number": succeed_single_id_list_number,
-        }
-        self.distribution("id_lists_sync_overall.latency", duration_ms, tags)
-
-    def log_background_config_overall(
-        self,
+        context: SyncContext,
+        source: str,
+        success: bool,
         source_api: Optional[str],
-        error: str,
-        source_success: bool,
-        process_success: bool,
         duration_ms: float,
-        response_format: str = "json",
-    ) -> None:
-        tags = {
-            "source_api": source_api or "unknown",
-            "format": response_format,
-            "error": error,
-            "source_success": source_success,
-            "process_success": process_success,
-        }
-        self.distribution("config_sync_overall.latency", duration_ms, tags)
+        fallback_used: bool = False,
+    ):
+        self.distribution(
+            "background_sync_duration_ms",
+            duration_ms,
+            {
+                "context": context.value,
+                "source": source,
+                "success": success,
+                "source_api": source_api,
+                "fallback_used": fallback_used,
+            },
+        )
 
+    def log_sync_attempt(
+        self,
+        context: SyncContext,
+        source: str,
+        success: bool,
+        source_api: Optional[str],
+        duration_ms: float,
+    ):
+        self.log_background_sync_duration(
+            context,
+            source,
+            success,
+            source_api,
+            duration_ms,
+            fallback_used=source == DataSource.STATSIG_NETWORK.value,
+        )
+
+    def log_id_list_sync_update(
+        self, success: bool, count: int = 1, source_api: Optional[str] = None
+    ):
+        self.increment(
+            "id_list_download",
+            count,
+            {
+                "success": success,
+                "source_api": source_api,
+            },
+        )
 
     def log_sdk_exception(self, tag: str, exception: Exception):
         if self.sdk_error_callback is not None:
             self.sdk_error_callback(tag, exception)
 
         self.increment("sdk_exceptions_count")
-
-    def log_network_request_latency(
-        self,
-        duration_ms: float,
-        status_code: Optional[int],
-        source_service: Optional[str],
-        partial_sdk_key: Optional[str],
-        request_path: Optional[str],
-        extra_tags: Optional[Dict[str, Any]] = None,
-    ) -> None:
-        metric_tags = {
-            "status_code": status_code if status_code is not None else "unknown",
-            "source_service": source_service or "unknown",
-            "sdk_key": partial_sdk_key or "",
-            "request_path": request_path or "unknown",
-            "is_success": status_code is not None and 200 <= status_code < 300,
-        }
-        if extra_tags:
-            metric_tags.update(extra_tags)
-
-        self.distribution("network_request.latency", duration_ms, metric_tags)
 
     def filter_high_cardinality_tags(self, tags: Dict[str, Any]) -> Dict[str, Any]:
         return {

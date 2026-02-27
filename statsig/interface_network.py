@@ -60,14 +60,7 @@ class IStatsigNetworkWorker:
     ):
         pass
 
-    def get_id_list(
-            self,
-            on_complete: Any,
-            url,
-            headers,
-            log_on_exception: Optional[bool] = False,
-            id_list_file_id: Optional[str] = None,
-    ):
+    def get_id_list(self, on_complete: Any, url, headers, log_on_exception=False):
         pass
 
     def log_events(self, payload, headers=None, log_on_exception=False, retry=0):

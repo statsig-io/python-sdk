@@ -8,7 +8,6 @@ from typing_extensions import TypeAliasType
 
 JSONPrimitive = Union[str, int, float, bool, None]
 JSONValue = TypeAliasType("JSONValue", 'Union[JSONPrimitive, Sequence["JSONValue"], Mapping[str, "JSONValue"]]')
-PARTIAL_SDK_KEY_MAX_LENGTH = 13
 
 
 class HashingAlgorithm(Enum):
@@ -19,10 +18,6 @@ class HashingAlgorithm(Enum):
 
 def str_or_none(field):
     return str(field) if field is not None else None
-
-
-def get_partial_sdk_key(sdk_key: Optional[str]) -> str:
-    return (sdk_key or "")[:PARTIAL_SDK_KEY_MAX_LENGTH]
 
 
 def to_raw_value(value):

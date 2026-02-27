@@ -82,14 +82,7 @@ class StatsigServer:
         )
 
         init_details = self._initialize_impl(sdkKey, options)
-        statsig_metadata = getattr(self, "_StatsigServer__statsig_metadata", {})
-        globals.logger.log_post_init(
-            options,
-            init_details,
-            sdk_key=sdkKey,
-            sdk_type=statsig_metadata.get("sdkType"),
-            sdk_version=statsig_metadata.get("sdkVersion"),
-        )
+        globals.logger.log_post_init(options, init_details)
 
         return init_details
 
