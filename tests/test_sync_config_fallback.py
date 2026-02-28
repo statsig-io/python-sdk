@@ -8,6 +8,7 @@ from network_stub import NetworkStub
 from statsig import StatsigOptions, statsig, StatsigUser
 from statsig.evaluation_details import EvaluationDetails
 from statsig.statsig_options import DataSource
+from statsig.spec_updater import SpecUpdater
 
 _network_stub = NetworkStub("http://test-sync-config-fallback", mock_statsig_api=True)
 with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), '../testdata/download_config_specs.json')) as r:
@@ -26,6 +27,8 @@ class TestSyncConfigFallback(unittest.TestCase):
         cls.dcs_called = False
         cls.statsig_dcs_called = False
         cls.status_code = 200
+
+        SpecUpdater.STATSIG_NETWORK_FALLBACK_THRESHOLD = 1
 
         cls.test_user = StatsigUser("123", email="testuser@statsig.com")
 
@@ -211,7 +214,12 @@ class TestSyncConfigFallback(unittest.TestCase):
     def wait_for_sync_and_validate(self):
         _network_stub.stub_statsig_api_request_with_value("download_config_specs/.*", 200,
                                                           UPDATED_TIME_CONFIG_SPEC)
-        time.sleep(1.1)
+        for i in range(10):
+            gate = statsig.get_feature_gate(self.test_user, "always_on_gate")
+            if gate.get_evaluation_details().config_sync_time == 1631638014821:
+                break
+            time.sleep(0.1)
+        
         gate = statsig.get_feature_gate(self.test_user, "always_on_gate")
         eval_detail: EvaluationDetails = gate.get_evaluation_details()
         self.assertEqual(eval_detail.config_sync_time, 1631638014821)

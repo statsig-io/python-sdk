@@ -25,6 +25,8 @@ STORAGE_ADAPTER_KEY = "statsig.cache"
 
 
 class SpecUpdater:
+    STATSIG_NETWORK_FALLBACK_THRESHOLD = 5
+
     def __init__(
             self,
             network: _StatsigNetwork,
@@ -425,6 +427,14 @@ class SpecUpdater:
             for i, strategy in enumerate(self._config_sync_strategies):
                 prev_failure_count = self._sync_failure_count
                 start_time_ms = time.time() * 1000
+
+                if (
+                    strategy is DataSource.STATSIG_NETWORK
+                    and self._sync_failure_count > 0
+                    and self._sync_failure_count % self.STATSIG_NETWORK_FALLBACK_THRESHOLD != 0
+                ):
+                    continue
+
                 self.get_config_spec(strategy)
                 outof_sync = False
                 time_elapsed = time.time() * 1000 - self.last_update_time
