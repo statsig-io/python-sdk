@@ -12,6 +12,7 @@ class NetworkEndpoint(Enum):
     LOG_EVENT = "log_event"
     DOWNLOAD_CONFIG_SPECS = "download_config_specs"
     GET_ID_LISTS = "get_id_lists"
+    DOWNLOAD_ID_LIST_FILE = "download_id_list_file"
     ALL = "all"
 
 
@@ -60,7 +61,14 @@ class IStatsigNetworkWorker:
     ):
         pass
 
-    def get_id_list(self, on_complete: Any, url, headers, log_on_exception=False):
+    def get_id_list(
+            self,
+            on_complete: Any,
+            url,
+            headers,
+            log_on_exception: Optional[bool] = False,
+            id_list_file_id: Optional[str] = None,
+    ):
         pass
 
     def log_events(self, payload, headers=None, log_on_exception=False, retry=0):

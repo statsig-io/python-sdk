@@ -7,6 +7,7 @@ from concurrent.futures.thread import ThreadPoolExecutor
 from decimal import Decimal
 from io import BytesIO
 from typing import Callable, Tuple, Optional, Any, Dict, List
+from urllib.parse import urlparse
 
 import ijson
 import requests
@@ -146,7 +147,16 @@ class HttpWorker(IStatsigNetworkWorker):
             return on_complete(response.data, None)
         return on_complete(None, None)
 
-    def get_id_list(self, on_complete, url, headers, log_on_exception=False):
+    def get_id_list(
+        self,
+        on_complete,
+        url,
+        headers,
+        log_on_exception=False,
+        id_list_file_id: Optional[str] = None,
+    ):
+        if self.__api_for_download_id_list_file is not None:
+            url = self._get_proxy_id_list_download_url(url)
         resp = self._get_request(
             url, headers, log_on_exception, tag="get_id_list", get_text_value_only=True
         )
@@ -538,6 +548,17 @@ class HttpWorker(IStatsigNetworkWorker):
             else None
         )
 
+    def _get_proxy_id_list_download_url(self, url: str) -> str:
+        if self.__api_for_download_id_list_file is None:
+            return url
+
+        parsed_url = urlparse(url)
+        parsed_proxy = urlparse(self.__api_for_download_id_list_file)
+        return parsed_url._replace(
+            scheme=parsed_proxy.scheme,
+            netloc=parsed_proxy.netloc,
+        ).geturl()
+
     def __configure_endpoints(self, options: StatsigOptions) -> None:
         api_for_download_config_specs = (
             self.__get_proxy_address(options, NetworkEndpoint.DOWNLOAD_CONFIG_SPECS)
@@ -566,9 +587,25 @@ class HttpWorker(IStatsigNetworkWorker):
         if not api_for_log_event.endswith("/"):
             api_for_log_event += "/"
 
+        download_id_list_file_proxy = options.proxy_configs.get(
+            NetworkEndpoint.DOWNLOAD_ID_LIST_FILE
+        )
+        api_for_download_id_list_file = (
+            self.__get_proxy_address(options, NetworkEndpoint.DOWNLOAD_ID_LIST_FILE)
+            if download_id_list_file_proxy is not None
+            and download_id_list_file_proxy.protocol == NetworkProtocol.HTTP
+            else None
+        )
+        if (
+            api_for_download_id_list_file is not None
+            and not api_for_download_id_list_file.endswith("/")
+        ):
+            api_for_download_id_list_file += "/"
+
         self.__api_for_download_config_specs = api_for_download_config_specs
         self.__api_for_get_id_lists = api_for_get_id_lists
         self.__api_for_log_event = api_for_log_event
+        self.__api_for_download_id_list_file = api_for_download_id_list_file
 
     def __is_cdn_url(self, url: str) -> bool:
         return url.startswith(STATSIG_CDN)

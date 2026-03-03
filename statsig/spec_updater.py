@@ -359,8 +359,16 @@ class SpecUpdater:
                     )
                 )
 
+        headers = {"Range": f"bytes={start_index}-"}
+        file_size = local_list.get("size")
+        if file_size is not None:
+            headers["statsig-id-list-file-size"] = str(file_size)
+
         self._network.get_id_list(
-            on_complete, url, headers={"Range": f"bytes={start_index}-"}
+            on_complete,
+            url,
+            headers=headers,
+            id_list_file_id=local_list.get("fileID"),
         )
         return result[0]
 

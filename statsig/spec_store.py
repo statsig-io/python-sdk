@@ -319,10 +319,13 @@ class _SpecStore:
                     local_list = {
                         "ids": set(),
                         "readBytes": 0,
+                        "size": size,
                         "url": url,
                         "fileID": new_file_id,
                         "creationTime": new_creation_time,
                     }
+                else:
+                    local_list["size"] = size
 
                 read_bytes = local_list.get("readBytes", 0)
                 # check if read bytes count is the same as total file size;

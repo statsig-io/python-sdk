@@ -1,17 +1,28 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 from statsig import StatsigOptions
 from statsig import globals
 from statsig.diagnostics import Diagnostics
 from statsig.http_worker import HttpWorker
+from statsig.interface_network import NetworkEndpoint, NetworkProtocol
 from statsig.request_result import RequestResult
 from statsig.statsig_context import InitContext
 from statsig.statsig_error_boundary import _StatsigErrorBoundary
 from statsig.statsig_event import StatsigEvent
 from statsig.statsig_metadata import _StatsigMetadata
+from statsig.statsig_network import _StatsigNetwork
+from statsig.statsig_options import ProxyConfig
+from statsig.spec_updater import SpecUpdater
 from statsig.statsig_user import StatsigUser
+
+SAMPLE_ID_LIST_DOWNLOAD_URL = (
+    "https://fake-id-list-host/v1/download_id_list_file/"
+    "1i4Go90gg3pfnFYbKIqOXM%2F1BksscSGeQotm9oHQXiF1o"
+    "?sv=2020-10-02&se=2026-02-27T17%3A49%3A49Z&sr=b&sp=r"
+    "&sig=G%2BEmgpIiHgmanxPWSWdpLu3dUJ68HGb7vXNv0y28y4c%3D&k=secret-test"
+)
 
 
 class TestNetworkHTTPWorker(unittest.TestCase):
@@ -162,3 +173,142 @@ class TestNetworkHTTPWorker(unittest.TestCase):
             self.net.get_id_list(lambda *_: None, "http://test/no-forward-proxy/list_1", headers={})
 
         self.assertIsNone(captured_headers.get("x-request-service"))
+
+    def test_id_list_uses_sfp_download_endpoint_when_configured(self):
+        captured_url = {}
+        net = HttpWorker(
+            "secret-test",
+            StatsigOptions(
+                disable_diagnostics=True,
+                proxy_configs={
+                    NetworkEndpoint.DOWNLOAD_ID_LIST_FILE: ProxyConfig(
+                        proxy_address="http://test-proxy-id-list",
+                        protocol=NetworkProtocol.HTTP,
+                    )
+                },
+            ),
+            _StatsigMetadata.get(),
+            _StatsigErrorBoundary(),
+            Diagnostics(),
+            InitContext(),
+        )
+
+        def fake_request(_method, _url, *_args, **_kwargs):
+            captured_url["url"] = _url
+            return RequestResult(
+                data={},
+                status_code=200,
+                success=True,
+                error=None,
+                text="+1\r",
+                headers={"content-length": "3"},
+            )
+
+        with patch.object(net, "_run_request_with_strict_timeout", side_effect=fake_request):
+            net.get_id_list(lambda *_: None, SAMPLE_ID_LIST_DOWNLOAD_URL, headers={})
+
+        self.assertEqual(
+            captured_url.get("url"),
+            SAMPLE_ID_LIST_DOWNLOAD_URL.replace(
+                "https://fake-id-list-host",
+                "http://test-proxy-id-list",
+                1,
+            ),
+        )
+
+
+class TestStatsigNetwork(unittest.TestCase):
+
+    def test_get_id_list_prefers_download_id_list_file_worker(self):
+        metadata = _StatsigMetadata.get()
+        options = StatsigOptions(
+            disable_diagnostics=True,
+            proxy_configs={
+                NetworkEndpoint.DOWNLOAD_ID_LIST_FILE: ProxyConfig(
+                    proxy_address="http://test-proxy-id-list",
+                    protocol=NetworkProtocol.HTTP,
+                )
+            },
+        )
+        network = _StatsigNetwork(
+            "secret-test",
+            options,
+            metadata,
+            _StatsigErrorBoundary(),
+            Diagnostics(),
+            None,
+            InitContext(),
+        )
+
+        default_worker = HttpWorker(
+            "secret-test",
+            StatsigOptions(disable_diagnostics=True),
+            metadata,
+            _StatsigErrorBoundary(),
+            Diagnostics(),
+            InitContext(),
+        )
+        download_worker = HttpWorker(
+            "secret-test",
+            StatsigOptions(disable_diagnostics=True),
+            metadata,
+            _StatsigErrorBoundary(),
+            Diagnostics(),
+            InitContext(),
+        )
+        default_worker.get_id_list = MagicMock()
+        download_worker.get_id_list = MagicMock()
+
+        network.http_worker = default_worker
+        network.id_list_file_download_worker = download_worker
+        network.get_id_list(
+            lambda *_: None,
+            SAMPLE_ID_LIST_DOWNLOAD_URL,
+            {},
+            id_list_file_id="file_id_1",
+        )
+
+        download_worker.get_id_list.assert_called_once()
+        default_worker.get_id_list.assert_not_called()
+
+
+class TestSpecUpdater(unittest.TestCase):
+
+    def test_download_single_id_list_sends_id_list_file_size_header(self):
+        network = MagicMock()
+        network.get_id_list.side_effect = lambda on_complete, *_args, **_kwargs: on_complete(
+            RequestResult(
+                data={},
+                status_code=200,
+                success=True,
+                error=None,
+                text="+abc\r",
+                headers={"content-length": "5"},
+            )
+        )
+        updater = SpecUpdater(
+            network,
+            None,
+            StatsigOptions(disable_diagnostics=True),
+            Diagnostics(),
+            "secret-test",
+            _StatsigErrorBoundary(),
+            _StatsigMetadata.get(),
+            MagicMock(),
+            InitContext(),
+        )
+
+        local_list = {"ids": set(), "fileID": "file_id_1", "size": 123}
+        all_lists = {}
+        updater.download_single_id_list(
+            SAMPLE_ID_LIST_DOWNLOAD_URL,
+            "list_name",
+            local_list,
+            all_lists,
+            0,
+        )
+
+        network.get_id_list.assert_called_once()
+        headers = network.get_id_list.call_args.kwargs["headers"]
+        self.assertEqual(headers["Range"], "bytes=0-")
+        self.assertEqual(headers["statsig-id-list-file-size"], "123")

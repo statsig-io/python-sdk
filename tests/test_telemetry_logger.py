@@ -157,12 +157,15 @@ class TestTelemetryLogger(unittest.TestCase):
             "download_config_specs/.*", 200, new_config_spec
         )
         time.sleep(1.1)
-        self.assertEqual(len(ob_client._logs["distribution"]), 3)
-        self.assertEqual(
-            ob_client._logs["distribution"][1][0], "statsig.sdk.config_propagation_diff"
+        propagation_logs = self._metric_logs(
+            ob_client._logs["distribution"], "statsig.sdk.config_propagation_diff"
         )
-        self.assertIn("lcut", ob_client._logs["distribution"][1][2])
-        self.assertIn("prev_lcut", ob_client._logs["distribution"][1][2])
+        self.assertEqual(len(propagation_logs), 1)
+        self.assertEqual(
+            propagation_logs[0][0], "statsig.sdk.config_propagation_diff"
+        )
+        self.assertIn("lcut", propagation_logs[0][2])
+        self.assertIn("prev_lcut", propagation_logs[0][2])
 
     def test_ob_client_throw_exception(self, mock_request):
         ob_client = AlwaysThrowObClient()

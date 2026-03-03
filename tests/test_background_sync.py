@@ -173,6 +173,7 @@ class TestBackgroundSync(unittest.TestCase):
                 list_1=dict(
                     ids=set("1"),
                     readBytes=3,
+                    size=3,
                     url=self._api_override + "/list_1",
                     fileID="file_id_1",
                     creationTime=1,
@@ -180,6 +181,7 @@ class TestBackgroundSync(unittest.TestCase):
                 list_2=dict(
                     ids=set("a"),
                     readBytes=3,
+                    size=3,
                     url=self._api_override + "/list_2",
                     fileID="file_id_2",
                     creationTime=1,
@@ -201,6 +203,7 @@ class TestBackgroundSync(unittest.TestCase):
                 list_1=dict(
                     ids=set("2"),
                     readBytes=12,
+                    size=9,
                     url=self._api_override + "/list_1",
                     fileID="file_id_1",
                     creationTime=1,
@@ -221,6 +224,7 @@ class TestBackgroundSync(unittest.TestCase):
                 list_1=dict(
                     ids=set("3"),
                     readBytes=3,
+                    size=3,
                     url=self._api_override + "/list_1",
                     fileID="file_id_1_a",
                     creationTime=3,
@@ -242,6 +246,7 @@ class TestBackgroundSync(unittest.TestCase):
                 list_1=dict(
                     ids=set("3"),
                     readBytes=3,
+                    size=3,
                     url=self._api_override + "/list_1",
                     fileID="file_id_1_a",
                     creationTime=3,
@@ -263,6 +268,7 @@ class TestBackgroundSync(unittest.TestCase):
                 list_1=dict(
                     ids=set("3"),
                     readBytes=3,
+                    size=18,
                     url=self._api_override + "/list_1",
                     fileID="file_id_1_a",
                     creationTime=3,
@@ -270,6 +276,7 @@ class TestBackgroundSync(unittest.TestCase):
                 list_3=dict(
                     ids=set("0"),
                     readBytes=3,
+                    size=3,
                     url=self._api_override + "/list_3",
                     fileID="file_id_3",
                     creationTime=5,
@@ -291,6 +298,7 @@ class TestBackgroundSync(unittest.TestCase):
                 list_1=dict(
                     ids=set(["3", "5", "6"]),
                     readBytes=21,
+                    size=18,
                     url=self._api_override + "/list_1",
                     fileID="file_id_1_a",
                     creationTime=3,
@@ -298,6 +306,7 @@ class TestBackgroundSync(unittest.TestCase):
                 list_3=dict(
                     ids=set("0"),
                     readBytes=3,
+                    size=3,
                     url=self._api_override + "/list_3",
                     fileID="file_id_3",
                     creationTime=5,
