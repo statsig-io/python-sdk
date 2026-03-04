@@ -1,6 +1,5 @@
 import json
 import threading
-from concurrent.futures import wait, ThreadPoolExecutor
 from enum import Enum
 from typing import List, Optional, Dict, Set, Tuple, Union
 
@@ -46,7 +45,6 @@ class _SpecStore:
         self._error_boundary = error_boundary
         self._shutdown_event = shutdown_event
         self._diagnostics = diagnostics
-        self._executor = ThreadPoolExecutor(options.idlist_threadpool_size)
 
         self._configs: Dict[str, Dict] = {}
         self._gates: Dict[str, Dict] = {}
@@ -106,8 +104,6 @@ class _SpecStore:
             return
 
         self.spec_updater.shutdown()
-
-        self._executor.shutdown(wait=False)
 
     def get_gate(self, name: str):
         return self._gates.get(name)
@@ -291,7 +287,8 @@ class _SpecStore:
                 .start({"idListCount": len(server_id_lists)})
             )
             local_id_lists = self._id_lists
-            workers = []
+            success_count = 0
+            failed_count = 0
 
             for list_name in server_id_lists:
                 server_list = server_id_lists.get(list_name, {})
@@ -336,36 +333,21 @@ class _SpecStore:
                 if self._shutdown_event.is_set():
                     return
 
-                future = self._executor.submit(
-                    self.spec_updater.download_single_id_list,
-                    url,
-                    list_name,
-                    local_list,
-                    local_id_lists,
-                    read_bytes,
-                )
-                workers.append(future)
-
-            wait(workers, self._options.idlists_sync_interval)
-            success_count = 0
-            failed_count = 0
-            for worker in workers:
-                if not worker.done():
-                    failed_count += 1 # consider as failed
-                    continue
                 try:
-                    if worker.result():
+                    if self.spec_updater.download_single_id_list(
+                            url,
+                            list_name,
+                            local_list,
+                            local_id_lists,
+                            read_bytes,
+                    ):
                         success_count += 1
                     else:
                         failed_count += 1
                 except Exception:
                     failed_count += 1
 
-            source_api = self.context.source_api_id_lists or "unknown"
-            if success_count > 0:
-                globals.logger.log_id_list_sync_update(True, success_count, source_api)
-            if failed_count > 0:
-                globals.logger.log_id_list_sync_update(False, failed_count, source_api)
+            self.spec_updater.record_succeed_single_id_list_number(success_count)
 
             deleted_lists = []
             for list_name in local_id_lists:

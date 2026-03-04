@@ -12,7 +12,9 @@ from statsig import statsig, StatsigOptions, StatsigUser
 from statsig import globals
 from statsig.evaluation_details import DataSource
 from statsig.interface_observability_client import ObservabilityClient
-from statsig.statsig_telemetry_logger import SyncContext
+from statsig.version import __version__
+from statsig.statsig_telemetry_logger import SyncContext, StatsigTelemetryLogger
+from statsig.utils import get_partial_sdk_key
 from tests.network_stub import NetworkStub
 
 _network_stub = NetworkStub("http://test-telemetry-logger")
@@ -103,11 +105,15 @@ class TestTelemetryLogger(unittest.TestCase):
     def test_initialize(self, mock_request):
         ob_client = MockObservabilityClient()
         options = StatsigOptions(api=_network_stub.host, observability_client=ob_client)
-        statsig.initialize("secret-key", options)
-        self.assertEqual(len(ob_client._logs["distribution"]), 1)
-        self.assertEqual(
-            ob_client._logs["distribution"][0][0], "statsig.sdk.initialization"
+        sdk_key = "secret-key-123456789"
+        statsig.initialize(sdk_key, options)
+        initialization_logs = self._metric_logs(
+            ob_client._logs["distribution"], "statsig.sdk.initialization"
         )
+        self.assertEqual(len(initialization_logs), 1)
+        self.assertEqual(initialization_logs[0][2]["sdk_key"], get_partial_sdk_key(sdk_key))
+        self.assertEqual(initialization_logs[0][2]["sdk_type"], "py-server")
+        self.assertEqual(initialization_logs[0][2]["sdk_version"], __version__)
 
     def test_initialize_timeout(self, mock_request):
         ob_client = MockObservabilityClient()
@@ -115,10 +121,10 @@ class TestTelemetryLogger(unittest.TestCase):
             api=_network_stub.host, init_timeout=0.1, observability_client=ob_client
         )
         statsig.initialize("secret-key", options)
-        self.assertEqual(len(ob_client._logs["distribution"]), 1)
-        self.assertEqual(
-            ob_client._logs["distribution"][0][0], "statsig.sdk.initialization"
+        initialization_logs = self._metric_logs(
+            ob_client._logs["distribution"], "statsig.sdk.initialization"
         )
+        self.assertEqual(len(initialization_logs), 1)
 
     def test_no_update_counter(self, mock_request):
         _network_stub.stub_request_with_value(
@@ -131,10 +137,10 @@ class TestTelemetryLogger(unittest.TestCase):
             rulesets_sync_interval=0.5,
         )
         statsig.initialize("secret-key", options)
-        self.assertEqual(len(ob_client._logs["distribution"]), 1)
-        self.assertEqual(
-            ob_client._logs["distribution"][0][0], "statsig.sdk.initialization"
+        initialization_logs = self._metric_logs(
+            ob_client._logs["distribution"], "statsig.sdk.initialization"
         )
+        self.assertEqual(len(initialization_logs), 1)
         time.sleep(0.7)
         config_no_update_logs = self._metric_logs(
             ob_client._logs["increment"], "statsig.sdk.config_no_update"
@@ -149,7 +155,10 @@ class TestTelemetryLogger(unittest.TestCase):
             rulesets_sync_interval=1,
         )
         statsig.initialize("secret-key", options)
-        self.assertEqual(len(ob_client._logs["distribution"]), 1)
+        initialization_logs = self._metric_logs(
+            ob_client._logs["distribution"], "statsig.sdk.initialization"
+        )
+        self.assertEqual(len(initialization_logs), 1)
         new_config_spec = copy.deepcopy(PARSED_CONFIG_SPEC)
         if "time" in new_config_spec:
             new_config_spec["time"] += 1
@@ -253,107 +262,6 @@ class TestTelemetryLogger(unittest.TestCase):
         self.assertEqual(len(event_logs), 1)
         self.assertEqual(event_logs[0][1], 2)  # diagnostic event + gate check
 
-    def test_get_id_lists_and_id_list_download_metrics(self, mock_request):
-        _network_stub.stub_request_with_value(
-            "get_id_lists",
-            200,
-            {
-                "list_1": {
-                    "name": "list_1",
-                    "size": 3,
-                    "url": _network_stub.host + "/list_1",
-                    "creationTime": 1,
-                    "fileID": "file_id_1",
-                },
-                "list_2": {
-                    "name": "list_2",
-                    "size": 3,
-                    "url": _network_stub.host + "/list_2",
-                    "creationTime": 1,
-                    "fileID": "file_id_2",
-                },
-            },
-        )
-        _network_stub.stub_request_with_value("list_1", 200, "+1\r")
-        _network_stub.stub_request_with_value("list_2", 200, "+2\r")
-
-        ob_client = MockObservabilityClient()
-        options = StatsigOptions(api=_network_stub.host, observability_client=ob_client)
-        statsig.initialize("secret-key", options)
-
-        id_list_download_logs = self._metric_logs(
-            ob_client._logs["increment"], "statsig.sdk.id_list_download"
-        )
-        self.assertEqual(len(id_list_download_logs), 1)
-        self.assertEqual(id_list_download_logs[0][1], 2)
-        self.assertTrue(id_list_download_logs[0][2]["success"])
-        self.assertEqual(id_list_download_logs[0][2]["source_api"], "http://test-telemetry-logger/")
-
-
-    def test_get_id_lists_metric_failure(self, mock_request):
-        _network_stub.stub_request_with_value("get_id_lists", 500, {})
-
-        ob_client = MockObservabilityClient()
-        options = StatsigOptions(api=_network_stub.host, observability_client=ob_client)
-        statsig.initialize("secret-key", options)
-        id_list_download_logs = self._metric_logs(
-            ob_client._logs["increment"], "statsig.sdk.id_list_download"
-        )
-        self.assertEqual(len(id_list_download_logs), 0)
-
-    def test_id_list_download_failure_metrics(self, mock_request):
-        _network_stub.stub_request_with_value(
-            "get_id_lists",
-            200,
-            {
-                "bad_list": {
-                    "name": "bad_list",
-                    "size": 3,
-                    "url": _network_stub.host + "/bad_list",
-                    "creationTime": 1,
-                    "fileID": "file_id_bad",
-                },
-            },
-        )
-        _network_stub.stub_request_with_value("bad_list", 500, {})
-
-        ob_client = MockObservabilityClient()
-        options = StatsigOptions(api=_network_stub.host, observability_client=ob_client)
-        statsig.initialize("secret-key", options)
-
-        id_list_download_logs = self._metric_logs(
-            ob_client._logs["increment"], "statsig.sdk.id_list_download"
-        )
-        self.assertEqual(len(id_list_download_logs), 1)
-        self.assertEqual(id_list_download_logs[0][1], 1)
-        self.assertFalse(id_list_download_logs[0][2]["success"])
-        self.assertEqual(id_list_download_logs[0][2]["source_api"], "http://test-telemetry-logger/")
-
-    def test_background_sync_count_metrics(self, mock_request):
-        ob_client = MockObservabilityClient()
-        options = StatsigOptions(api=_network_stub.host, observability_client=ob_client)
-        statsig.initialize("secret-key", options)
-        ob_client._logs["distribution"].clear()
-
-        globals.logger.log_sync_attempt(SyncContext.DCS, "Network", True, "http://test", 123.0)
-        globals.logger.log_sync_attempt(
-            SyncContext.ID_LISTS, "StatsigNetwork", False, "http://test", 456.0
-        )
-
-        attempt_logs = self._metric_logs(
-            ob_client._logs["distribution"], "statsig.sdk.background_sync_duration_ms"
-        )
-        self.assertEqual(len(attempt_logs), 2)
-        attempt_logs_by_context = {log[2]["context"]: log for log in attempt_logs}
-        self.assertEqual(attempt_logs_by_context["dcs"][1], 123.0)
-        self.assertEqual(attempt_logs_by_context["dcs"][2]["source"], "Network")
-        self.assertTrue(attempt_logs_by_context["dcs"][2]["success"])
-        self.assertFalse(attempt_logs_by_context["dcs"][2]["fallback_used"])
-        self.assertEqual(attempt_logs_by_context["id_lists"][1], 456.0)
-        self.assertEqual(attempt_logs_by_context["id_lists"][2]["source"], "StatsigNetwork")
-        self.assertFalse(attempt_logs_by_context["id_lists"][2]["success"])
-        self.assertTrue(attempt_logs_by_context["id_lists"][2]["fallback_used"])
-
     def test_initialize_does_not_emit_background_sync_metrics(self, mock_request):
         ob_client = MockObservabilityClient()
         options = StatsigOptions(api=_network_stub.host, observability_client=ob_client)
@@ -363,3 +271,80 @@ class TestTelemetryLogger(unittest.TestCase):
             ob_client._logs["distribution"], "statsig.sdk.background_sync_duration_ms"
         )
         self.assertEqual(len(attempt_logs), 0)
+
+    def test_background_id_lists_overall_metrics(self, mock_request):
+        ob_client = MockObservabilityClient()
+        logger = StatsigTelemetryLogger(ob_client=ob_client)
+        logger.init()
+
+        logger.log_background_id_lists_overall(
+            duration_ms=123.0,
+            id_list_manifest_success=True,
+            succeed_single_id_list_number=2,
+        )
+
+        latency_logs = self._metric_logs(
+            ob_client._logs["distribution"],
+            "statsig.sdk.id_lists_sync_overall.latency",
+        )
+
+        self.assertEqual(len(latency_logs), 1)
+        self.assertEqual(latency_logs[0][1], 123.0)
+        self.assertEqual(
+            latency_logs[0][2],
+            {
+                "id_list_manifest_success": True,
+                "succeed_single_id_list_number": 2,
+            },
+        )
+
+    def test_background_config_overall_metrics(self, mock_request):
+        ob_client = MockObservabilityClient()
+        logger = StatsigTelemetryLogger(ob_client=ob_client)
+        logger.init()
+
+        logger.log_background_config_overall(
+            source_api="http://test",
+            error="source_failure",
+            source_success=False,
+            process_success=True,
+            duration_ms=321.0,
+            response_format="json",
+        )
+
+        latency_logs = self._metric_logs(
+            ob_client._logs["distribution"],
+            "statsig.sdk.config_sync_overall.latency",
+        )
+        self.assertEqual(len(latency_logs), 1)
+        self.assertEqual(latency_logs[0][1], 321.0)
+        self.assertEqual(latency_logs[0][2]["source_api"], "http://test")
+        self.assertEqual(latency_logs[0][2]["format"], "json")
+        self.assertEqual(latency_logs[0][2]["error"], "source_failure")
+        self.assertFalse(latency_logs[0][2]["source_success"])
+        self.assertTrue(latency_logs[0][2]["process_success"])
+
+    def test_network_latency_metric(self, mock_request):
+        ob_client = MockObservabilityClient()
+        logger = StatsigTelemetryLogger(ob_client=ob_client)
+        logger.init()
+
+        logger.log_network_request_latency(
+            duration_ms=45.0,
+            status_code=200,
+            source_service="https://api.statsigcdn.com",
+            partial_sdk_key="secret-key",
+            request_path="id_lists",
+        )
+
+        latency_logs = self._metric_logs(
+            ob_client._logs["distribution"],
+            "statsig.sdk.network_request.latency",
+        )
+        self.assertEqual(len(latency_logs), 1)
+        self.assertEqual(latency_logs[0][1], 45.0)
+        self.assertEqual(latency_logs[0][2]["status_code"], 200)
+        self.assertEqual(latency_logs[0][2]["source_service"], "https://api.statsigcdn.com")
+        self.assertEqual(latency_logs[0][2]["sdk_key"], "secret-key")
+        self.assertEqual(latency_logs[0][2]["request_path"], "id_lists")
+        self.assertTrue(latency_logs[0][2]["is_success"])
