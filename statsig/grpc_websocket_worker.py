@@ -205,6 +205,7 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
             since_time: int = 0,
             log_on_exception: Optional[bool] = False,
             init_timeout: Optional[int] = None,
+            request_context: Optional[str] = None,
     ):
         self.context.source_api = self.proxy_config.proxy_address
         self._diagnostics.add_marker(
@@ -250,7 +251,8 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
             self,
             on_complete: Callable,
             log_on_exception: Optional[bool] = False,
-            init_timeout: Optional[int] = None
+            init_timeout: Optional[int] = None,
+            request_context: Optional[str] = None,
     ):
         raise NotImplementedError("Get ID Lists is not supported yet for gRPC streaming")
 

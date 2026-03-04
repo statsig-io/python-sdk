@@ -187,11 +187,12 @@ class _StatsigNetwork:
             since_time: int = 0,
             log_on_exception: Optional[bool] = False,
             init_timeout: Optional[int] = None,
+            request_context: Optional[str] = None,
     ):
         if self.options.local_mode:
             globals.logger.warning("Local mode is enabled. Not fetching DCS.")
             return
-        self.dcs_worker.get_dcs(on_complete, since_time, log_on_exception, init_timeout)
+        self.dcs_worker.get_dcs(on_complete, since_time, log_on_exception, init_timeout, request_context)
 
     def get_dcs_fallback(
             self,
@@ -199,6 +200,7 @@ class _StatsigNetwork:
             since_time: int = 0,
             log_on_exception: Optional[bool] = False,
             init_timeout: Optional[int] = None,
+            request_context: Optional[str] = None,
     ):
         if self.options.local_mode:
             globals.logger.warning("Local mode is enabled. Not fetching DCS with fallback.")
@@ -211,24 +213,28 @@ class _StatsigNetwork:
         )
         if is_proxy_dcs:
             self.context.fallback_spec_used = True
-            self.http_worker.get_dcs_fallback(on_complete, since_time, log_on_exception, init_timeout)
+            self.http_worker.get_dcs_fallback(
+                on_complete, since_time, log_on_exception, init_timeout, request_context
+            )
 
     def get_id_lists(
             self,
             on_complete: Any,
             log_on_exception: Optional[bool] = False,
             init_timeout: Optional[int] = None,
+            request_context: Optional[str] = None,
     ):
         if self.options.local_mode:
             globals.logger.warning("Local mode is enabled. Not fetching ID Lists.")
             return
-        self.id_list_worker.get_id_lists(on_complete, log_on_exception, init_timeout)
+        self.id_list_worker.get_id_lists(on_complete, log_on_exception, init_timeout, request_context)
 
     def get_id_lists_fallback(
             self,
             on_complete: Any,
             log_on_exception: Optional[bool] = False,
             init_timeout: Optional[int] = None,
+            request_context: Optional[str] = None,
     ):
         if self.options.local_mode:
             globals.logger.warning("Local mode is enabled. Not fetching ID Lists with fallback.")
@@ -243,7 +249,9 @@ class _StatsigNetwork:
                 id_list_proxy and id_list_proxy.proxy_address != STATSIG_CDN)
         if is_id_lists_proxy:
             self.context.fallback_id_lists_used = True
-            self.http_worker.get_id_lists_fallback(on_complete, log_on_exception, init_timeout)
+            self.http_worker.get_id_lists_fallback(
+                on_complete, log_on_exception, init_timeout, request_context
+            )
 
     def get_id_list(
             self,
@@ -252,6 +260,7 @@ class _StatsigNetwork:
             headers,
             log_on_exception: Optional[bool] = False,
             id_list_file_id: Optional[str] = None,
+            request_context: Optional[str] = None,
     ):
         if self.options.local_mode:
             globals.logger.warning("Local mode is enabled. Not fetching ID List.")
@@ -262,6 +271,7 @@ class _StatsigNetwork:
             headers,
             log_on_exception,
             id_list_file_id,
+            request_context,
         )
 
     def log_events(self, payload, headers=None, log_on_exception=False, retry=0) -> RequestResult:

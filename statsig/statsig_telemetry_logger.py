@@ -17,6 +17,11 @@ class SyncContext(Enum):
     ID_LISTS = "id_lists"
 
 
+class NetworkRequestContext(Enum):
+    INITIALIZE = "initialize"
+    BACKGROUND_SYNC = "background_sync"
+
+
 class NoopObservabilityClient(ObservabilityClient):
     noop = True
 
@@ -221,6 +226,7 @@ class StatsigTelemetryLogger(AutoTryCatch):
         source_service: Optional[str],
         partial_sdk_key: Optional[str],
         request_path: Optional[str],
+        context: str,
         extra_tags: Optional[Dict[str, Any]] = None,
     ) -> None:
         metric_tags = {
@@ -228,6 +234,7 @@ class StatsigTelemetryLogger(AutoTryCatch):
             "source_service": source_service or "unknown",
             "sdk_key": partial_sdk_key or "",
             "request_path": request_path or "unknown",
+            "context": context,
             "is_success": status_code is not None and 200 <= status_code < 300,
         }
         if extra_tags:

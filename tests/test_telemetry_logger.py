@@ -335,6 +335,7 @@ class TestTelemetryLogger(unittest.TestCase):
             source_service="https://api.statsigcdn.com",
             partial_sdk_key="secret-key",
             request_path="id_lists",
+            context="background_sync",
         )
 
         latency_logs = self._metric_logs(
@@ -347,4 +348,5 @@ class TestTelemetryLogger(unittest.TestCase):
         self.assertEqual(latency_logs[0][2]["source_service"], "https://api.statsigcdn.com")
         self.assertEqual(latency_logs[0][2]["sdk_key"], "secret-key")
         self.assertEqual(latency_logs[0][2]["request_path"], "id_lists")
+        self.assertEqual(latency_logs[0][2]["context"], "background_sync")
         self.assertTrue(latency_logs[0][2]["is_success"])

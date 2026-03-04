@@ -14,6 +14,7 @@ from .statsig_error_boundary import _StatsigErrorBoundary
 from .statsig_errors import StatsigValueError, StatsigNameError
 from .statsig_network import _StatsigNetwork
 from .statsig_options import StatsigOptions
+from .statsig_telemetry_logger import NetworkRequestContext
 from .thread_util import spawn_background_thread, THREAD_JOIN_TIMEOUT
 from .utils import djb2_hash
 
@@ -86,11 +87,19 @@ class SpecUpdater:
                 self.bootstrap_config_specs()
             elif source is DataSource.NETWORK:
                 self._network.get_dcs(
-                    self._on_dcs_complete, self.last_update_time, True, init_timeout
+                    self._on_dcs_complete,
+                    self.last_update_time,
+                    True,
+                    init_timeout,
+                    NetworkRequestContext.INITIALIZE.value if for_initialize else NetworkRequestContext.BACKGROUND_SYNC.value,
                 )
             elif source is DataSource.STATSIG_NETWORK:
                 self._network.get_dcs_fallback(
-                    self._on_dcs_complete, self.last_update_time, True, init_timeout
+                    self._on_dcs_complete,
+                    self.last_update_time,
+                    True,
+                    init_timeout,
+                    NetworkRequestContext.INITIALIZE.value if for_initialize else NetworkRequestContext.BACKGROUND_SYNC.value,
                 )
         except Exception as e:
             if not for_initialize:
@@ -319,7 +328,12 @@ class SpecUpdater:
                 init_timeout = self._options.init_timeout
 
             start_time_ms = time.time() * 1000
-            self._network.get_id_lists(on_complete, False, init_timeout)
+            request_context = (
+                NetworkRequestContext.INITIALIZE.value
+                if for_initialize
+                else NetworkRequestContext.BACKGROUND_SYNC.value
+            )
+            self._network.get_id_lists(on_complete, False, init_timeout, request_context)
             if not for_initialize:
                 globals.logger.log_background_id_lists_overall(
                     duration_ms=time.time() * 1000 - start_time_ms,
@@ -331,7 +345,12 @@ class SpecUpdater:
             if result[0] is False and self._options.fallback_to_statsig_api:
                 self.record_succeed_single_id_list_number(0)
                 start_time_ms = time.time() * 1000
-                self._network.get_id_lists_fallback(on_complete, False, init_timeout)
+                self._network.get_id_lists_fallback(
+                    on_complete,
+                    False,
+                    init_timeout,
+                    request_context,
+                )
                 if not for_initialize:
                     globals.logger.log_background_id_lists_overall(
                         duration_ms=time.time() * 1000 - start_time_ms,
@@ -408,6 +427,11 @@ class SpecUpdater:
             url,
             headers=headers,
             id_list_file_id=local_list.get("fileID"),
+            request_context=(
+                NetworkRequestContext.BACKGROUND_SYNC.value
+                if self.initialized
+                else NetworkRequestContext.INITIALIZE.value
+            ),
         )
         return result[0]
 

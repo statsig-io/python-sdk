@@ -27,7 +27,7 @@ class GRPCWorker(IStatsigNetworkWorker):
         return False
 
     def get_dcs(self, on_complete: Callable, since_time: int = 0, log_on_exception: Optional[bool] = False,
-                init_timeout: Optional[int] = None):
+                init_timeout: Optional[int] = None, request_context: Optional[str] = None):
         request = ConfigSpecRequest(sdkKey=self.sdk_key, sinceTime=since_time)
         try:
             self.context.source_api = self.proxy_config.proxy_address
@@ -37,7 +37,7 @@ class GRPCWorker(IStatsigNetworkWorker):
             on_complete(DataSource.NETWORK, None, e)
 
     def get_id_lists(self, on_complete: Callable, log_on_exception: Optional[bool] = False,
-                     init_timeout: Optional[int] = None):
+                     init_timeout: Optional[int] = None, request_context: Optional[str] = None):
         raise NotImplementedError('Not supported yet')
 
     def log_events(self, payload, headers=None, log_on_exception=False, retry=0):

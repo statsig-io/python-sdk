@@ -50,6 +50,7 @@ class IStatsigNetworkWorker:
             since_time: int = 0,
             log_on_exception: Optional[bool] = False,
             init_timeout: Optional[int] = None,
+            request_context: Optional[str] = None,
     ):
         pass
 
@@ -58,6 +59,7 @@ class IStatsigNetworkWorker:
             on_complete: Callable,
             log_on_exception: Optional[bool] = False,
             init_timeout: Optional[int] = None,
+            request_context: Optional[str] = None,
     ):
         pass
 
@@ -68,6 +70,7 @@ class IStatsigNetworkWorker:
             headers,
             log_on_exception: Optional[bool] = False,
             id_list_file_id: Optional[str] = None,
+            request_context: Optional[str] = None,
     ):
         pass
 
@@ -80,6 +83,7 @@ class IStatsigNetworkWorker:
             since_time: int = 0,
             log_on_exception: Optional[bool] = False,
             init_timeout: Optional[int] = None,
+            request_context: Optional[str] = None,
     ):
         pass
 
@@ -88,6 +92,7 @@ class IStatsigNetworkWorker:
             on_complete: Any,
             log_on_exception: Optional[bool] = False,
             init_timeout: Optional[int] = None,
+            request_context: Optional[str] = None,
     ):
         pass
 
