@@ -1,5 +1,6 @@
 import unittest
 from unittest.mock import MagicMock, patch
+from urllib.parse import urlparse
 from uuid import uuid4
 
 from statsig import StatsigOptions
@@ -348,6 +349,16 @@ class TestStatsigNetwork(unittest.TestCase):
 
 class TestSpecUpdater(unittest.TestCase):
 
+    class _TestDataStore:
+        def __init__(self, data=None):
+            self.data = data or {}
+
+        def get(self, key: str):
+            return self.data.get(key)
+
+        def set(self, key: str, value: str):
+            self.data[key] = value
+
     def test_download_single_id_list_sends_id_list_file_size_header(self):
         network = MagicMock()
         network.get_id_list.side_effect = lambda on_complete, *_args, **_kwargs: on_complete(
@@ -386,3 +397,104 @@ class TestSpecUpdater(unittest.TestCase):
         headers = network.get_id_list.call_args.kwargs["headers"]
         self.assertEqual(headers["Range"], "bytes=0-")
         self.assertEqual(headers["statsig-id-list-file-size"], "123")
+
+    def test_download_single_id_list_uses_data_store_with_file_id_key(self):
+        data_store = self._TestDataStore({
+            "/v1/download_id_list_file/file_id_1": "+1\r-1\r+2\r",
+        })
+        network = MagicMock()
+        updater = SpecUpdater(
+            network,
+            data_store,
+            StatsigOptions(disable_diagnostics=True, data_store=data_store),
+            Diagnostics(),
+            "secret-test",
+            _StatsigErrorBoundary(),
+            _StatsigMetadata.get(),
+            MagicMock(),
+            InitContext(),
+        )
+
+        local_list = {
+            "ids": set(["1"]),
+            "fileID": "file_id_1",
+            "size": 9,
+        }
+        all_lists = {}
+
+        success = updater.download_single_id_list(
+            "https://fake-id-list-host/list_1",
+            "list_name",
+            local_list,
+            all_lists,
+            3,
+        )
+
+        self.assertTrue(success)
+        network.get_id_list.assert_not_called()
+        self.assertEqual(all_lists["list_name"]["ids"], set(["2"]))
+        self.assertEqual(all_lists["list_name"]["readBytes"], 9)
+
+    def test_download_single_id_list_appends_network_suffix_to_data_store(self):
+        data_store_key = urlparse(SAMPLE_ID_LIST_DOWNLOAD_URL).path
+        data_store = self._TestDataStore()
+        network = MagicMock()
+        responses = [
+            RequestResult(
+                data={},
+                status_code=200,
+                success=True,
+                error=None,
+                text="+1\r",
+                headers={"content-length": "3"},
+            ),
+            RequestResult(
+                data={},
+                status_code=200,
+                success=True,
+                error=None,
+                text="-1\r+2\r",
+                headers={"content-length": "6"},
+            ),
+        ]
+        network.get_id_list.side_effect = lambda on_complete, *_args, **_kwargs: on_complete(
+            responses.pop(0)
+        )
+        updater = SpecUpdater(
+            network,
+            data_store,
+            StatsigOptions(disable_diagnostics=True, data_store=data_store),
+            Diagnostics(),
+            "secret-test",
+            _StatsigErrorBoundary(),
+            _StatsigMetadata.get(),
+            MagicMock(),
+            InitContext(),
+        )
+
+        local_list = {"ids": set(), "fileID": "file_id_1", "size": 3}
+        all_lists = {}
+        self.assertTrue(
+            updater.download_single_id_list(
+                SAMPLE_ID_LIST_DOWNLOAD_URL,
+                "list_name",
+                local_list,
+                all_lists,
+                0,
+            )
+        )
+        self.assertEqual(data_store.data[data_store_key], "+1\r")
+
+        local_list["size"] = 9
+        self.assertTrue(
+            updater.download_single_id_list(
+                SAMPLE_ID_LIST_DOWNLOAD_URL,
+                "list_name",
+                local_list,
+                all_lists,
+                3,
+            )
+        )
+        self.assertEqual(data_store.data[data_store_key], "+1\r-1\r+2\r")
+        self.assertEqual(all_lists["list_name"]["ids"], set(["2"]))
+        self.assertEqual(all_lists["list_name"]["readBytes"], 9)

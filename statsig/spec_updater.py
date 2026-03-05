@@ -2,6 +2,7 @@ import json
 import threading
 import time
 from typing import Optional, Callable, List, Tuple
+from urllib.parse import urlparse
 
 from . import globals
 from .diagnostics import Diagnostics, Marker, Context, Key
@@ -22,6 +23,7 @@ RULESETS_SYNC_INTERVAL = 10
 IDLISTS_SYNC_INTERVAL = 60
 SYNC_OUTDATED_MAX_S = 120
 STORAGE_ADAPTER_KEY = "statsig.cache"
+DOWNLOAD_ID_LIST_FILE_DATASTORE_PATH_PREFIX = "/v1/download_id_list_file/"
 
 
 class SpecUpdater:
@@ -264,6 +266,141 @@ class SpecUpdater:
 
         self._options.data_store.set(STORAGE_ADAPTER_KEY, json.dumps(specs))
 
+    def _get_id_list_file_data_store_key(
+            self,
+            url: str,
+            id_list_file_id: Optional[str],
+    ) -> Optional[str]:
+        parsed_path = urlparse(url).path
+        if parsed_path.startswith(DOWNLOAD_ID_LIST_FILE_DATASTORE_PATH_PREFIX):
+            return parsed_path
+        if id_list_file_id:
+            return f"{DOWNLOAD_ID_LIST_FILE_DATASTORE_PATH_PREFIX}{id_list_file_id}"
+        return None
+
+    def _normalize_data_store_value(self, value) -> Optional[str]:
+        if isinstance(value, str):
+            return value
+        if isinstance(value, bytes):
+            try:
+                return value.decode("utf-8")
+            except UnicodeDecodeError:
+                return None
+        return None
+
+    def _apply_downloaded_id_list_content(
+            self,
+            list_name: str,
+            local_list: dict,
+            all_lists: dict,
+            start_index: int,
+            content: str,
+            content_length: int,
+    ) -> None:
+        if not content:
+            raise StatsigValueError("ID list content is empty.")
+
+        first_char = content[0]
+        if first_char not in ("+", "-"):
+            raise StatsigNameError("Seek range invalid.")
+
+        ids = local_list.get("ids")
+        if not isinstance(ids, set):
+            ids = set(ids or [])
+            local_list["ids"] = ids
+
+        for line in content.splitlines():
+            if len(line) <= 1:
+                continue
+            op = line[0]
+            id_value = line[1:].strip()
+            if op == "+":
+                ids.add(id_value)
+            elif op == "-":
+                ids.discard(id_value)
+
+        local_list["readBytes"] = start_index + content_length
+        all_lists[list_name] = local_list
+
+    def _load_id_list_file_from_data_store(
+            self,
+            data_store_key: Optional[str],
+            list_name: str,
+            local_list: dict,
+            all_lists: dict,
+            start_index: int,
+    ) -> bool:
+        if self._options.data_store is None:
+            return False
+
+        if data_store_key is None:
+            return False
+
+        try:
+            cached_value = self._options.data_store.get(data_store_key)
+            cached_content = self._normalize_data_store_value(cached_value)
+            if cached_content is None:
+                return False
+
+            cached_bytes = cached_content.encode("utf-8")
+            expected_size = local_list.get("size")
+            if expected_size is not None:
+                if len(cached_bytes) < expected_size:
+                    return False
+                cached_bytes = cached_bytes[:expected_size]
+
+            if start_index > len(cached_bytes):
+                return False
+
+            remaining_bytes = cached_bytes[start_index:]
+            remaining_content = remaining_bytes.decode("utf-8")
+            self._apply_downloaded_id_list_content(
+                list_name,
+                local_list,
+                all_lists,
+                start_index,
+                remaining_content,
+                len(remaining_bytes),
+            )
+            return True
+        except Exception as e:
+            self._error_boundary.log_exception(
+                "_download_single_id_list_from_data_store",
+                e,
+            )
+            return False
+
+    def _save_id_list_file_to_data_store(
+            self,
+            data_store_key: Optional[str],
+            content: str,
+            start_index: int,
+    ) -> None:
+        if self._options.data_store is None:
+            return
+
+        if data_store_key is None:
+            return
+
+        try:
+            if start_index == 0:
+                self._options.data_store.set(data_store_key, content)
+                return
+
+            cached_value = self._options.data_store.get(data_store_key)
+            cached_content = self._normalize_data_store_value(cached_value)
+            if cached_content is None:
+                return
+
+            cached_bytes = cached_content.encode("utf-8")
+            if len(cached_bytes) < start_index:
+                return
+
+            updated_bytes = cached_bytes[:start_index] + content.encode("utf-8")
+            self._options.data_store.set(data_store_key, updated_bytes.decode("utf-8"))
+        except Exception as e:
+            self._error_boundary.log_exception("_save_id_list_file_to_data_store", e)
+
     def is_specs_json_valid(self, specs_json):
         if specs_json is None or specs_json.get("time") is None:
             return False
@@ -369,6 +506,19 @@ class SpecUpdater:
             self, url, list_name, local_list, all_lists, start_index
     ):
         result = [False]
+        data_store_key = self._get_id_list_file_data_store_key(
+            url,
+            local_list.get("fileID"),
+        )
+
+        if self._load_id_list_file_from_data_store(
+                data_store_key,
+                list_name,
+                local_list,
+                all_lists,
+                start_index,
+        ):
+            return True
 
         def on_complete(resp: RequestResult):
             if resp is None:
@@ -385,21 +535,19 @@ class SpecUpdater:
                 content = resp.text
                 if content is None:
                     return
-                first_char = content[0]
-                if first_char not in ("+", "-"):
-                    raise StatsigNameError("Seek range invalid.")
-                lines = content.splitlines()
-                for line in lines:
-                    if len(line) <= 1:
-                        continue
-                    op = line[0]
-                    id = line[1:].strip()
-                    if op == "+":
-                        local_list.get("ids", set()).add(id)
-                    elif op == "-":
-                        local_list.get("ids", set()).discard(id)
-                local_list["readBytes"] = start_index + content_length
-                all_lists[list_name] = local_list
+                self._apply_downloaded_id_list_content(
+                    list_name,
+                    local_list,
+                    all_lists,
+                    start_index,
+                    content,
+                    content_length,
+                )
+                self._save_id_list_file_to_data_store(
+                    data_store_key,
+                    content,
+                    start_index,
+                )
                 result[0] = True
             except Exception as e:
                 threw_error = True
