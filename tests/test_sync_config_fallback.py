@@ -192,11 +192,13 @@ class TestSyncConfigFallback(unittest.TestCase):
     def test_service_name_header_sent_without_forward_proxy_url(self, mock_request):
         headers_verified = False
         captured_service_name = None
+        captured_user_agent = None
 
         def verify_headers(url, **kwargs):
-            nonlocal headers_verified, captured_service_name
+            nonlocal headers_verified, captured_service_name, captured_user_agent
             request_headers = kwargs.get("headers", {})
             captured_service_name = request_headers.get("x-request-service")
+            captured_user_agent = request_headers.get("User-Agent")
             headers_verified = True
             return PARSED_CONFIG_SPEC
 
@@ -212,6 +214,8 @@ class TestSyncConfigFallback(unittest.TestCase):
 
         self.assertTrue(headers_verified, "Service name header was not verified")
         self.assertEqual(captured_service_name, "unit-test-service")
+        self.assertIn("statsig-sdk-type/py-server", captured_user_agent)
+        self.assertIn("statsig-service/unit-test-service", captured_user_agent)
 
     def wait_for_sync_and_validate(self):
         _network_stub.stub_statsig_api_request_with_value("download_config_specs/.*", 200,

@@ -3,6 +3,8 @@ from unittest.mock import MagicMock, patch
 from urllib.parse import urlparse
 from uuid import uuid4
 
+from requests.utils import default_user_agent
+
 from statsig import StatsigOptions
 from statsig import globals
 from statsig.diagnostics import Diagnostics
@@ -93,6 +95,26 @@ class TestNetworkHTTPWorker(unittest.TestCase):
         request_session = self.net._HttpWorker__request_session
         self.assertEqual(request_session.headers.get("Connection"), "close")
 
+    def test_prepare_headers_includes_cloudflare_visible_user_agent_metadata(self):
+        self.net._HttpWorker__service_name = "checkout api"
+        self.net._HttpWorker__statsig_metadata = {
+            "sessionID": "session-id",
+            "sdkType": "py-server",
+            "sdkVersion": "1.2.3+dev build",
+        }
+
+        headers = self.net._prepare_headers(None, zipped=False)
+
+        self.assertEqual(
+            headers["User-Agent"],
+            (
+                f"{default_user_agent()} "
+                "statsig-sdk-type/py-server "
+                "statsig-sdk-version/1.2.3+dev-build "
+                "statsig-service/checkout-api"
+            ),
+        )
+
     def test_dcs_service_header_sent_for_forward_proxy_url(self):
         captured_headers = {}
         self.net._HttpWorker__service_name = "unit-test-service"
@@ -106,6 +128,12 @@ class TestNetworkHTTPWorker(unittest.TestCase):
             self.net.get_dcs(lambda *_: None)
 
         self.assertEqual(captured_headers.get("x-request-service"), "unit-test-service")
+        self.assertIn("statsig-sdk-type/py-server", captured_headers.get("User-Agent", ""))
+        self.assertIn(
+            f"statsig-sdk-version/{self.net._HttpWorker__statsig_metadata['sdkVersion']}",
+            captured_headers.get("User-Agent", ""),
+        )
+        self.assertIn("statsig-service/unit-test-service", captured_headers.get("User-Agent", ""))
 
     def test_dcs_service_header_sent_without_forward_proxy_url(self):
         captured_headers = {}

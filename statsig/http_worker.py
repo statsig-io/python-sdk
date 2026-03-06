@@ -11,6 +11,7 @@ from typing import Callable, Tuple, Optional, Any, Dict, List
 
 import ijson
 import requests
+from requests.utils import default_user_agent
 
 from .stream_decompressor import StreamDecompressor
 
@@ -33,6 +34,9 @@ REQUEST_TIMEOUT = 20
 class HttpWorker(IStatsigNetworkWorker):
     _raise_on_error = False
     __RETRY_CODES = [408, 500, 502, 503, 504, 522, 524, 599]
+    __USER_AGENT_SAFE_CHARS = set(
+        "!#$%&'*+-.^_`|~0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+    )
 
     def __init__(
         self,
@@ -488,6 +492,7 @@ class HttpWorker(IStatsigNetworkWorker):
     ) -> Dict[str, Any]:
         base_headers = {
             "Content-type": "application/json",
+            "User-Agent": self._build_user_agent(),
             "STATSIG-API-KEY": self.__sdk_key,
             "STATSIG-CLIENT-TIME": str(round(time.time() * 1000)),
             "STATSIG-SERVER-SESSION-ID": self.__statsig_metadata["sessionID"],
@@ -505,6 +510,32 @@ class HttpWorker(IStatsigNetworkWorker):
             base_headers.update(headers)
 
         return base_headers
+
+    def _build_user_agent(self) -> str:
+        sdk_type = self._sanitize_user_agent_token(
+            self.__statsig_metadata.get("sdkType", "unknown")
+        )
+        sdk_version = self._sanitize_user_agent_token(
+            self.__statsig_metadata.get("sdkVersion", "unknown")
+        )
+        service_name = self._sanitize_user_agent_token(self.__service_name)
+        return (
+            f"{default_user_agent()} "
+            f"statsig-sdk-type/{sdk_type} "
+            f"statsig-sdk-version/{sdk_version} "
+            f"statsig-service/{service_name}"
+        )
+
+    @classmethod
+    def _sanitize_user_agent_token(cls, value: Any) -> str:
+        if value is None:
+            return "unknown"
+
+        sanitized = "".join(
+            char if char in cls.__USER_AGENT_SAFE_CHARS else "-"
+            for char in str(value)
+        ).strip("-")
+        return sanitized or "unknown"
 
     def _zip_payload(self, payload: str) -> bytes:
         btsio = BytesIO()
