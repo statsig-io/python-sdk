@@ -45,6 +45,7 @@ setup(
         "ijson",
         "typing-extensions",
         "brotli",
+        "httpx[http2]",
     ],
     tests_require=test_deps,
     extras_require=extras,

@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Optional, Union, Callable, Dict, Any
+from typing import List, Optional, Set, Union, Callable, Dict, Any
 
 from .utils import JSONValue, to_raw_dict_or_none
 
@@ -119,6 +119,7 @@ class StatsigOptions:
             disable_ua_parser: bool = False,
             disable_country_lookup: bool = False,
             service_name: Optional[str] = None,
+            experimental_flags: Optional[Set[str]] = None,
     ):
         self.data_store = data_store
         self._environment: Union[None, dict] = None
@@ -175,6 +176,7 @@ class StatsigOptions:
         self.service_name = service_name
         self._set_logging_copy()
         self._attributes_changed = False
+        self.experimental_flags = experimental_flags
 
     def __setattr__(self, name, value):
         if name.startswith("_"):

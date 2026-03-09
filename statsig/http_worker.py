@@ -11,9 +11,10 @@ from typing import Callable, Tuple, Optional, Any, Dict, List
 
 import ijson
 import requests
+import httpx
 from requests.utils import default_user_agent
 
-from .stream_decompressor import StreamDecompressor
+from .stream_decompressor import HttpxRawReader, StreamDecompressor
 
 from . import globals
 from .diagnostics import Diagnostics, Marker
@@ -23,7 +24,13 @@ from .request_result import RequestResult
 from .sdk_configs import _SDK_Configs
 from .statsig_context import InitContext
 from .statsig_error_boundary import _StatsigErrorBoundary
-from .statsig_options import ProxyConfig, StatsigOptions, STATSIG_API, STATSIG_CDN, AuthenticationMode
+from .statsig_options import (
+    ProxyConfig,
+    StatsigOptions,
+    STATSIG_API,
+    STATSIG_CDN,
+    AuthenticationMode,
+)
 from .statsig_telemetry_logger import NetworkRequestContext
 from .utils import get_partial_sdk_key
 from .grpc_websocket_worker import load_credential_from_file
@@ -37,6 +44,10 @@ class HttpWorker(IStatsigNetworkWorker):
     __USER_AGENT_SAFE_CHARS = set(
         "!#$%&'*+-.^_`|~0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
     )
+    __statsig_httpx_client: Optional[httpx.Client] = None
+    __httpx_client: Optional[httpx.Client] = None
+    __statsig_request_session: Optional[requests.Session] = None
+    __request_session: Optional[requests.Session] = None
 
     def __init__(
         self,
@@ -60,11 +71,14 @@ class HttpWorker(IStatsigNetworkWorker):
         self.__diagnostics = diagnostics
         self.__request_count = 0
         self.__temp_cert_files: List[str] = []
-        self.__statsig_request_session = requests.Session()
-        self.__request_session = requests.Session()
-        self.__request_session.headers.update({
-            "Connection": "close"
-        })
+
+        if self.__check_httpx_flag(options):
+            self.__statsig_httpx_client = _create_httpx_client()
+            self.__httpx_client = _create_httpx_client()
+        else:
+            self.__statsig_request_session = requests.Session()
+            self.__request_session = requests.Session()
+            self.__request_session.headers.update({"Connection": "close"})
 
     def is_pull_worker(self) -> bool:
         return True
@@ -111,7 +125,7 @@ class HttpWorker(IStatsigNetworkWorker):
             init_timeout=init_timeout,
             log_on_exception=log_on_exception,
             tag="download_config_specs",
-            useStatsigClient = True,
+            useStatsigClient=True,
             request_context=request_context,
         )
         self._context.source_api = STATSIG_CDN
@@ -160,7 +174,7 @@ class HttpWorker(IStatsigNetworkWorker):
             log_on_exception=log_on_exception,
             init_timeout=init_timeout,
             tag="get_id_lists",
-            useStatsigClient = True,
+            useStatsigClient=True,
             request_context=request_context,
         )
         self._context.source_api_id_lists = STATSIG_CDN
@@ -201,9 +215,7 @@ class HttpWorker(IStatsigNetworkWorker):
         self, payload, headers=None, log_on_exception=False, retry=0
     ) -> RequestResult:
         disable_compression = _SDK_Configs.on("stop_log_event_compression")
-        additional_headers = {
-            "STATSIG-RETRY": str(retry)
-        }
+        additional_headers = {"STATSIG-RETRY": str(retry)}
         if headers is not None:
             additional_headers.update(headers)
         response = self._request(
@@ -232,33 +244,71 @@ class HttpWorker(IStatsigNetworkWorker):
     def authenticate_request_session(self, http_proxy_config: ProxyConfig):
         try:
             if http_proxy_config.authentication_mode == AuthenticationMode.TLS:
-                ca_cert = load_credential_from_file(http_proxy_config.tls_ca_cert_path, "TLS CA certificate")
+                ca_cert = load_credential_from_file(
+                    http_proxy_config.tls_ca_cert_path, "TLS CA certificate"
+                )
                 if ca_cert:
-                    with tempfile.NamedTemporaryFile(mode='wb', delete=False, suffix='.pem') as ca_file:
+                    with tempfile.NamedTemporaryFile(
+                        mode="wb", delete=False, suffix=".pem"
+                    ) as ca_file:
                         ca_file.write(ca_cert)
-                        self.__request_session.verify = ca_file.name
+                        if self.__httpx_client is not None:
+                            self.__httpx_client.close()
+                            self.__httpx_client = _create_httpx_client(
+                                verify=ca_file.name
+                            )
+
+                        if self.__request_session is not None:
+                            self.__request_session.verify = ca_file.name
+
                         self.__temp_cert_files.append(ca_file.name)
-                    globals.logger.log_process("HTTP Worker", "Connecting using an TLS secure channel for HTTP")
+                    globals.logger.log_process(
+                        "HTTP Worker", "Connecting using an TLS secure channel for HTTP"
+                    )
             elif http_proxy_config.authentication_mode == AuthenticationMode.MTLS:
-                client_cert = load_credential_from_file(http_proxy_config.tls_client_cert_path, "TLS client certificate")
-                client_key = load_credential_from_file(http_proxy_config.tls_client_key_path, "TLS client key")
-                ca_cert = load_credential_from_file(http_proxy_config.tls_ca_cert_path, "TLS CA certificate")
+                client_cert = load_credential_from_file(
+                    http_proxy_config.tls_client_cert_path, "TLS client certificate"
+                )
+                client_key = load_credential_from_file(
+                    http_proxy_config.tls_client_key_path, "TLS client key"
+                )
+                ca_cert = load_credential_from_file(
+                    http_proxy_config.tls_ca_cert_path, "TLS CA certificate"
+                )
                 if client_cert and client_key and ca_cert:
-                    with tempfile.NamedTemporaryFile(mode='wb', delete=False, suffix='.pem') as cert_file:
+                    with tempfile.NamedTemporaryFile(
+                        mode="wb", delete=False, suffix=".pem"
+                    ) as cert_file:
                         cert_file.write(client_cert)
                         cert_path = cert_file.name
                         self.__temp_cert_files.append(cert_path)
-                    with tempfile.NamedTemporaryFile(mode='wb', delete=False, suffix='.key') as key_file:
+                    with tempfile.NamedTemporaryFile(
+                        mode="wb", delete=False, suffix=".key"
+                    ) as key_file:
                         key_file.write(client_key)
                         key_path = key_file.name
                         self.__temp_cert_files.append(key_path)
-                    with tempfile.NamedTemporaryFile(mode='wb', delete=False, suffix='.pem') as ca_file:
+                    with tempfile.NamedTemporaryFile(
+                        mode="wb", delete=False, suffix=".pem"
+                    ) as ca_file:
                         ca_file.write(ca_cert)
                         ca_path = ca_file.name
                         self.__temp_cert_files.append(ca_path)
-                    self.__request_session.cert = (cert_path, key_path)
-                    self.__request_session.verify = ca_path
-                    globals.logger.log_process("HTTP Worker", "Connecting using an mTLS secure channel for HTTP")
+
+                    if self.__request_session is not None:
+                        self.__request_session.cert = (cert_path, key_path)
+                        self.__request_session.verify = ca_path
+
+                    if self.__httpx_client is not None:
+                        self.__httpx_client.close()
+                        self.__httpx_client = _create_httpx_client(
+                            cert=(cert_path, key_path), verify=ca_path
+                        )
+
+                    globals.logger.log_process(
+                        "HTTP Worker",
+                        "Connecting using an mTLS secure channel for HTTP",
+                    )
         except Exception as e:
             self.__error_boundary.log_exception("http_worker:init_session", e)
 
@@ -338,7 +388,7 @@ class HttpWorker(IStatsigNetworkWorker):
         zipped=False,
         tag=None,
         get_text_value_only=False,
-        useStatsigClient = False,
+        useStatsigClient=False,
         extra_tags: Optional[Dict[str, Any]] = None,
         request_context: Optional[str] = None,
     ) -> RequestResult:
@@ -377,7 +427,7 @@ class HttpWorker(IStatsigNetworkWorker):
             timeout,
             init_timeout is not None,
             get_text_value_only,
-            useStatsigClient
+            useStatsigClient,
         )
 
         if create_marker is not None:
@@ -411,11 +461,61 @@ class HttpWorker(IStatsigNetworkWorker):
         timeout,
         for_initialize=False,
         get_text_value_only=False,
-        useStatsigClient=False
+        useStatsigClient=False,
     ) -> RequestResult:
+        def request_with_httpx():
+            try:
+                request_session = (
+                    self.__statsig_httpx_client
+                    if useStatsigClient
+                    else self.__httpx_client
+                )
+
+                if request_session is None:
+                    return __create_no_client_available_error("httpx")
+
+                with request_session.stream(
+                    method,
+                    url,
+                    data=payload,
+                    headers=headers,
+                    timeout=timeout,
+                ) as response:
+                    try:
+                        response.raise_for_status()
+                    except httpx.HTTPStatusError as e:
+                        return _create_request_result(
+                            response, response.headers, response.http_version, e
+                        )
+
+                    result = _create_request_result(
+                        response, response.headers, response.http_version
+                    )
+
+                    if get_text_value_only:
+                        result.text = response.read().decode("utf-8")
+                    else:
+                        result.data = self._stream_response_into_result_dict(
+                            response, is_httpx=True
+                        )
+
+                    return result
+            except Exception as e:
+                return RequestResult(
+                    data=None, status_code=None, success=False, error=e
+                )
+
         def request_task():
             try:
-                request_session = self.__statsig_request_session if useStatsigClient else self.__request_session
+                request_session = (
+                    self.__statsig_request_session
+                    if useStatsigClient
+                    else self.__request_session
+                )
+
+                if request_session is None:
+                    return __create_no_client_available_error("requests")
+
                 with request_session.request(
                     method,
                     url,
@@ -427,43 +527,44 @@ class HttpWorker(IStatsigNetworkWorker):
                     try:
                         response.raise_for_status()
                     except requests.exceptions.HTTPError as e:
-                        return RequestResult(
-                            data=None,
-                            status_code=response.status_code,
-                            success=False,
-                            headers=response.headers,
-                            error=e,
+                        return _create_request_result(
+                            response, response.headers, "unknown", e
                         )
 
-                    result = RequestResult(
-                        data=None,
-                        status_code=response.status_code,
-                        success=True,
-                        headers=response.headers,
+                    result = _create_request_result(
+                        response, response.headers, "unknown"
                     )
+
                     if get_text_value_only:
                         result.text = response.text
                     else:
                         result.data = self._stream_response_into_result_dict(response)
+
                     return result
             except Exception as e:
                 return RequestResult(
                     data=None, status_code=None, success=False, error=e
                 )
 
+        task_to_use = (
+            request_with_httpx if self.__httpx_client is not None else request_task
+        )
+
         if for_initialize:
-            future = self._executor.submit(request_task)
+            future = self._executor.submit(task_to_use)
             try:
                 return future.result(timeout=timeout)
             except Exception as e:
                 return RequestResult(
                     data=None, status_code=None, success=False, error=e
                 )
-        return request_task()
 
-    def _stream_response_into_result_dict(self, response):
+        return task_to_use()
+
+    def _stream_response_into_result_dict(self, response, is_httpx=False):
+        stream = HttpxRawReader(response) if is_httpx else response.raw
         decompressor = StreamDecompressor(
-            response.raw, response.headers.get("Content-Encoding")
+            stream, response.headers.get("Content-Encoding")
         )
 
         json_result = {}
@@ -532,8 +633,7 @@ class HttpWorker(IStatsigNetworkWorker):
             return "unknown"
 
         sanitized = "".join(
-            char if char in cls.__USER_AGENT_SAFE_CHARS else "-"
-            for char in str(value)
+            char if char in cls.__USER_AGENT_SAFE_CHARS else "-" for char in str(value)
         ).strip("-")
         return sanitized or "unknown"
 
@@ -606,6 +706,9 @@ class HttpWorker(IStatsigNetworkWorker):
             "networkProtocol": NetworkProtocol.HTTP,
         }
 
+        if result.http_version:
+            marker_data["httpVersion"] = result.http_version
+
         if result.headers:
             marker_data["sdkRegion"] = result.headers.get("x-statsig-region")
 
@@ -623,9 +726,13 @@ class HttpWorker(IStatsigNetworkWorker):
         self, url: str, tag: str
     ) -> Tuple[str, Optional[Callable]]:
         if "download_config_specs" in url or tag == "download_config_specs":
-            return "dcs", lambda: Marker(url=url).download_config_specs().network_request()
+            return "dcs", lambda: Marker(
+                url=url
+            ).download_config_specs().network_request()
         if "get_id_lists" in url or tag == "get_id_lists":
-            return "id_lists", lambda: Marker(url=url).get_id_list_sources().network_request()
+            return "id_lists", lambda: Marker(
+                url=url
+            ).get_id_list_sources().network_request()
         if "idliststorage" in url or tag == "get_id_list":
             return "id_list", lambda: Marker(url=url).get_id_list().network_request()
         if "log_event" in url or tag == "log_event":
@@ -719,3 +826,40 @@ class HttpWorker(IStatsigNetworkWorker):
 
     def __is_cdn_url(self, url: str) -> bool:
         return url.startswith(STATSIG_CDN)
+
+    def __check_httpx_flag(self, statsig_options: StatsigOptions) -> bool:
+        if statsig_options.experimental_flags is None:
+            return False
+
+        return "use_httpx" in statsig_options.experimental_flags
+
+
+def __create_no_client_available_error(module_name: str):
+    return RequestResult(
+        data=None,
+        status_code=None,
+        success=False,
+        error=Exception(f"No '{module_name}' HTTP client available"),
+    )
+
+
+def _create_request_result(
+    res, headers, http_version: str, error: Optional[Exception] = None
+):
+    return RequestResult(
+        data=None,
+        status_code=res.status_code,
+        success=error is None,
+        headers=headers,
+        error=error,
+        http_version=http_version,
+    )
+
+
+def _create_httpx_client(
+    verify: Optional[str] = None, cert: Optional[Tuple[str, str]] = None
+) -> httpx.Client:
+    if verify is not None:
+        return httpx.Client(http2=True, verify=verify, cert=cert)
+
+    return httpx.Client(http2=True, cert=cert)
