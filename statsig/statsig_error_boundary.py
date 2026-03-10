@@ -17,12 +17,14 @@ class _StatsigErrorBoundary:
     endpoint = "https://statsigapi.net/v1/sdk_exception"
     _seen: set
     _api_key: str
+    _session: requests.Session
 
     def __init__(self, is_silent=False):
         self._seen = set()
         self._is_silent = is_silent
         self._executor = ThreadPoolExecutor(max_workers=1)
         self._init_context = None
+        self._session = requests.Session()
 
     def set_statsig_options_and_metadata(
             self, statsig_options: StatsigOptions, statsig_metadata: dict
@@ -123,7 +125,7 @@ class _StatsigErrorBoundary:
     def _post_exception(self, name, info, tag, extra):
         try:
             timeout = self._timeout if self._timeout is not None else REQUEST_TIMEOUT
-            requests.post(
+            self._session.post(
                 self.endpoint,
                 json={
                     "exception": name,

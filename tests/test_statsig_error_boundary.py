@@ -9,14 +9,15 @@ from statsig.statsig_options import StatsigOptions
 
 
 def mocked_post(*args, **kwargs):
+    url = args[1] if len(args) > 1 else args[0]
     TestStatsigErrorBoundary.requests.append({
-        "url": args[0],
+        "url": url,
         "body": kwargs['json'],
         "headers": kwargs['headers']
     })
 
 
-@patch('requests.post', side_effect=mocked_post)
+@patch('requests.Session.post', side_effect=mocked_post)
 class TestStatsigErrorBoundary(unittest.TestCase):
     requests: list
 

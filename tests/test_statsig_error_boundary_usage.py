@@ -10,8 +10,9 @@ from statsig.statsig_user import StatsigUser
 
 
 def mocked_post(*args, **kwargs):
+    url = args[1] if len(args) > 1 else args[0]
     TestStatsigErrorBoundaryUsage.requests.append({
-        "url": args[0],
+        "url": url,
         "body": kwargs['json'],
         "headers": kwargs['headers']
     })
@@ -22,7 +23,7 @@ def _get_requests(statsig):
     return TestStatsigErrorBoundaryUsage.requests
 
 
-@patch('requests.post', side_effect=mocked_post)
+@patch('requests.Session.post', side_effect=mocked_post)
 class TestStatsigErrorBoundaryUsage(unittest.TestCase):
     _instance: StatsigServer
     _user: StatsigUser
