@@ -75,6 +75,7 @@ class SpecUpdater:
         self.context = context
 
     def get_config_spec(self, source: DataSource, for_initialize=False):
+        start_time_ms = time.time() * 1000
         try:
             self._log_process(f"Loading specs from {source.value}...",
                               "Initialize" if for_initialize else "Config Sync")
@@ -108,6 +109,16 @@ class SpecUpdater:
                 self._sync_failure_count += 1
             self._dcs_final_error = str(e)
             self._error_boundary.log_exception(f"get_config_spec:{source}", e)
+        finally:
+            if not for_initialize:
+                globals.logger.log_background_config_overall(
+                    source_api=self.context.source_api,
+                    error=self._dcs_final_error,
+                    source_success=self._dcs_source_success,
+                    process_success=self._dcs_process_success,
+                    duration_ms=time.time() * 1000 - start_time_ms,
+                    response_format=self._dcs_response_format,
+                )
 
     def register_process_network_id_lists_listener(self, listener: Callable):
         self.id_lists_listener = listener
