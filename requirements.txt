@@ -5,7 +5,6 @@ user_agents==2.2.0
 grpcio==1.62.3
 protobuf==6.33.5
 requests
-httpx[http2]
 semver
 pyfarmhash
 ijson

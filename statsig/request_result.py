@@ -13,4 +13,3 @@ class RequestResult:
     headers: Optional[Union[CaseInsensitiveDict, Dict[str, str]]] = None
     error: Optional[Exception] = None
     retryable: bool = False
-    http_version: Optional[str] = None

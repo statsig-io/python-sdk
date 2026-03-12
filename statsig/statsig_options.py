@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Optional, Set, Union, Callable, Dict, Any
+from typing import List, Optional, Union, Callable, Dict, Any
 
 from .utils import JSONValue, to_raw_dict_or_none
 
@@ -119,7 +119,6 @@ class StatsigOptions:
             disable_ua_parser: bool = False,
             disable_country_lookup: bool = False,
             service_name: Optional[str] = None,
-            experimental_flags: Optional[Set[str]] = None,
             log_event_connection_reuse: bool = True,
     ):
         self.data_store = data_store
@@ -175,7 +174,6 @@ class StatsigOptions:
         self.disable_ua_parser = disable_ua_parser
         self.disable_country_lookup = disable_country_lookup
         self.service_name = service_name
-        self.experimental_flags = experimental_flags
         self.log_event_connection_reuse = log_event_connection_reuse
         self._set_logging_copy()
         self._attributes_changed = False
