@@ -69,6 +69,7 @@ class HttpWorker(IStatsigNetworkWorker):
         self.__error_boundary = error_boundary
         self.__statsig_metadata = statsig_metadata
         self.__diagnostics = diagnostics
+        self.__log_event_connection_reuse = options.log_event_connection_reuse
         self.__request_count = 0
         self.__temp_cert_files: List[str] = []
 
@@ -405,6 +406,11 @@ class HttpWorker(IStatsigNetworkWorker):
             )
 
         headers = self._prepare_headers(headers, zipped)
+        if tag == "log_event" and self.__log_event_connection_reuse:
+            for header_name in list(headers.keys()):
+                if header_name.lower() == "connection":
+                    del headers[header_name]
+            headers["Connection"] = "keep-alive"
 
         if payload is not None:
             payload = self._prepare_payload(payload, url, zipped)

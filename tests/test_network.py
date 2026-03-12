@@ -90,10 +90,75 @@ class TestNetworkHTTPWorker(unittest.TestCase):
             True,
         )
         
-    # Explicitly set Connection: close header to avoid peer connection issues in some environments
+    # Requests session keeps Connection: close by default.
     def test_request_session_connection_header(self):
         request_session = self.net._HttpWorker__request_session
         self.assertEqual(request_session.headers.get("Connection"), "close")
+
+    def test_log_events_connection_header_default_disabled(self):
+        captured_headers = {}
+
+        def capture_request(*args, **_kwargs):
+            captured_headers["headers"] = args[2]
+            return RequestResult(data={}, status_code=200, success=True, error=None)
+
+        with patch.object(self.net, "_run_request_with_strict_timeout", side_effect=capture_request):
+            self.net.log_events({"events": []}, log_on_exception=True)
+
+        self.assertEqual(captured_headers["headers"].get("Connection"), "keep-alive")
+
+    def test_log_events_connection_header_forced_to_keep_alive(self):
+        captured_headers = {}
+
+        def capture_request(*args, **_kwargs):
+            captured_headers["headers"] = args[2]
+            return RequestResult(data={}, status_code=200, success=True, error=None)
+
+        with patch.object(self.net, "_run_request_with_strict_timeout", side_effect=capture_request):
+            self.net.log_events({"events": []}, headers={"connection": "close"}, log_on_exception=True)
+
+        self.assertEqual(captured_headers["headers"].get("Connection"), "keep-alive")
+
+    def test_log_events_connection_header_not_set_when_reuse_disabled(self):
+        net = HttpWorker(
+            "secret-test",
+            StatsigOptions(disable_diagnostics=True, log_event_connection_reuse=False),
+            self.net._HttpWorker__statsig_metadata,
+            _StatsigErrorBoundary(),
+            self.net._HttpWorker__diagnostics,
+            self.net._context,
+        )
+        captured_headers = {}
+
+        def capture_request(*args, **_kwargs):
+            captured_headers["headers"] = args[2]
+            return RequestResult(data={}, status_code=200, success=True, error=None)
+
+        with patch.object(net, "_run_request_with_strict_timeout", side_effect=capture_request):
+            net.log_events({"events": []}, log_on_exception=True)
+
+        self.assertIsNone(captured_headers["headers"].get("Connection"))
+
+    def test_log_events_connection_header_respected_when_reuse_disabled(self):
+        net = HttpWorker(
+            "secret-test",
+            StatsigOptions(disable_diagnostics=True, log_event_connection_reuse=False),
+            self.net._HttpWorker__statsig_metadata,
+            _StatsigErrorBoundary(),
+            self.net._HttpWorker__diagnostics,
+            self.net._context,
+        )
+        captured_headers = {}
+
+        def capture_request(*args, **_kwargs):
+            captured_headers["headers"] = args[2]
+            return RequestResult(data={}, status_code=200, success=True, error=None)
+
+        with patch.object(net, "_run_request_with_strict_timeout", side_effect=capture_request):
+            net.log_events({"events": []}, headers={"connection": "keep-alive"}, log_on_exception=True)
+
+        self.assertEqual(captured_headers["headers"].get("connection"), "keep-alive")
+        self.assertIsNone(captured_headers["headers"].get("Connection"))
 
     def test_prepare_headers_includes_cloudflare_visible_user_agent_metadata(self):
         self.net._HttpWorker__service_name = "checkout api"

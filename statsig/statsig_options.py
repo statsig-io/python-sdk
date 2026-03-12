@@ -120,6 +120,7 @@ class StatsigOptions:
             disable_country_lookup: bool = False,
             service_name: Optional[str] = None,
             experimental_flags: Optional[Set[str]] = None,
+            log_event_connection_reuse: bool = True,
     ):
         self.data_store = data_store
         self._environment: Union[None, dict] = None
@@ -174,9 +175,10 @@ class StatsigOptions:
         self.disable_ua_parser = disable_ua_parser
         self.disable_country_lookup = disable_country_lookup
         self.service_name = service_name
+        self.experimental_flags = experimental_flags
+        self.log_event_connection_reuse = log_event_connection_reuse
         self._set_logging_copy()
         self._attributes_changed = False
-        self.experimental_flags = experimental_flags
 
     def __setattr__(self, name, value):
         if name.startswith("_"):
@@ -264,5 +266,7 @@ class StatsigOptions:
             logging_copy["disable_country_lookup"] = self.disable_country_lookup
         if self.service_name:
             logging_copy["service_name"] = self.service_name
+        if not self.log_event_connection_reuse:
+            logging_copy["log_event_connection_reuse"] = self.log_event_connection_reuse
         self._logging_copy = logging_copy
         self._attributes_changed = False
