@@ -119,7 +119,7 @@ class StatsigOptions:
             disable_ua_parser: bool = False,
             disable_country_lookup: bool = False,
             service_name: Optional[str] = None,
-            log_event_connection_reuse: bool = True,
+            log_event_connection_reuse: bool = False,
     ):
         self.data_store = data_store
         self._environment: Union[None, dict] = None

@@ -95,7 +95,7 @@ class TestNetworkHTTPWorker(unittest.TestCase):
         request_session = self.net._HttpWorker__request_session
         self.assertEqual(request_session.headers.get("Connection"), "close")
 
-    def test_log_events_connection_header_default_disabled(self):
+    def test_log_events_connection_header_default_not_reused(self):
         captured_headers = {}
 
         def capture_request(*args, **_kwargs):
@@ -105,9 +105,9 @@ class TestNetworkHTTPWorker(unittest.TestCase):
         with patch.object(self.net, "_run_request_with_strict_timeout", side_effect=capture_request):
             self.net.log_events({"events": []}, log_on_exception=True)
 
-        self.assertEqual(captured_headers["headers"].get("Connection"), "keep-alive")
+        self.assertIsNone(captured_headers["headers"].get("Connection"))
 
-    def test_log_events_connection_header_forced_to_keep_alive(self):
+    def test_log_events_connection_header_not_forced_to_keep_alive(self):
         captured_headers = {}
 
         def capture_request(*args, **_kwargs):
@@ -117,7 +117,8 @@ class TestNetworkHTTPWorker(unittest.TestCase):
         with patch.object(self.net, "_run_request_with_strict_timeout", side_effect=capture_request):
             self.net.log_events({"events": []}, headers={"connection": "close"}, log_on_exception=True)
 
-        self.assertEqual(captured_headers["headers"].get("Connection"), "keep-alive")
+        self.assertIsNone(captured_headers["headers"].get("Connection"))
+        self.assertEqual(captured_headers["headers"].get("connection"), "close")
 
     def test_log_events_connection_header_not_set_when_reuse_disabled(self):
         net = HttpWorker(
