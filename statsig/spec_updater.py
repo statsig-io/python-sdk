@@ -752,7 +752,7 @@ class SpecUpdater:
                 STORAGE_ADAPTER_KEY
             )
             ):
-                strategies = [DataSource.DATASTORE]
+                strategies.insert(0, DataSource.DATASTORE)
             if self._options.fallback_to_statsig_api:
                 strategies.append(DataSource.STATSIG_NETWORK)
             return strategies

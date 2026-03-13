@@ -1,11 +1,12 @@
 import json
 import os
+import threading
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from network_stub import NetworkStub
-from statsig import StatsigOptions, statsig, StatsigUser
+from statsig import StatsigOptions, statsig, StatsigUser, IDataStore
 from statsig.evaluation_details import EvaluationDetails
 from statsig.statsig_options import DataSource
 from statsig.spec_updater import SpecUpdater
@@ -108,6 +109,29 @@ class TestSyncConfigFallback(unittest.TestCase):
         self.assertEqual(eval_detail.config_sync_time, 1631638014811)
         time.sleep(1.1)
         self.assertFalse(self.__class__.statsig_dcs_called)
+
+    def test_sync_strategies_use_network_before_statsig_network_with_datastore(self, request_mock):
+        class _TestAdapter(IDataStore):
+            def should_be_used_for_querying_updates(self, key: str) -> bool:
+                return True
+
+        options = StatsigOptions(data_store=_TestAdapter(), fallback_to_statsig_api=True)
+        updater = SpecUpdater(
+            network=Mock(),
+            data_adapter=options.data_store,
+            options=options,
+            diagnostics=Mock(),
+            sdk_key="secret-key",
+            error_boundary=Mock(),
+            statsig_metadata={},
+            shutdown_event=threading.Event(),
+            context=Mock(),
+        )
+
+        self.assertEqual(
+            updater._config_sync_strategies,
+            [DataSource.DATASTORE, DataSource.NETWORK, DataSource.STATSIG_NETWORK],
+        )
 
     def test_fallback_when_dcs_400(self, request_mock):
         self.stub_network(400)
