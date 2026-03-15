@@ -1,3 +1,4 @@
+from . import statsig as statsig
 from .dynamic_config import DynamicConfig
 from .evaluator import _Evaluator
 from .feature_gate import FeatureGate
@@ -25,10 +26,12 @@ __all__ = [
     "Layer",
     "LogLevel",
     "OutputLogger",
+    "statsig",
     "StatsigEnvironmentTier",
     "StatsigEvent",
     "StatsigOptions",
     "StatsigServer",
     "StatsigUser",
+    "StreamDecompressor",
     "__version__",
 ]
