@@ -275,9 +275,6 @@ class _StatsigLogger:
             if result.forward_all_exposures:
                 return True, None, None
 
-            if result.rule_id.endswith((':override', ':id_override')):
-                return True, None, None
-
             samplingSetKey = f"{name}_{result.rule_id}"
             if not self._sampling_key_set.contains(samplingSetKey):
                 self._sampling_key_set.add(samplingSetKey)
