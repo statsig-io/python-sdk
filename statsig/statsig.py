@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Dict, Optional
 
 from . import FeatureGate
 from .client_initialize_formatter import ClientInitializeResponse
@@ -137,6 +137,20 @@ def get_experiment_with_exposure_logging_disabled(user: StatsigUser, experiment:
     :return: A DynamicConfig object
     """
     return __instance.get_experiment(user, experiment, log_exposure=False)
+
+
+def get_experiment_groups(experiment: str) -> Dict:
+    """
+    Returns the experiment's active state and the group name, rule id, id type,
+    and return value for each of its groups, without requiring a user evaluation.
+
+    :param experiment: The name of the experiment
+    :return: A dict with 'is_experiment_active' (None if the name does not refer
+        to an experiment, otherwise the experiment's isActive state) and 'groups',
+        where each group contains 'group_name', 'rule_id', 'id_type', and
+        'return_value'
+    """
+    return __instance.get_experiment_groups(experiment)
 
 
 def manually_log_experiment_exposure(user: StatsigUser, experiment: str):

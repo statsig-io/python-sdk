@@ -2,7 +2,7 @@ import dataclasses
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
-from typing import Optional, Union
+from typing import Dict, Optional, Union
 
 from . import globals
 from .config_evaluation import _ConfigEvaluation
@@ -345,6 +345,58 @@ class StatsigServer:
             "get_experiment",
             task,
             lambda: DynamicConfig({}, experiment_name, ""),
+            {"configName": experiment_name},
+        )
+
+    @staticmethod
+    def _none_experiment_groups_result() -> Dict:
+        return {"is_experiment_active": None, "groups": []}
+
+    def get_experiment_groups(self, experiment_name: str) -> Dict:
+        """
+        Returns the experiment's active state and the group name, rule id, id type,
+        and return value for each of its groups, without requiring a user evaluation.
+
+        'is_experiment_active' is None if the name does not refer to an experiment
+        (unknown name or a non-experiment entity like a dynamic config or autotune);
+        otherwise it reflects the experiment's isActive state (False if unset), and
+        'groups' contains the experiment's groups regardless of that state. Rules
+        that are not experiment groups (e.g. holdout or sizing rules) are excluded.
+
+        :param experiment_name: The name of the experiment
+        :return: A dict with 'is_experiment_active' and 'groups', where each group
+            contains 'group_name', 'rule_id', 'id_type', and 'return_value'
+        """
+        def task():
+            if not self._initialized:
+                raise StatsigRuntimeError(
+                    "Must call initialize before checking gates/configs/experiments or logging events"
+                )
+
+            spec = self._spec_store.get_config(experiment_name)
+            if spec is None or spec.get("entity") != "experiment":
+                return self._none_experiment_groups_result()
+
+            groups = [
+                {
+                    "group_name": rule.get("groupName"),
+                    "rule_id": rule.get("id"),
+                    "id_type": rule.get("idType", "userID"),
+                    "return_value": rule.get("returnValue", {}),
+                }
+                for rule in spec.get("rules", [])
+                if rule.get("isExperimentGroup", False) is True
+            ]
+
+            return {
+                "is_experiment_active": spec.get("isActive", False) is True,
+                "groups": groups,
+            }
+
+        return self._errorBoundary.capture(
+            "get_experiment_groups",
+            task,
+            self._none_experiment_groups_result,
             {"configName": experiment_name},
         )
 
