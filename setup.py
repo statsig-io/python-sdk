@@ -26,8 +26,8 @@ setup(
     description="Statsig Python Server SDK",
     long_description=README,
     long_description_content_type="text/markdown",
-    author="Tore Hanssen, Jiakan Wang",
-    author_email="tore@statsig.com, jkw@statsig.com",
+    author="Statsig",
+    author_email="support@statsig.com",
     url="https://github.com/statsig-io/python-sdk",
     license="ISC",
     classifiers=[
