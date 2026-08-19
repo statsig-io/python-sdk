@@ -71,6 +71,50 @@
       "isDeviceBased": false,
       "idType": "userID",
       "entity": "feature_gate"
+    },
+    {
+      "name": "python_ios_ua_debug",
+      "type": "feature_gate",
+      "salt": "9c9f9ef3-2f5b-4ad3-9e3c-4b21fd3d0f2c",
+      "enabled": true,
+      "defaultValue": false,
+      "rules": [
+        {
+          "name": "8kQmXbTdprNny0Ij23Gnt:100.00:1",
+          "groupName": "iOS 26 and up",
+          "passPercentage": 100,
+          "conditions": [
+            {
+              "type": "ua_based",
+              "targetValue": [
+                "iOS"
+              ],
+              "operator": "any",
+              "field": "os_name",
+              "additionalValues": {},
+              "isDeviceBased": false,
+              "idType": "userID"
+            },
+            {
+              "type": "ua_based",
+              "targetValue": "26.0",
+              "operator": "version_gte",
+              "field": "os_version",
+              "additionalValues": {},
+              "isDeviceBased": false,
+              "idType": "userID"
+            }
+          ],
+          "returnValue": true,
+          "id": "8kQmXbTdprNny0Ij23Gnt:100.00:1",
+          "salt": "0f6a7b2c-8b1d-4a55-9c3e-6f2f1a4d7e88",
+          "isDeviceBased": false,
+          "idType": "userID"
+        }
+      ],
+      "isDeviceBased": false,
+      "idType": "userID",
+      "entity": "feature_gate"
     }
   ],
   "layer_configs": [

@@ -17,6 +17,10 @@ from .statsig_user import StatsigUser
 from .utils import HashingAlgorithm, JSONValue, sha256_hash
 
 
+# uap-core has no iPadOS pattern, so "iPadOS 26.5" resolves to the iOS family with no version
+_IPADOS_VERSION_PATTERN = re.compile(r"\biPadOS (\d+)(?:\.(\d+))?(?:\.(\d+))?")
+
+
 def load_ua_parser():
     try:
         from ua_parser import user_agent_parser  # pylint: disable=import-outside-toplevel
@@ -828,12 +832,24 @@ class _Evaluator:
         if field in ("osname", "os_name"):
             return parsed.get("os", {"family": None}).get("family")
         if field in ("os_version", "osversion"):
-            return self.__get_version_string(parsed.get("os"))
+            return self.__get_version_string(self.__resolve_os(ua, parsed))
         if field in ("browser_name", "browsername"):
             return parsed.get("user_agent", {"family": None}).get("family")
         if field in ("browser_version", "browserversion"):
             return self.__get_version_string(parsed.get("user_agent"))
         return None
+
+    def __resolve_os(self, ua, parsed):
+        os_info = parsed.get("os")
+        if os_info is None or os_info.get("major") is not None:
+            return os_info
+
+        match = _IPADOS_VERSION_PATTERN.search(ua)
+        if match is None:
+            return os_info
+
+        major, minor, patch = match.groups()
+        return {**os_info, "major": major, "minor": minor, "patch": patch}
 
     def __get_version_string(self, version):
         if version is None:
