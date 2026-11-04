@@ -35,6 +35,7 @@ def redact_text(value, key):
 def redact_exception(error, key):
     """Return a fresh exception without raw request fields, causes or traceback."""
     message = redact_text(error, key)
+    safe: Exception
     if isinstance(error, grpc.RpcError):
         try:
             status = error.code()
