@@ -9,6 +9,7 @@ from typing import Optional, Callable
 import grpc
 
 from . import globals
+from ._secret_redactor import redact_exception, redact_text
 from .diagnostics import Marker, Diagnostics
 from .evaluation_details import DataSource
 from .grpc.generated.statsig_forward_proxy_pb2 import (ConfigSpecRequest)  # pylint: disable=no-name-in-module
@@ -207,7 +208,7 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
             init_timeout: Optional[int] = None,
             request_context: Optional[str] = None,
     ):
-        self.context.source_api = self.proxy_config.proxy_address
+        self.context.source_api = redact_text(self.proxy_config.proxy_address, self.sdk_key)
         self._diagnostics.add_marker(
             Marker().download_config_specs().network_request().start()
         )
@@ -233,6 +234,7 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
             on_complete(DataSource.NETWORK, json.loads(dcs_data.spec), None)
         except Exception as e:
             self.error_boundary.log_exception("grpcWebSocket:initialize", e)
+            e = redact_exception(e, self.sdk_key)
             self._diagnostics.add_marker(
                 Marker()
                 .download_config_specs()
@@ -282,7 +284,7 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
                 return
             self.log_grpc_streaming_error("grpcWebSocket:streaming_error", e)
             if self.listeners and self.listeners.on_error is not None:
-                self.listeners.on_error(e)
+                self.listeners.on_error(redact_exception(e, self.sdk_key))
             self._retry_connection(since_time)
 
     def config_spec_listening_started(self) -> bool:
@@ -302,7 +304,7 @@ class GRPCWebsocketWorker(IStatsigNetworkWorker, IStatsigWebhookWorker):
 
         def on_error_wrapped(error):
             try:
-                listeners.on_error(error)
+                listeners.on_error(redact_exception(error, self.sdk_key))
             except Exception:
                 pass
 

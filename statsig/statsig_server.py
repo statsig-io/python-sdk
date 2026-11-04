@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Optional, Union
 
 from . import globals
+from ._secret_redactor import redact_exception
 from .config_evaluation import _ConfigEvaluation
 from .diagnostics import Context, Diagnostics, Marker
 from .dynamic_config import DynamicConfig
@@ -95,6 +96,7 @@ class StatsigServer:
 
     def _initialize_impl(self, sdk_key: str, options: Optional[StatsigOptions]):
         threw_error = False
+        safe_error = None
         init_context = InitContext()
         try:
             diagnostics = Diagnostics()
@@ -152,7 +154,7 @@ class StatsigServer:
 
         except (StatsigValueError, StatsigNameError, StatsigRuntimeError) as e:
             threw_error = True
-            raise e
+            safe_error = redact_exception(e, sdk_key)
 
         except StatsigTimeoutError:
             globals.logger.warning(
@@ -173,6 +175,9 @@ class StatsigServer:
             init_context.store_populated = self.is_store_populated()
             init_context.id_list_count = self.get_id_list_count()
             init_context.success = not threw_error
+
+        if safe_error is not None:
+            raise safe_error from None
 
         return InitializeDetails(
             int(time.time() * 1000) - init_context.start_time,

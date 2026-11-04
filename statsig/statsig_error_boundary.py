@@ -5,6 +5,7 @@ from typing import Optional
 import requests
 
 from . import globals
+from ._secret_redactor import redact_data, redact_exception, redact_text
 from .diagnostics import Diagnostics, Key, Context, Marker
 from .statsig_context import InitContext
 from .statsig_errors import StatsigNameError, StatsigRuntimeError, StatsigValueError
@@ -58,14 +59,15 @@ class _StatsigErrorBoundary:
             self._end_diagnostics(markerID, key, True, configName)
             return result
         except (StatsigValueError, StatsigNameError, StatsigRuntimeError) as e:
-            raise e
+            safe_error = redact_exception(e, getattr(self, "_api_key", None))
         except Exception as e:
-            print(f"Exception in {tag}: {e}")
+            print(redact_text(f"Exception in {tag}: {e}", getattr(self, "_api_key", None)))
             if self._init_context is not None:
-                self._init_context.error = e
+                self._init_context.error = redact_exception(e, getattr(self, "_api_key", None))
             self.log_exception(tag, e, extra)
             self._end_diagnostics(markerID, key, False, configName)
             return recover()
+        raise safe_error from None
 
     def swallow(self, tag: str, task):
         def empty_recover():
@@ -88,7 +90,10 @@ class _StatsigErrorBoundary:
             stack_trace = traceback.format_exc()
             if stack_trace is None or stack_trace == 'NoneType: None\n':
                 stack_trace = str(exception)
-            full_error_message = f"[{tag}]: {str(exception)} \n {stack_trace}"
+            key = getattr(self, "_api_key", None)
+            stack_trace = redact_text(stack_trace, key)
+            safe_exception = redact_exception(exception, key)
+            full_error_message = redact_text(f"[{tag}]: {safe_exception} \n {stack_trace}", key)
             if not self._is_silent:
                 if log_mode == "warning":
                     globals.logger.warning(full_error_message)
@@ -96,7 +101,7 @@ class _StatsigErrorBoundary:
                     globals.logger.debug(full_error_message)
 
             if self._init_context is not None:
-                self._init_context.error = exception
+                self._init_context.error = safe_exception
 
             if (hasattr(self._options, "disable_all_logging") and self._options.disable_all_logging):
                 return
@@ -110,13 +115,13 @@ class _StatsigErrorBoundary:
                 return
             self._seen.add(name)
 
-            globals.logger.log_sdk_exception(tag, exception)
+            globals.logger.log_sdk_exception(redact_text(tag, key), safe_exception)
             self._executor.submit(
                 self._post_exception,
-                name,
+                redact_text(name, key),
                 stack_trace,
-                tag,
-                extra,
+                redact_text(tag, key),
+                redact_data(extra, key),
             )
         except BaseException:
             # no-op, best effort
@@ -127,7 +132,7 @@ class _StatsigErrorBoundary:
             timeout = self._timeout if self._timeout is not None else REQUEST_TIMEOUT
             self._session.post(
                 self.endpoint,
-                json={
+                json=redact_data({
                     "exception": name,
                     "info": info,
                     "statsigMetadata": self._metadata,
@@ -136,7 +141,7 @@ class _StatsigErrorBoundary:
                     "statsigOptions": (
                         self._options.get_logging_copy() if isinstance(self._options, StatsigOptions) else None
                     ),
-                },
+                }, self._api_key),
                 headers={
                     "Content-type": "application/json",
                     "STATSIG-API-KEY": self._api_key,

@@ -5,6 +5,7 @@ from typing import Optional, Callable, List, Tuple
 from urllib.parse import urlparse
 
 from . import globals
+from ._secret_redactor import redact_exception, redact_text
 from .diagnostics import Diagnostics, Marker, Context, Key
 from .evaluation_details import DataSource
 from .http_worker import RequestResult
@@ -107,7 +108,7 @@ class SpecUpdater:
         except Exception as e:
             if not for_initialize:
                 self._sync_failure_count += 1
-            self._dcs_final_error = str(e)
+            self._dcs_final_error = redact_text(e, self._sdk_key)
             self._error_boundary.log_exception(f"get_config_spec:{source}", e)
         finally:
             if not for_initialize:
@@ -217,8 +218,8 @@ class SpecUpdater:
     def _on_dcs_complete(self, data_source: DataSource, specs: Optional[dict], error: Optional[Exception]):
         def process() -> Tuple[bool, Optional[Exception]]:
             if error is not None:
-                self._mark_dcs_source_failure(final_error=str(error))
-                return False, error
+                self._mark_dcs_source_failure(final_error=redact_text(error, self._sdk_key))
+                return False, redact_exception(error, self._sdk_key)
 
             if specs is None:
                 self._mark_dcs_source_failure(final_error="download_failed")
@@ -244,8 +245,8 @@ class SpecUpdater:
                 return parse_success, None
             except Exception as e:
                 self._dcs_process_success = False
-                self._dcs_final_error = str(e)
-                return False, e
+                self._dcs_final_error = redact_text(e, self._sdk_key)
+                return False, redact_exception(e, self._sdk_key)
             finally:
                 self._diagnostics.add_marker(
                     Marker()

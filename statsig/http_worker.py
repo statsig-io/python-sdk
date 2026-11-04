@@ -14,6 +14,7 @@ import requests
 from requests.utils import default_user_agent
 
 from .stream_decompressor import StreamDecompressor
+from ._secret_redactor import redact_exception, redact_text
 
 from . import globals
 from .diagnostics import Diagnostics, Marker
@@ -89,7 +90,7 @@ class HttpWorker(IStatsigNetworkWorker):
             tag="download_config_specs",
             request_context=request_context,
         )
-        self._context.source_api = self.__api_for_download_config_specs
+        self._context.source_api = redact_text(self.__api_for_download_config_specs, self.__sdk_key)
         if response is not None and self._is_success_code(response.status_code):
             on_complete(DataSource.NETWORK, response.data, None)
             return
@@ -143,7 +144,7 @@ class HttpWorker(IStatsigNetworkWorker):
                 tag="get_id_lists",
                 request_context=request_context,
             )
-            self._context.source_api_id_lists = self.__api_for_get_id_lists
+            self._context.source_api_id_lists = redact_text(self.__api_for_get_id_lists, self.__sdk_key)
         if response is not None and self._is_success_code(response.status_code):
             return on_complete(response.data, None)
         return on_complete(None, None)
@@ -386,6 +387,9 @@ class HttpWorker(IStatsigNetworkWorker):
             useStatsigClient
         )
 
+        if result.error is not None:
+            result.error = redact_exception(result.error, self.__sdk_key)
+
         if create_marker is not None:
             self._handle_diagnostics_end(create_marker, result, payload_size, marker_id)
 
@@ -559,24 +563,26 @@ class HttpWorker(IStatsigNetworkWorker):
                 f"Dropping request to {url}. Failed to JSON encode payload. "
                 f"Are you sure the input is JSON serializable? {type(e).__name__}: {e.args}"
             )
-            globals.logger.error(error_message)
-            if self._raise_on_error:
-                raise e
-            return None
-
-        return payload
+            globals.logger.error(redact_text(error_message, self.__sdk_key))
+            safe_error = redact_exception(e, self.__sdk_key)
+        else:
+            return payload
+        if self._raise_on_error:
+            raise safe_error from None
+        return None
 
     def _verify_json_payload(self, payload, url):
         try:
             return json.dumps(payload)
         except TypeError as e:
-            globals.logger.error(
+            globals.logger.error(redact_text(
                 f"Dropping request to {url}. Failed to json encode payload. Are you sure the input is json serializable? "
-                f"{type(e).__name__} {e.args}"
-            )
-            if self._raise_on_error:
-                raise e
-            return None
+                f"{type(e).__name__} {e.args}", self.__sdk_key
+            ))
+            safe_error = redact_exception(e, self.__sdk_key)
+        if self._raise_on_error:
+            raise safe_error from None
+        return None
 
     def _handle_response_error(
         self,
@@ -587,7 +593,8 @@ class HttpWorker(IStatsigNetworkWorker):
         timeout: int,
         method: str,
     ):
-        globals.logger.warning(f"Request to {url} failed with error {error}")
+        error = redact_exception(error, self.__sdk_key)
+        globals.logger.warning(redact_text(f"Request to {url} failed with error {error}", self.__sdk_key))
         self._context.error = error
         if log_on_exception and not isinstance(error, requests.HTTPError):
             self.__error_boundary.log_exception(
